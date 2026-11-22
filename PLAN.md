@@ -126,24 +126,24 @@ Each task is sized to fit in one small working session. Every task lists what to
 
 ## Phase 4: Snapping
 
-- [ ] **4.1 Bounding-box prefilter**
+- [x] **4.1 Bounding-box prefilter**
   - Needs: `geo.c`, `course.h`
   - Output: a function that returns the candidate segments for a waypoint within the snap threshold, using bounding boxes before exact projection.
   - Done when: results match a brute-force reference on random data.
 
-- [ ] **4.2 Candidate snaps for one waypoint**
+- [x] **4.2 Candidate snaps for one waypoint**
   - Output: `snap_candidates()` returns every local minimum of distance (one per pass of the track) within the threshold, each with distance-along-course, offset, and projected position.
   - Done when: an out-and-back fixture returns two candidates for a waypoint on the shared section, and one for a waypoint off the shared section.
 
-- [ ] **4.3 Simple nearest-candidate assignment**
+- [x] **4.3 Simple nearest-candidate assignment**
   - Output: default mode `--pass=nearest`, choosing the candidate with the smallest offset; waypoints beyond the threshold are skipped with a stderr warning.
   - Done when: straight-line and loop fixtures give expected distances.
 
-- [ ] **4.4 Ordered assignment**
+- [x] **4.4 Ordered assignment**
   - Output: `--pass=ordered` assigns candidates so that distance-along-course never decreases in GPX waypoint order, using a small DP or greedy approach. Document the tie-breaking rule at the top of the file.
   - Done when: an out-and-back fixture with waypoints listed outbound-then-return lands on the correct passes.
 
-- [ ] **4.5 First and last pass modes**
+- [x] **4.5 First and last pass modes**
   - Output: `--pass=first` and `--pass=last`.
   - Done when: out-and-back fixture shows the expected pass for each mode.
 
@@ -151,7 +151,7 @@ Each task is sized to fit in one small working session. Every task lists what to
   - Output: course points sorted by distance, nonzero exit under `--strict` if any waypoint was skipped, and a printed summary line for each course point (name, km, offset).
   - Done when: the sample GPX produces the expected report, including the 400 m skipped waypoint.
 
-- [ ] **4.7 Snapping tests**
+- [x] **4.7 Snapping tests**
   - Output: `tests/test_snap.c` with all fixtures: straight, loop, out-and-back, far waypoint, duplicate waypoints at the same spot.
   - Done when: `make test` passes.
 

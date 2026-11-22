@@ -1,5 +1,6 @@
 /* gpx2fit: convert a GPX track to a FIT course file.
- * (tasks 1.4 CLI parsing, 2.x GPX reading; pipeline is wired in 8.1) */
+ * (tasks 1.4 CLI parsing, 2.x GPX reading, 4.x snapping; the full pipeline
+ * is wired in 8.1) */
 #define _POSIX_C_SOURCE 200809L
 
 #include <errno.h>
@@ -11,7 +12,9 @@
 #include <string.h>
 
 #include "course.h"
+#include "geo.h"
 #include "gpx.h"
+#include "snap.h"
 
 /* Exit codes. */
 enum {
@@ -34,6 +37,7 @@ struct options {
     bool        strict;    /* treat warnings as errors */
     long        max_points; /* decimation target; 0 = no limit */
     long        track;     /* 1-based <trk> to use; 0 = longest */
+    enum snap_mode pass;   /* which pass of the track a waypoint snaps to */
     const char *map_file;  /* user type-map file; NULL = none */
     bool        help;      /* --help given */
     bool        dump;      /* hidden --dump-options, for tests */
@@ -49,6 +53,9 @@ static void usage(FILE *out, const char *prog)
         "Options:\n"
         "  --snap METERS      max distance from a waypoint to the track\n"
         "                     (default %.0f)\n"
+        "  --pass MODE        which pass of the track a waypoint snaps to when the\n"
+        "                     track visits it more than once: nearest (default),\n"
+        "                     ordered, first, last\n"
         "  --name TEXT        course name (default: GPX track name)\n"
         "  --pace PACE        synthetic pace, m/s or min/km (e.g. 2.5, 6:40)\n"
         "  --start TIME       synthetic start time (ISO 8601, UTC)\n"
@@ -96,7 +103,7 @@ static int parse_long(const char *s, long *out)
 static int parse_options(int argc, char **argv, struct options *o)
 {
     enum { OPT_SNAP = 256, OPT_NAME, OPT_PACE, OPT_START, OPT_STRICT,
-           OPT_MAX_POINTS, OPT_MAP, OPT_TRACK, OPT_DUMP };
+           OPT_MAX_POINTS, OPT_MAP, OPT_TRACK, OPT_PASS, OPT_DUMP };
     static const struct option longopts[] = {
         { "snap",         required_argument, NULL, OPT_SNAP },
         { "name",         required_argument, NULL, OPT_NAME },
@@ -107,6 +114,7 @@ static int parse_options(int argc, char **argv, struct options *o)
         { "max-points",   required_argument, NULL, OPT_MAX_POINTS },
         { "map",          required_argument, NULL, OPT_MAP },
         { "track",        required_argument, NULL, OPT_TRACK },
+        { "pass",         required_argument, NULL, OPT_PASS },
         { "help",         no_argument,       NULL, 'h' },
         { "dump-options", no_argument,       NULL, OPT_DUMP }, /* hidden */
         { NULL, 0, NULL, 0 }
@@ -116,6 +124,7 @@ static int parse_options(int argc, char **argv, struct options *o)
 
     memset(o, 0, sizeof *o);
     o->snap_m = DEFAULT_SNAP_M;
+    o->pass = SNAP_NEAREST;
 
     optind = 1; /* allow parse_options to be called more than once */
     while ((c = getopt_long(argc, argv, "qh", longopts, NULL)) != -1) {
@@ -143,6 +152,13 @@ static int parse_options(int argc, char **argv, struct options *o)
             if (parse_long(optarg, &o->track) != 0 || o->track < 1) {
                 fprintf(stderr, "%s: invalid --track value '%s' "
                         "(need an integer >= 1)\n", prog, optarg);
+                return EXIT_USAGE;
+            }
+            break;
+        case OPT_PASS:
+            if (snap_mode_parse(optarg, &o->pass) != 0) {
+                fprintf(stderr, "%s: invalid --pass value '%s' (need one of "
+                        "nearest, ordered, first, last)\n", prog, optarg);
                 return EXIT_USAGE;
             }
             break;
@@ -176,6 +192,7 @@ static void dump_options(const struct options *o)
     printf("start=%s\n",      o->start ? o->start : "(none)");
     printf("max_points=%ld\n", o->max_points);
     printf("track=%ld\n",     o->track);
+    printf("pass=%s\n",      snap_mode_name(o->pass));
     printf("map=%s\n",        o->map_file ? o->map_file : "(none)");
     printf("quiet=%d\n",      o->quiet);
     printf("strict=%d\n",     o->strict);
@@ -221,6 +238,27 @@ int main(int argc, char **argv)
     if (!opt.quiet)
         printf("Read '%s': %zu trackpoints, %zu waypoints\n",
                c.name, c.n_tp, c.n_wp);
+
+    course_compute_distances(&c);
+    {
+        struct snap_options so = { opt.pass, opt.snap_m, opt.quiet, opt.strict };
+        struct snap_report sr;
+        int src = snap_waypoints(&c, &so, &sr);
+
+        if (src == SNAP_NOMEM) {
+            fprintf(stderr, "%s: error: out of memory\n", argv[0]);
+            course_free(&c);
+            return EXIT_ERROR;
+        }
+        if (!opt.quiet)
+            snap_print_summary(stdout, &c, &sr);
+        if (src == SNAP_STRICT) {
+            fprintf(stderr, "%s: error: --strict: %zu waypoint(s) farther than "
+                    "%g m from the track\n", argv[0], sr.n_skipped, opt.snap_m);
+            course_free(&c);
+            return EXIT_ERROR;
+        }
+    }
 
     course_free(&c);
     return EXIT_OK;
