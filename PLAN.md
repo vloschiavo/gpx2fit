@@ -49,7 +49,7 @@ Each task is sized to fit in one small working session. Every task lists what to
   - Output: `Makefile` (targets `all`, `test`, `clean`, `asan`), empty `src/` and `tests/` dirs, flags `-std=c11 -Wall -Wextra -Wpedantic`. A rule that generates `default_map.h` from `data/default.map` is added in 5.3.
   - Done when: `make` builds a stub `main.c` that prints usage.
 
-- [ ] **1.2 Core types header**
+- [x] **1.2 Core types header**
   - Output: `src/course.h` with `struct trackpoint`, `struct waypoint`, `struct course_pt`, `struct course`, plus init/free function declarations. `struct waypoint` has `name`, lat and lon, and no `sym` field.
   - Done when: the header compiles on its own (`gcc -fsyntax-only`) and every field has a comment on units (degrees, meters, seconds).
 
