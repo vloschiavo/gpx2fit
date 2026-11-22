@@ -34,6 +34,7 @@ asan:
 LIB_SRC   = $(filter-out src/main.c,$(SRC))
 TEST_SRC  = $(wildcard tests/test_*.c)
 TEST_BIN  = $(TEST_SRC:tests/%.c=build-test/%)
+TEST_SH   = $(wildcard tests/test_*.sh)
 SAN_FLAGS = -fsanitize=address,undefined -fno-sanitize-recover=undefined \
             -fno-omit-frame-pointer
 
@@ -46,7 +47,7 @@ build-test:
 
 test: all $(TEST_BIN)
 	@set -e; for t in $(TEST_BIN); do echo "== $$t"; ./$$t; done
-	@set -e; for s in tests/test_*.sh; do echo "== $$s"; bash $$s ./$(TARGET); done
+	@set -e; for s in $(TEST_SH); do echo "== $$s"; bash $$s ./$(TARGET); done
 
 clean:
 	rm -rf $(BUILD) build-asan build-test $(TARGET) $(TARGET)-asan
