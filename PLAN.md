@@ -67,33 +67,33 @@ Each task is sized to fit in one small working session. Every task lists what to
 
 ## Phase 2: GPX reader (expat)
 
-- [ ] **2.1 Install and link expat**
+- [x] **2.1 Install and link expat**
   - Output: Makefile changes (`-lexpat`), a hello-world expat parse of the sample file that counts elements.
   - Done when: `make` links and the element count prints for `caltopo_sample.gpx`.
 
-- [ ] **2.2 Namespace-agnostic element matching**
+- [x] **2.2 Namespace-agnostic element matching**
   - Needs: `NOTES.md` findings, a stub `gpx.c`
   - Output: a helper that strips any namespace prefix or URI from element names, so GPX 1.0 and 1.1 both match.
   - Done when: unit test passes for `gpx:trkpt`, `trkpt`, and `{http://www.topografix.com/GPX/1/1}trkpt` style names (using whichever expat namespace mode you chose).
 
-- [ ] **2.3 Parse trackpoints**
+- [x] **2.3 Parse trackpoints**
   - Needs: `gpx.c`, `course.h`
   - Output: `read_gpx()` fills `course.tp[]` with lat, lon, and elevation (`has_ele` flag set only when `<ele>` is present).
   - Done when: the sample file's point count matches `xmllint`, and the first and last points match by eye.
 
-- [ ] **2.4 Multiple segments and tracks**
+- [x] **2.4 Multiple segments and tracks**
   - Output: concatenation of all `<trkseg>` in a track. With several `<trk>`, select the longest by default, and honor `--track N`. Warn on stderr.
   - Done when: fixtures with two segments and with two tracks behave as described.
 
-- [ ] **2.5 Parse waypoints**
+- [x] **2.5 Parse waypoints**
   - Output: fills `course.wp[]` with name, lat, lon (name string copied, UTF-8 preserved). `<sym>` is not parsed.
   - Done when: the sample file's waypoint count and names match `xmllint`.
 
-- [ ] **2.6 Parse track name and handle bad input**
+- [x] **2.6 Parse track name and handle bad input**
   - Output: course name from `<trk><name>`, falling back to the file name. Clear error messages for a missing file, malformed XML (with line number), no trackpoints, and bad lat/lon values.
   - Done when: each error case has a fixture and returns exit code 1 with a message.
 
-- [ ] **2.7 GPX reader tests**
+- [x] **2.7 GPX reader tests**
   - Output: `tests/test_gpx.c` and fixtures: GPX 1.0, GPX 1.1, no elevation, empty track, Unicode waypoint name.
   - Done when: `make test` passes, ASan clean.
 
