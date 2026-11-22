@@ -27,7 +27,7 @@ expect_out() {
 
 expect_rc "--help exits 0"                   0 --help
 expect_rc "-h exits 0"                       0 -h
-expect_rc "minimal valid args"               0 in.gpx out.fit
+expect_rc "minimal valid args"               0 --dump-options in.gpx out.fit
 expect_rc "no args"                          2
 expect_rc "one positional"                   2 in.gpx
 expect_rc "three positionals"                2 a b c
@@ -38,6 +38,8 @@ expect_rc "--snap negative"                  2 --snap -5 in.gpx out.fit
 expect_rc "--snap nan"                       2 --snap nan in.gpx out.fit
 expect_rc "--max-points 1"                   2 --max-points 1 in.gpx out.fit
 expect_rc "--max-points junk"                2 --max-points 10x in.gpx out.fit
+expect_rc "--track 0"                        2 --track 0 in.gpx out.fit
+expect_rc "--track junk"                     2 --track x in.gpx out.fit
 
 if "$BIN" --help 2>&1 | grep -q '^Usage:'; then
     echo "ok   - --help prints usage"
@@ -56,6 +58,8 @@ expect_out "--start"             "start=2026-01-01T00:00:00Z" \
                                  --start 2026-01-01T00:00:00Z in.gpx out.fit
 expect_out "--max-points"        "max_points=500"  --max-points 500 in.gpx out.fit
 expect_out "--map"               "map=my.map"      --map my.map in.gpx out.fit
+expect_out "--track"            "track=2"         --track 2 in.gpx out.fit
+expect_out "defaults: track"     "track=0"         in.gpx out.fit
 expect_out "--quiet"             "quiet=1"         --quiet in.gpx out.fit
 expect_out "-q"                  "quiet=1"         -q in.gpx out.fit
 expect_out "--strict"            "strict=1"        --strict in.gpx out.fit

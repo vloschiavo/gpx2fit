@@ -1,4 +1,5 @@
-/* gpx2fit: convert a GPX track to a FIT course file. (task 1.4: CLI parsing) */
+/* gpx2fit: convert a GPX track to a FIT course file.
+ * (tasks 1.4 CLI parsing, 2.x GPX reading; pipeline is wired in 8.1) */
 #define _POSIX_C_SOURCE 200809L
 
 #include <errno.h>
@@ -8,6 +9,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
+#include "course.h"
+#include "gpx.h"
 
 /* Exit codes. */
 enum {
@@ -29,6 +33,7 @@ struct options {
     bool        quiet;     /* suppress everything except errors */
     bool        strict;    /* treat warnings as errors */
     long        max_points; /* decimation target; 0 = no limit */
+    long        track;     /* 1-based <trk> to use; 0 = longest */
     const char *map_file;  /* user type-map file; NULL = none */
     bool        help;      /* --help given */
     bool        dump;      /* hidden --dump-options, for tests */
@@ -47,6 +52,7 @@ static void usage(FILE *out, const char *prog)
         "  --name TEXT        course name (default: GPX track name)\n"
         "  --pace PACE        synthetic pace, m/s or min/km (e.g. 2.5, 6:40)\n"
         "  --start TIME       synthetic start time (ISO 8601, UTC)\n"
+        "  --track N          use the Nth <trk> of the GPX file (default: longest)\n"
         "  --max-points N     reduce the track to at most N points (N >= 2)\n"
         "  --map FILE         waypoint name-to-type rules, tried before defaults\n"
         "  --strict           treat warnings as errors\n"
@@ -90,7 +96,7 @@ static int parse_long(const char *s, long *out)
 static int parse_options(int argc, char **argv, struct options *o)
 {
     enum { OPT_SNAP = 256, OPT_NAME, OPT_PACE, OPT_START, OPT_STRICT,
-           OPT_MAX_POINTS, OPT_MAP, OPT_DUMP };
+           OPT_MAX_POINTS, OPT_MAP, OPT_TRACK, OPT_DUMP };
     static const struct option longopts[] = {
         { "snap",         required_argument, NULL, OPT_SNAP },
         { "name",         required_argument, NULL, OPT_NAME },
@@ -100,6 +106,7 @@ static int parse_options(int argc, char **argv, struct options *o)
         { "strict",       no_argument,       NULL, OPT_STRICT },
         { "max-points",   required_argument, NULL, OPT_MAX_POINTS },
         { "map",          required_argument, NULL, OPT_MAP },
+        { "track",        required_argument, NULL, OPT_TRACK },
         { "help",         no_argument,       NULL, 'h' },
         { "dump-options", no_argument,       NULL, OPT_DUMP }, /* hidden */
         { NULL, 0, NULL, 0 }
@@ -132,6 +139,13 @@ static int parse_options(int argc, char **argv, struct options *o)
                 return EXIT_USAGE;
             }
             break;
+        case OPT_TRACK:
+            if (parse_long(optarg, &o->track) != 0 || o->track < 1) {
+                fprintf(stderr, "%s: invalid --track value '%s' "
+                        "(need an integer >= 1)\n", prog, optarg);
+                return EXIT_USAGE;
+            }
+            break;
         case 'q': o->quiet = true; break;
         case 'h': o->help = true;  return EXIT_OK;
         case OPT_DUMP: o->dump = true; break;
@@ -161,6 +175,7 @@ static void dump_options(const struct options *o)
     printf("pace=%s\n",       o->pace ? o->pace : "(none)");
     printf("start=%s\n",      o->start ? o->start : "(none)");
     printf("max_points=%ld\n", o->max_points);
+    printf("track=%ld\n",     o->track);
     printf("map=%s\n",        o->map_file ? o->map_file : "(none)");
     printf("quiet=%d\n",      o->quiet);
     printf("strict=%d\n",     o->strict);
@@ -182,6 +197,31 @@ int main(int argc, char **argv)
         return EXIT_OK;
     }
 
-    /* Pipeline is wired up in task 8.1. */
+    /* Temporary driver until the pipeline is wired up in task 8.1. */
+    struct course c;
+    struct gpx_options go = { .track = opt.track, .quiet = opt.quiet };
+    char err[256];
+
+    course_init(&c);
+    if (read_gpx(opt.input, &c, &go, err, sizeof err) != 0) {
+        fprintf(stderr, "%s: error: %s\n", argv[0], err);
+        course_free(&c);
+        return EXIT_ERROR;
+    }
+    if (opt.name) {
+        char *n = strdup(opt.name);
+        if (!n) {
+            fprintf(stderr, "%s: error: out of memory\n", argv[0]);
+            course_free(&c);
+            return EXIT_ERROR;
+        }
+        free(c.name);
+        c.name = n;
+    }
+    if (!opt.quiet)
+        printf("Read '%s': %zu trackpoints, %zu waypoints\n",
+               c.name, c.n_tp, c.n_wp);
+
+    course_free(&c);
     return EXIT_OK;
 }

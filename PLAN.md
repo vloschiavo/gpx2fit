@@ -58,7 +58,7 @@ Each task is sized to fit in one small working session. Every task lists what to
   - Output: `src/course.c` with `course_init`, `course_free`, growable-array helpers for trackpoints and waypoints.
   - Done when: a tiny test adds 10,000 points, frees them, and runs clean under ASan.
 
-- [ ] **1.4 CLI parsing**
+- [x] **1.4 CLI parsing**
   - Needs: `main.c`, `course.h`
   - Output: `getopt_long` handling for `input.gpx output.fit`, `--snap METERS` (default 250), `--name`, `--pace`, `--start`, `--quiet`, `--strict`, `--max-points`, `--map FILE`, `--help`. Options are parsed into a `struct options`; unimplemented ones are accepted and ignored for now.
   - Done when: `--help` prints usage, bad arguments return exit code 2, and a test prints the parsed options.

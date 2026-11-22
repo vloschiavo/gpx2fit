@@ -1,7 +1,7 @@
 CC      ?= cc
 CFLAGS  ?= -O2 -g
 CFLAGS  += -std=c11 -Wall -Wextra -Wpedantic
-LDLIBS  =
+LDLIBS  = -lexpat -lm
 
 BUILD   = build
 TARGET  = gpx2fit
@@ -39,7 +39,7 @@ SAN_FLAGS = -fsanitize=address,undefined -fno-sanitize-recover=undefined \
 
 build-test/%: tests/%.c $(LIB_SRC) $(wildcard src/*.h) | build-test
 	$(CC) -O1 -g -std=c11 -Wall -Wextra -Wpedantic $(SAN_FLAGS) -Isrc \
-	    -o $@ $< $(LIB_SRC)
+	    -o $@ $< $(LIB_SRC) $(LDLIBS)
 
 build-test:
 	mkdir -p $@
