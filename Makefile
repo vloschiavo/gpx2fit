@@ -46,6 +46,7 @@ build-test:
 
 test: all $(TEST_BIN)
 	@set -e; for t in $(TEST_BIN); do echo "== $$t"; ./$$t; done
+	@set -e; for s in tests/test_*.sh; do echo "== $$s"; bash $$s ./$(TARGET); done
 
 clean:
 	rm -rf $(BUILD) build-asan build-test $(TARGET) $(TARGET)-asan
