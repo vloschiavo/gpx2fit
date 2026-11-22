@@ -1,6 +1,6 @@
 /* gpx2fit: convert a GPX track to a FIT course file.
- * (tasks 1.4 CLI parsing, 2.x GPX reading, 4.x snapping; the full pipeline
- * is wired in 8.1) */
+ * (tasks 1.4 CLI parsing, 2.x GPX reading, 4.x snapping, 5.4 --map and name
+ * handling; the full pipeline is wired in 8.1) */
 #define _POSIX_C_SOURCE 200809L
 
 #include <errno.h>
@@ -14,7 +14,9 @@
 #include "course.h"
 #include "geo.h"
 #include "gpx.h"
+#include "names.h"
 #include "snap.h"
+#include "symmap.h"
 
 /* Exit codes. */
 enum {
@@ -198,6 +200,15 @@ static void dump_options(const struct options *o)
     printf("strict=%d\n",     o->strict);
 }
 
+/* Warning from the map parser (task 5.4). ctx is the struct options. */
+static void map_warn(const char *source, int line, const char *msg, void *ctx)
+{
+    const struct options *o = ctx;
+
+    if (!o->quiet)
+        fprintf(stderr, "warning: %s:%d: %s\n", source, line, msg);
+}
+
 int main(int argc, char **argv)
 {
     struct options opt;
@@ -216,24 +227,39 @@ int main(int argc, char **argv)
 
     /* Temporary driver until the pipeline is wired up in task 8.1. */
     struct course c;
+    struct symmap map;
     struct gpx_options go = { .track = opt.track, .quiet = opt.quiet };
     char err[256];
 
     course_init(&c);
+    symmap_init(&map);
+    rc = EXIT_ERROR;
+
+    /* Load the type map first, so a bad --map file fails before any work.
+     * User rules come before the embedded defaults. */
+    if (symmap_load(&map, opt.map_file, map_warn, &opt, err, sizeof err) != 0) {
+        fprintf(stderr, "%s: error: %s\n", argv[0], err);
+        goto out;
+    }
+
     if (read_gpx(opt.input, &c, &go, err, sizeof err) != 0) {
         fprintf(stderr, "%s: error: %s\n", argv[0], err);
-        course_free(&c);
-        return EXIT_ERROR;
+        goto out;
     }
     if (opt.name) {
         char *n = strdup(opt.name);
         if (!n) {
             fprintf(stderr, "%s: error: out of memory\n", argv[0]);
-            course_free(&c);
-            return EXIT_ERROR;
+            goto out;
         }
         free(c.name);
         c.name = n;
+    }
+    if (c.name && strlen(c.name) > COURSE_NAME_MAX) {
+        if (!opt.quiet)
+            fprintf(stderr, "warning: course name is longer than %d bytes, "
+                    "truncating\n", COURSE_NAME_MAX);
+        utf8_truncate(c.name, strlen(c.name) + 1, c.name, COURSE_NAME_MAX);
     }
     if (!opt.quiet)
         printf("Read '%s': %zu trackpoints, %zu waypoints\n",
@@ -247,19 +273,23 @@ int main(int argc, char **argv)
 
         if (src == SNAP_NOMEM) {
             fprintf(stderr, "%s: error: out of memory\n", argv[0]);
-            course_free(&c);
-            return EXIT_ERROR;
+            goto out;
         }
         if (!opt.quiet)
             snap_print_summary(stdout, &c, &sr);
         if (src == SNAP_STRICT) {
             fprintf(stderr, "%s: error: --strict: %zu waypoint(s) farther than "
                     "%g m from the track\n", argv[0], sr.n_skipped, opt.snap_m);
-            course_free(&c);
-            return EXIT_ERROR;
+            goto out;
         }
     }
 
+    /* Point types from names, then name truncation (5.4, 5.5). */
+    course_apply_types(&c, &map, opt.quiet);
+
+    rc = EXIT_OK;
+out:
+    symmap_free(&map);
     course_free(&c);
-    return EXIT_OK;
+    return rc;
 }

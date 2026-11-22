@@ -216,6 +216,73 @@ Key observations:
   exported; the track timestamps are from 2025-06-28.
 - Definition message for `file_id` is 6 fields: 0, 1, 2, 4, 3, 5 (that order).
 
+## Phase 5 findings: names and point types
+
+### 5.1 (a) Waypoint names in the exports
+
+Only one export exists so far (`tests/data/caltopo_sample.gpx`), so this
+inventory is those five names. Add rows here when other exports show new names.
+
+| Waypoint name | Intended FIT type | Value | Rule in `data/default.map` |
+|---|---|---|---|
+| `Water` | water | 3 | `water = water` |
+| `Camp` | campsite | 27 | `camp = campsite` |
+| `Caution` | danger | 5 | `caution = danger` |
+| `Start` | generic | 0 | none (warns "no type for 'Start'") |
+| `Ranger Station` | generic | 0 | none (warns "no type for 'Ranger Station'") |
+
+Decision still open: `Start` and `Ranger Station` are left as generic with a
+warning. If you want an icon, pick a type and add a line to `default.map`
+(for example `ranger = aid_station` or `start = checkpoint`).
+
+`Caution` is 477 m from the track, so the default `--snap 250` skips it and its
+type never reaches the file. Use `--snap 500` (or more) to include it.
+
+`default.map` also has a few extra rules that no export has needed yet
+(`hazard`, `danger`, `first aid`, `summit`, `overlook`, `shelter`, `toilet`,
+`food`). They are marked as extras in the file. Delete any you do not want.
+
+Matching is a case-insensitive **substring** match, so `camp` also matches
+`Campbell Creek` and `water` also matches `Waterfall`. Override with a line in
+your `--map` file, which is tried first (`waterfall = generic`).
+
+`<sym>` is still absent from this export, as noted in 0.2. The plan says not to
+add `<sym>` parsing, so none exists. Names are the only input.
+
+### 5.1 (b) FIT course_point types
+
+Checked in this session against `garmin_fit_sdk` 21.222.0
+(`Profile['types']['course_point']`), the same profile as 0.4. Every value in
+the 0.4 table is correct. The full enum is:
+
+0 generic, 1 summit, 2 valley, 3 water, 4 food, 5 danger, 6 left, 7 right,
+8 straight, 9 first_aid, 10 fourth_category, 11 third_category,
+12 second_category, 13 first_category, 14 hors_category, 15 sprint,
+16 left_fork, 17 right_fork, 18 middle_fork, 19 slight_left, 20 sharp_left,
+21 slight_right, 22 sharp_right, 23 u_turn, 24 segment_start, 25 segment_end,
+**(26 does not exist)**, 27 campsite, 28 aid_station, 29 rest_area,
+30 general_distance, 31 service, 32 energy_gel, 33 sports_drink, 34 mile_marker,
+35 checkpoint, 36 shelter, 37 meeting_spot, 38 overlook, 39 toilet, 40 shower,
+41 gear, 42 sharp_curve, 43 steep_incline, 44 tunnel, 45 bridge, 46 obstacle,
+47 crossing, 48 store, 49 transition, 50 navaid, 51 transport, 52 alert, 53 info.
+
+`src/symmap.c` accepts any of these names (any letter case) as the right-hand
+side of a rule. Whether a given watch draws an icon for every type is not
+verified (task 9.2).
+
+### 5.4 / 5.5 decisions
+
+- Rule order: user `--map` rules, then the embedded `default.map`. First match wins.
+- Names are matched in full, then truncated for the file, so a long name still
+  gets its type.
+- Limits live in `src/names.h`: `COURSE_POINT_NAME_MAX` = **15 bytes**
+  (provisional, from 0.4, verify in 9.2) and `COURSE_NAME_MAX` = **90 bytes**
+  (revisit in 9.1). Both count bytes without the NUL; the FIT string field is
+  limit + 1. Truncation never splits a UTF-8 character, so a name with accented
+  letters can end up a byte or two shorter than the limit.
+- `xxd` is now a build requirement (it generates `src/default_map.h`).
+  `src/default_map.h` is generated, so add it to `.gitignore`.
+
 ## Not done / open items
 
 - I could not download the official FIT SDK zip (`Profile.xlsx`, C headers):

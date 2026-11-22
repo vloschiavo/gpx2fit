@@ -6,6 +6,10 @@ LDLIBS  = -lexpat -lm
 BUILD   = build
 TARGET  = gpx2fit
 
+# data/default.map is embedded into the binary as a C string (task 5.3).
+# Needs xxd (ships with vim). The header is regenerated when the map changes.
+GEN_HDR = src/default_map.h
+
 SRC     = $(filter-out $(wildcard src/test_*.c),$(wildcard src/*.c))
 OBJ     = $(SRC:src/%.c=$(BUILD)/%.o)
 DEP     = $(OBJ:.o=.d)
@@ -19,6 +23,17 @@ $(TARGET): $(OBJ)
 
 $(BUILD)/%.o: src/%.c | $(BUILD)
 	$(CC) $(CFLAGS) -MMD -MP -c -o $@ $<
+
+# Only symmap.c includes the generated header. (After the first build the
+# -MMD dependency files cover this too; this line covers the very first one.)
+$(BUILD)/symmap.o: $(GEN_HDR)
+
+$(GEN_HDR): data/default.map
+	{ printf '/* generated from %s by make; do not edit */\n' '$<' && \
+	  printf 'static const char default_map_text[] = {\n' && \
+	  xxd -i < '$<' && \
+	  printf ', 0x00\n};\n'; } > $@.tmp
+	mv $@.tmp $@
 
 $(BUILD):
 	mkdir -p $@
@@ -38,7 +53,7 @@ TEST_SH   = $(wildcard tests/test_*.sh)
 SAN_FLAGS = -fsanitize=address,undefined -fno-sanitize-recover=undefined \
             -fno-omit-frame-pointer
 
-build-test/%: tests/%.c $(LIB_SRC) $(wildcard src/*.h) | build-test
+build-test/%: tests/%.c $(LIB_SRC) $(wildcard src/*.h) $(GEN_HDR) | build-test
 	$(CC) -O1 -g -std=c11 -Wall -Wextra -Wpedantic $(SAN_FLAGS) -Isrc \
 	    -o $@ $< $(LIB_SRC) $(LDLIBS)
 
@@ -50,6 +65,6 @@ test: all $(TEST_BIN)
 	@set -e; for s in $(TEST_SH); do echo "== $$s"; bash $$s ./$(TARGET); done
 
 clean:
-	rm -rf $(BUILD) build-asan build-test $(TARGET) $(TARGET)-asan
+	rm -rf $(BUILD) build-asan build-test $(TARGET) $(TARGET)-asan $(GEN_HDR) $(GEN_HDR).tmp
 
 -include $(DEP)

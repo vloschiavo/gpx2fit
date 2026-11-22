@@ -164,24 +164,24 @@ waypoint **name** alone. The FIT `course_point` type is what makes Garmin draw a
 icon on the map, so the goal of this phase is name -> FIT type. Matching rules are
 fixed here so the code and tests agree.
 
-- [ ] **5.1 Inventory names and FIT types**
+- [x] **5.1 Inventory names and FIT types**
   - Needs: the `course_point.type` enum table from `NOTES.md` (task 0.4)
   - Output: in `NOTES.md`, (a) every distinct waypoint name used in your CalTopo exports, and (b) the FIT type names and values you intend to target (at least `water`, `danger`, `campsite`), confirmed against the SDK Profile.
   - Done when: every name you use has an intended FIT type.
 
-- [ ] **5.2 Map rule parser and matcher**
+- [x] **5.2 Map rule parser and matcher**
   - Output: `src/symmap.c` with `symmap_parse(text, &map, warn_cb)` and `symmap_lookup(&map, name)`. Line format is `keyword = type`; `#` starts a comment; blank lines are ignored. `type` is a FIT enum name (`water`, `danger`, `campsite`, `generic`, ...) resolved through a small name->value table. Matching is a case-insensitive **substring** match: the keyword may appear anywhere in the name. First matching rule in file order wins, so put more specific keywords above general ones. No match returns generic.
   - Done when: unit tests cover case-insensitivity, a keyword in the middle and at the end of a name, first-match-wins ordering, comments and blank lines, an unknown type name (warning with line number, line skipped), and a malformed line (same).
 
-- [ ] **5.3 `data/default.map`**
+- [x] **5.3 `data/default.map`**
   - Output: `data/default.map` in the same format the parser reads, containing at least `water = water`, `camp = campsite`, `caution = danger`, plus anything 5.1 turned up. The Makefile embeds this file into the binary at build time (for example `xxd -i` into a generated `default_map.h`), so the program has no runtime file lookup and the file stays the single source of truth.
   - Done when: `make` regenerates the header when `default.map` changes, and a test feeds "Water", "Camp", "Caution", "water 2", "CAMP" and an unknown name through the embedded defaults and gets the expected types.
 
-- [ ] **5.4 `--map FILE` layering**
+- [x] **5.4 `--map FILE` layering**
   - Output: `--map FILE` loads user rules ahead of the embedded defaults, so user rules win and unmatched names still fall through to `default.map`. A missing or unreadable file is an error (exit 1). Names that match nothing produce a stderr warning ("no type for 'Foo', using generic; add a line to --map") unless `--quiet`.
   - Done when: a test map overrides `water` to another type, an unrelated name still hits a default, a user line such as `waterfall = generic` placed first beats the default `water` rule, and the missing-file case exits 1.
 
-- [ ] **5.5 Safe name truncation**
+- [x] **5.5 Safe name truncation**
   - Output: one truncation function taking a max byte count, which never splits a UTF-8 sequence and always null-terminates. Two limits: the course point name limit from the 0.4 table, and `COURSE_NAME_MAX`, set to 90 bytes (a length known to work on the device; the true maximum is unknown, so revisit it in 9.1).
   - Done when: tests cover ASCII, multibyte at the boundary, and exact-length strings, for both limits.
 
