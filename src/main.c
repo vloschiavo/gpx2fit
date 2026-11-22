@@ -1,12 +1,13 @@
 /* gpx2fit: convert a GPX track to a FIT course file.
  * (tasks 1.4 CLI parsing, 2.x GPX reading, 4.x snapping, 5.4 --map and name
- * handling; the full pipeline is wired in 8.1) */
+ * handling, 6.x synthetic times; the full pipeline is wired in 8.1) */
 #define _POSIX_C_SOURCE 200809L
 
 #include <errno.h>
 #include <getopt.h>
 #include <math.h>
 #include <stdbool.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -17,6 +18,7 @@
 #include "names.h"
 #include "snap.h"
 #include "symmap.h"
+#include "timing.h"
 
 /* Exit codes. */
 enum {
@@ -59,8 +61,10 @@ static void usage(FILE *out, const char *prog)
         "                     track visits it more than once: nearest (default),\n"
         "                     ordered, first, last\n"
         "  --name TEXT        course name (default: GPX track name)\n"
-        "  --pace PACE        synthetic pace, m/s or min/km (e.g. 2.5, 6:40)\n"
-        "  --start TIME       synthetic start time (ISO 8601, UTC)\n"
+        "  --pace PACE        synthetic pace, m/s or min/km (e.g. 2.5, 6:40;\n"
+        "                     default 5 km/h)\n"
+        "  --start TIME       synthetic start time, UTC: YYYY-MM-DD or\n"
+        "                     YYYY-MM-DDTHH:MM:SSZ (default 2025-01-01T00:00:00Z)\n"
         "  --track N          use the Nth <trk> of the GPX file (default: longest)\n"
         "  --max-points N     reduce the track to at most N points (N >= 2)\n"
         "  --map FILE         waypoint name-to-type rules, tried before defaults\n"
@@ -225,9 +229,27 @@ int main(int argc, char **argv)
         return EXIT_OK;
     }
 
+    /* Check --pace and --start now, so a bad value is a usage error (exit 2)
+     * before any work is done. The raw text stays in opt for --dump-options. */
+    double   pace_mps;
+    uint32_t start_fit;
+    char     verr[128];
+
+    if (parse_pace(opt.pace, &pace_mps, verr, sizeof verr) != 0) {
+        fprintf(stderr, "%s: invalid --pace value '%s' (%s)\n",
+                argv[0], opt.pace, verr);
+        return EXIT_USAGE;
+    }
+    if (parse_start(opt.start, &start_fit, verr, sizeof verr) != 0) {
+        fprintf(stderr, "%s: invalid --start value '%s' (%s)\n",
+                argv[0], opt.start, verr);
+        return EXIT_USAGE;
+    }
+
     /* Temporary driver until the pipeline is wired up in task 8.1. */
     struct course c;
     struct symmap map;
+    int trc;
     struct gpx_options go = { .track = opt.track, .quiet = opt.quiet };
     char err[256];
 
@@ -286,6 +308,15 @@ int main(int argc, char **argv)
 
     /* Point types from names, then name truncation (5.4, 5.5). */
     course_apply_types(&c, &map, opt.quiet);
+
+    /* Synthetic times for the track, then for the course points (6.1, 6.2).
+     * Before any --max-points decimation (8.2), which must not change them. */
+    trc = course_assign_times(&c, start_fit, pace_mps);
+    if (trc != TIMING_OK) {
+        fprintf(stderr, "%s: error: %s\n", argv[0], timing_strerror(trc));
+        goto out;
+    }
+    course_assign_cp_times(&c);
 
     rc = EXIT_OK;
 out:

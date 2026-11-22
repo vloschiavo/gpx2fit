@@ -189,11 +189,11 @@ fixed here so the code and tests agree.
 
 ## Phase 6: Synthetic timestamps
 
-- [ ] **6.1 Time model**
+- [x] **6.1 Time model**
   - Output: `course_assign_times()` using start time (`--start`, default a fixed date) and pace (`--pace`, accepts m/s or min/km syntax), computing `tp[i].t` as seconds since the FIT epoch (1989-12-31 00:00:00 UTC).
   - Done when: a test confirms the epoch constant (Unix epoch plus 631065600) and monotonic times.
 
-- [ ] **6.2 Time for course points**
+- [x] **6.2 Time for course points**
   - Output: each course point's time is interpolated from its distance along the course.
   - Done when: a course point halfway along a segment gets the midpoint time.
 

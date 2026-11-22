@@ -283,6 +283,50 @@ verified (task 9.2).
 - `xxd` is now a build requirement (it generates `src/default_map.h`).
   `src/default_map.h` is generated, so add it to `.gitignore`.
 
+## Phase 6 findings: synthetic timestamps
+
+The CalTopo export has no `<time>`, so every time is invented from a start time
+and one constant pace. Code is in `src/timing.c` (named `timing`, not `time`,
+because `src/time.h` would shadow the system `<time.h>` under `-Isrc`).
+
+- **Epoch:** FIT epoch = Unix 631065600 (1989-12-31 00:00:00 UTC), checked with
+  independent date arithmetic and in `tests/test_timing.c`.
+- **`--start`:** UTC only. Accepted: `YYYY-MM-DD` (midnight), and
+  `YYYY-MM-DDTHH:MM[:SS][Z]`. Offsets like `+02:00` are rejected, not guessed.
+  Default is `2025-01-01T00:00:00Z` (FIT 1104624000), fixed so output is
+  reproducible.
+- **FIT date range:** the FIT protocol reads a `date_time` below `0x10000000` as
+  a device uptime, not a date. That limit is **1998-07-03T21:24:16Z**, so an
+  earlier `--start` is rejected. The last valid time is `0xFFFFFFFE`
+  (2126-02-06T06:28:14Z) because `0xFFFFFFFF` is the "invalid" value; a course
+  that would run past it is an error (exit 1), not a silent wrap.
+- **`--pace`:** a value with a `:` is **min/km** (`6:40` = 2.5 m/s, seconds are
+  two digits, 00 to 59). A plain number is **m/s** (`2.5`). So a plain number is
+  never read as minutes. Zero, negative, signs, exponents, `inf`/`nan` and hex
+  are rejected (exit 2). Default is 5 km/h (1.389 m/s).
+- **Times:** `t = start + round(dist / speed)` in whole seconds, from
+  `tp[i].dist`. Repeated points get the same time, and times never decrease. On
+  the sample (3.39 km) the default pace gives about 40 min 40 s.
+- **Course points:** `t` is linearly interpolated between the two trackpoints on
+  either side of the point's distance and rounded to a second (halves round up),
+  so a course point always falls between its neighbours' times. A point beyond
+  either end takes that end's time. This runs after snapping and typing and must
+  stay before `--max-points` decimation (8.2), so decimation cannot move them.
+- `--dump-options` still prints the raw `--pace` and `--start` text. They are
+  validated after the dump check, so the 1.4 option test is unaffected.
+
+Open items from this phase:
+
+- **Duplicate timestamps.** The sample has 9 repeated points. They now get equal
+  times, so the FIT file would contain records with identical timestamps (the
+  Garmin reference has none). Not known whether a watch minds. Decide in 7.x /
+  8.2 whether to drop zero-length duplicates before writing, and check on a
+  device in 9.2.
+- **Uneven spacing.** The reference file has records every 7 to 14 s. Ours are
+  proportional to distance, and this sample has gaps of a few hundred metres, so
+  gaps of a few minutes are possible. Check how the watch draws the course.
+- **Pace is constant.** No slope adjustment. Only `--pace` changes it.
+
 ## Not done / open items
 
 - I could not download the official FIT SDK zip (`Profile.xlsx`, C headers):
