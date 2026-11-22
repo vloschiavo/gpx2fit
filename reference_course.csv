@@ -1,0 +1,1876 @@
+msg_index,message,field,field_num,raw_value,scaled_value,units
+0,file_id,garmin_product,2,65534,connect,
+0,file_id,manufacturer,1,1,garmin,
+0,file_id,number,5,1,1,
+0,file_id,serial_number,3,373491188,373491188,
+0,file_id,time_created,4,1164259075,2026-11-22 05:17:55,
+0,file_id,type,0,6,course,
+1,course,name,5,Foresthill Rd to Ruck-A-Chucky,Foresthill Rd to Ruck-A-Chucky,
+1,course,sport,4,17,hiking,
+1,course,sub_sport,7,0,generic,
+1,course,unknown_254,254,0,0,
+2,lap,avg_speed,13,0,0.0,m/s
+2,lap,end_position_lat,5,464842610,464842610,semicircles
+2,lap,end_position_long,6,-1442759498,-1442759498,semicircles
+2,lap,enhanced_avg_speed,110,0.0,0.0,m/s
+2,lap,message_index,254,0,0,
+2,lap,start_position_lat,3,464950366,464950366,semicircles
+2,lap,start_position_long,4,-1443050446,-1443050446,semicircles
+2,lap,start_time,2,1120076240,2025-06-28 20:17:20,
+2,lap,timestamp,253,1120076240,2025-06-28 20:17:20,
+2,lap,total_ascent,21,0,0,m
+2,lap,total_descent,22,339,339,m
+2,lap,total_distance,9,412689,4126.89,m
+2,lap,total_elapsed_time,7,4952203,4952.203,s
+2,lap,total_timer_time,8,4952203,4952.203,s
+2,lap,unknown_27,27,464950529,464950529,
+2,lap,unknown_28,28,-1442759498,-1442759498,
+2,lap,unknown_29,29,464802304,464802304,
+2,lap,unknown_30,30,-1443050446,-1443050446,
+3,event,event,0,0,timer,
+3,event,event_group,4,0,0,
+3,event,event_type,1,0,start,
+3,event,timestamp,253,1120076240,2025-06-28 20:17:20,
+4,record,altitude,2,5302,560.4000000000001,m
+4,record,distance,5,0,0.0,m
+4,record,enhanced_altitude,78,560.4000000000001,560.4000000000001,m
+4,record,enhanced_speed,73,0.0,0.0,m/s
+4,record,position_lat,0,464950366,464950366,semicircles
+4,record,position_long,1,-1443050446,-1443050446,semicircles
+4,record,speed,6,0,0.0,m/s
+4,record,timestamp,253,1120076240,2025-06-28 20:17:20,
+4,record,unknown_121,121,0,0,
+4,record,unknown_122,122,0,0,
+5,record,altitude,2,5295,559.0,m
+5,record,distance,5,724,7.24,m
+5,record,enhanced_altitude,78,559.0,559.0,m
+5,record,enhanced_speed,73,0.833,0.833,m/s
+5,record,position_lat,0,464950529,464950529,semicircles
+5,record,position_long,1,-1443049472,-1443049472,semicircles
+5,record,speed,6,833,0.833,m/s
+5,record,timestamp,253,1120076248,2025-06-28 20:17:28,
+5,record,unknown_121,121,0,0,
+5,record,unknown_122,122,0,0,
+6,record,altitude,2,5286,557.2,m
+6,record,distance,5,2464,24.64,m
+6,record,enhanced_altitude,78,557.2,557.2,m
+6,record,enhanced_speed,73,0.833,0.833,m/s
+6,record,position_lat,0,464950016,464950016,semicircles
+6,record,position_long,1,-1443047168,-1443047168,semicircles
+6,record,speed,6,833,0.833,m/s
+6,record,timestamp,253,1120076269,2025-06-28 20:17:49,
+6,record,unknown_121,121,0,0,
+6,record,unknown_122,122,3,3,
+7,record,altitude,2,5275,555.0,m
+7,record,distance,5,4866,48.66,m
+7,record,enhanced_altitude,78,555.0,555.0,m
+7,record,enhanced_speed,73,0.833,0.833,m/s
+7,record,position_lat,0,464948564,464948564,semicircles
+7,record,position_long,1,-1443044434,-1443044434,semicircles
+7,record,speed,6,833,0.833,m/s
+7,record,timestamp,253,1120076298,2025-06-28 20:18:18,
+7,record,unknown_121,121,0,0,
+7,record,unknown_122,122,5,5,
+8,record,altitude,2,5262,552.4000000000001,m
+8,record,distance,5,7267,72.67,m
+8,record,enhanced_altitude,78,552.4000000000001,552.4000000000001,m
+8,record,enhanced_speed,73,0.833,0.833,m/s
+8,record,position_lat,0,464947112,464947112,semicircles
+8,record,position_long,1,-1443041701,-1443041701,semicircles
+8,record,speed,6,833,0.833,m/s
+8,record,timestamp,253,1120076327,2025-06-28 20:18:47,
+8,record,unknown_121,121,0,0,
+8,record,unknown_122,122,7,7,
+9,record,altitude,2,5247,549.4000000000001,m
+9,record,distance,5,9662,96.62,m
+9,record,enhanced_altitude,78,549.4000000000001,549.4000000000001,m
+9,record,enhanced_speed,73,0.833,0.833,m/s
+9,record,position_lat,0,464945664,464945664,semicircles
+9,record,position_long,1,-1443038976,-1443038976,semicircles
+9,record,speed,6,833,0.833,m/s
+9,record,timestamp,253,1120076355,2025-06-28 20:19:15,
+9,record,unknown_121,121,0,0,
+9,record,unknown_122,122,11,11,
+10,record,altitude,2,5232,546.4000000000001,m
+10,record,distance,5,12310,123.1,m
+10,record,enhanced_altitude,78,546.4000000000001,546.4000000000001,m
+10,record,enhanced_speed,73,0.833,0.833,m/s
+10,record,position_lat,0,464944510,464944510,semicircles
+10,record,position_long,1,-1443035643,-1443035643,semicircles
+10,record,speed,6,833,0.833,m/s
+10,record,timestamp,253,1120076387,2025-06-28 20:19:47,
+10,record,unknown_121,121,0,0,
+10,record,unknown_122,122,14,14,
+11,record,altitude,2,5217,543.4000000000001,m
+11,record,distance,5,14951,149.51,m
+11,record,enhanced_altitude,78,543.4000000000001,543.4000000000001,m
+11,record,enhanced_speed,73,0.833,0.833,m/s
+11,record,position_lat,0,464943360,464943360,semicircles
+11,record,position_long,1,-1443032320,-1443032320,semicircles
+11,record,speed,6,833,0.833,m/s
+11,record,timestamp,253,1120076419,2025-06-28 20:20:19,
+11,record,unknown_121,121,0,0,
+11,record,unknown_122,122,17,17,
+12,record,altitude,2,5204,540.8,m
+12,record,distance,5,15834,158.34,m
+12,record,enhanced_altitude,78,540.8,540.8,m
+12,record,enhanced_speed,73,0.833,0.833,m/s
+12,record,position_lat,0,464942848,464942848,semicircles
+12,record,position_long,1,-1443031296,-1443031296,semicircles
+12,record,speed,6,833,0.833,m/s
+12,record,timestamp,253,1120076430,2025-06-28 20:20:30,
+12,record,unknown_121,121,0,0,
+12,record,unknown_122,122,19,19,
+13,record,altitude,2,5193,538.5999999999999,m
+13,record,distance,5,17743,177.43,m
+13,record,enhanced_altitude,78,538.5999999999999,538.5999999999999,m
+13,record,enhanced_speed,73,0.833,0.833,m/s
+13,record,position_lat,0,464941056,464941056,semicircles
+13,record,position_long,1,-1443030016,-1443030016,semicircles
+13,record,speed,6,833,0.833,m/s
+13,record,timestamp,253,1120076452,2025-06-28 20:20:52,
+13,record,unknown_121,121,0,0,
+13,record,unknown_122,122,21,21,
+14,record,altitude,2,5181,536.2,m
+14,record,distance,5,20905,209.05,m
+14,record,enhanced_altitude,78,536.2,536.2,m
+14,record,enhanced_speed,73,0.833,0.833,m/s
+14,record,position_lat,0,464937902,464937902,semicircles
+14,record,position_long,1,-1443028396,-1443028396,semicircles
+14,record,speed,6,833,0.833,m/s
+14,record,timestamp,253,1120076490,2025-06-28 20:21:30,
+14,record,unknown_121,121,0,0,
+14,record,unknown_122,122,24,24,
+15,record,altitude,2,5169,533.8,m
+15,record,distance,5,24066,240.66,m
+15,record,enhanced_altitude,78,533.8,533.8,m
+15,record,enhanced_speed,73,0.833,0.833,m/s
+15,record,position_lat,0,464934749,464934749,semicircles
+15,record,position_long,1,-1443026777,-1443026777,semicircles
+15,record,speed,6,833,0.833,m/s
+15,record,timestamp,253,1120076528,2025-06-28 20:22:08,
+15,record,unknown_121,121,0,0,
+15,record,unknown_122,122,26,26,
+16,record,altitude,2,5159,531.8,m
+16,record,distance,5,27239,272.39,m
+16,record,enhanced_altitude,78,531.8,531.8,m
+16,record,enhanced_speed,73,0.833,0.833,m/s
+16,record,position_lat,0,464931584,464931584,semicircles
+16,record,position_long,1,-1443025152,-1443025152,semicircles
+16,record,speed,6,833,0.833,m/s
+16,record,timestamp,253,1120076566,2025-06-28 20:22:46,
+16,record,unknown_121,121,0,0,
+16,record,unknown_122,122,28,28,
+17,record,altitude,2,5151,530.2,m
+17,record,distance,5,30589,305.89,m
+17,record,enhanced_altitude,78,530.2,530.2,m
+17,record,enhanced_speed,73,0.833,0.833,m/s
+17,record,position_lat,0,464928006,464928006,semicircles
+17,record,position_long,1,-1443025663,-1443025663,semicircles
+17,record,speed,6,833,0.833,m/s
+17,record,timestamp,253,1120076607,2025-06-28 20:23:27,
+17,record,unknown_121,121,0,0,
+17,record,unknown_122,122,28,28,
+18,record,altitude,2,5145,529.0,m
+18,record,distance,5,33950,339.5,m
+18,record,enhanced_altitude,78,529.0,529.0,m
+18,record,enhanced_speed,73,0.833,0.833,m/s
+18,record,position_lat,0,464924416,464924416,semicircles
+18,record,position_long,1,-1443026176,-1443026176,semicircles
+18,record,speed,6,833,0.833,m/s
+18,record,timestamp,253,1120076647,2025-06-28 20:24:07,
+18,record,unknown_121,121,0,0,
+18,record,unknown_122,122,31,31,
+19,record,altitude,2,5138,527.5999999999999,m
+19,record,distance,5,36397,363.97,m
+19,record,enhanced_altitude,78,527.5999999999999,527.5999999999999,m
+19,record,enhanced_speed,73,0.833,0.833,m/s
+19,record,position_lat,0,464921856,464921856,semicircles
+19,record,position_long,1,-1443025408,-1443025408,semicircles
+19,record,speed,6,833,0.833,m/s
+19,record,timestamp,253,1120076676,2025-06-28 20:24:36,
+19,record,unknown_121,121,0,0,
+19,record,unknown_122,122,31,31,
+20,record,altitude,2,5131,526.2,m
+20,record,distance,5,39388,393.88,m
+20,record,enhanced_altitude,78,526.2,526.2,m
+20,record,enhanced_speed,73,0.833,0.833,m/s
+20,record,position_lat,0,464918915,464918915,semicircles
+20,record,position_long,1,-1443023746,-1443023746,semicircles
+20,record,speed,6,833,0.833,m/s
+20,record,timestamp,253,1120076712,2025-06-28 20:25:12,
+20,record,unknown_121,121,0,0,
+20,record,unknown_122,122,34,34,
+21,record,altitude,2,5124,524.8,m
+21,record,distance,5,42385,423.85,m
+21,record,enhanced_altitude,78,524.8,524.8,m
+21,record,enhanced_speed,73,0.833,0.833,m/s
+21,record,position_lat,0,464915968,464915968,semicircles
+21,record,position_long,1,-1443022080,-1443022080,semicircles
+21,record,speed,6,833,0.833,m/s
+21,record,timestamp,253,1120076748,2025-06-28 20:25:48,
+21,record,unknown_121,121,0,0,
+21,record,unknown_122,122,34,34,
+22,record,altitude,2,5117,523.4,m
+22,record,distance,5,45511,455.11,m
+22,record,enhanced_altitude,78,523.4,523.4,m
+22,record,enhanced_speed,73,0.833,0.833,m/s
+22,record,position_lat,0,464912646,464912646,semicircles
+22,record,position_long,1,-1443021441,-1443021441,semicircles
+22,record,speed,6,833,0.833,m/s
+22,record,timestamp,253,1120076786,2025-06-28 20:26:26,
+22,record,unknown_121,121,0,0,
+22,record,unknown_122,122,36,36,
+23,record,altitude,2,5112,522.4,m
+23,record,distance,5,48648,486.48,m
+23,record,enhanced_altitude,78,522.4,522.4,m
+23,record,enhanced_speed,73,0.833,0.833,m/s
+23,record,position_lat,0,464909312,464909312,semicircles
+23,record,position_long,1,-1443020800,-1443020800,semicircles
+23,record,speed,6,833,0.833,m/s
+23,record,timestamp,253,1120076823,2025-06-28 20:27:03,
+23,record,unknown_121,121,0,0,
+23,record,unknown_122,122,36,36,
+24,record,altitude,2,5106,521.2,m
+24,record,distance,5,51344,513.44,m
+24,record,enhanced_altitude,78,521.2,521.2,m
+24,record,enhanced_speed,73,0.833,0.833,m/s
+24,record,position_lat,0,464906500,464906500,semicircles
+24,record,position_long,1,-1443019905,-1443019905,semicircles
+24,record,speed,6,833,0.833,m/s
+24,record,timestamp,253,1120076856,2025-06-28 20:27:36,
+24,record,unknown_121,121,0,0,
+24,record,unknown_122,122,39,39,
+25,record,altitude,2,5100,520.0,m
+25,record,distance,5,54048,540.48,m
+25,record,enhanced_altitude,78,520.0,520.0,m
+25,record,enhanced_speed,73,0.833,0.833,m/s
+25,record,position_lat,0,464903680,464903680,semicircles
+25,record,position_long,1,-1443019008,-1443019008,semicircles
+25,record,speed,6,833,0.833,m/s
+25,record,timestamp,253,1120076888,2025-06-28 20:28:08,
+25,record,unknown_121,121,0,0,
+25,record,unknown_122,122,39,39,
+26,record,altitude,2,5095,519.0,m
+26,record,distance,5,56919,569.19,m
+26,record,enhanced_altitude,78,519.0,519.0,m
+26,record,enhanced_speed,73,0.833,0.833,m/s
+26,record,position_lat,0,464900613,464900613,semicircles
+26,record,position_long,1,-1443018582,-1443018582,semicircles
+26,record,speed,6,833,0.833,m/s
+26,record,timestamp,253,1120076923,2025-06-28 20:28:43,
+26,record,unknown_121,121,0,0,
+26,record,unknown_122,122,41,41,
+27,record,altitude,2,5090,518.0,m
+27,record,distance,5,59788,597.88,m
+27,record,enhanced_altitude,78,518.0,518.0,m
+27,record,enhanced_speed,73,0.833,0.833,m/s
+27,record,position_lat,0,464897547,464897547,semicircles
+27,record,position_long,1,-1443018156,-1443018156,semicircles
+27,record,speed,6,833,0.833,m/s
+27,record,timestamp,253,1120076957,2025-06-28 20:29:17,
+27,record,unknown_121,121,0,0,
+27,record,unknown_122,122,41,41,
+28,record,altitude,2,5085,517.0,m
+28,record,distance,5,62674,626.74,m
+28,record,enhanced_altitude,78,517.0,517.0,m
+28,record,enhanced_speed,73,0.833,0.833,m/s
+28,record,position_lat,0,464894464,464894464,semicircles
+28,record,position_long,1,-1443017728,-1443017728,semicircles
+28,record,speed,6,833,0.833,m/s
+28,record,timestamp,253,1120076992,2025-06-28 20:29:52,
+28,record,unknown_121,121,0,0,
+28,record,unknown_122,122,43,43,
+29,record,altitude,2,5079,515.8,m
+29,record,distance,5,65522,655.22,m
+29,record,enhanced_altitude,78,515.8,515.8,m
+29,record,enhanced_speed,73,0.833,0.833,m/s
+29,record,position_lat,0,464891648,464891648,semicircles
+29,record,position_long,1,-1443016192,-1443016192,semicircles
+29,record,speed,6,833,0.833,m/s
+29,record,timestamp,253,1120077026,2025-06-28 20:30:26,
+29,record,unknown_121,121,0,0,
+29,record,unknown_122,122,43,43,
+30,record,altitude,2,5074,514.8,m
+30,record,distance,5,65523,655.23,m
+30,record,enhanced_altitude,78,514.8,514.8,m
+30,record,enhanced_speed,73,0.846,0.846,m/s
+30,record,position_lat,0,464891649,464891649,semicircles
+30,record,position_long,1,-1443016192,-1443016192,semicircles
+30,record,speed,6,846,0.846,m/s
+30,record,timestamp,253,1120077026,2025-06-28 20:30:26,
+30,record,unknown_121,121,0,0,
+30,record,unknown_122,122,45,45,
+31,record,altitude,2,5068,513.6,m
+31,record,distance,5,67213,672.13,m
+31,record,enhanced_altitude,78,513.6,513.6,m
+31,record,enhanced_speed,73,0.833,0.833,m/s
+31,record,position_lat,0,464891393,464891393,semicircles
+31,record,position_long,1,-1443013888,-1443013888,semicircles
+31,record,speed,6,833,0.833,m/s
+31,record,timestamp,253,1120077046,2025-06-28 20:30:46,
+31,record,unknown_121,121,0,0,
+31,record,unknown_122,122,45,45,
+32,record,altitude,2,5062,512.4,m
+32,record,distance,5,68423,684.23,m
+32,record,enhanced_altitude,78,512.4,512.4,m
+32,record,enhanced_speed,73,0.833,0.833,m/s
+32,record,position_lat,0,464890368,464890368,semicircles
+32,record,position_long,1,-1443012864,-1443012864,semicircles
+32,record,speed,6,833,0.833,m/s
+32,record,timestamp,253,1120077061,2025-06-28 20:31:01,
+32,record,unknown_121,121,0,0,
+32,record,unknown_122,122,48,48,
+33,record,altitude,2,5056,511.20000000000005,m
+33,record,distance,5,70555,705.55,m
+33,record,enhanced_altitude,78,511.20000000000005,511.20000000000005,m
+33,record,enhanced_speed,73,0.833,0.833,m/s
+33,record,position_lat,0,464888831,464888831,semicircles
+33,record,position_long,1,-1443010687,-1443010687,semicircles
+33,record,speed,6,833,0.833,m/s
+33,record,timestamp,253,1120077086,2025-06-28 20:31:26,
+33,record,unknown_121,121,0,0,
+33,record,unknown_122,122,48,48,
+34,record,altitude,2,5049,509.79999999999995,m
+34,record,distance,5,72685,726.85,m
+34,record,enhanced_altitude,78,509.79999999999995,509.79999999999995,m
+34,record,enhanced_speed,73,0.833,0.833,m/s
+34,record,position_lat,0,464887296,464887296,semicircles
+34,record,position_long,1,-1443008512,-1443008512,semicircles
+34,record,speed,6,833,0.833,m/s
+34,record,timestamp,253,1120077112,2025-06-28 20:31:52,
+34,record,unknown_121,121,0,0,
+34,record,unknown_122,122,50,50,
+35,record,altitude,2,5041,508.20000000000005,m
+35,record,distance,5,75242,752.42,m
+35,record,enhanced_altitude,78,508.20000000000005,508.20000000000005,m
+35,record,enhanced_speed,73,0.833,0.833,m/s
+35,record,position_lat,0,464884993,464884993,semicircles
+35,record,position_long,1,-1443006593,-1443006593,semicircles
+35,record,speed,6,833,0.833,m/s
+35,record,timestamp,253,1120077142,2025-06-28 20:32:22,
+35,record,unknown_121,121,0,0,
+35,record,unknown_122,122,50,50,
+36,record,altitude,2,5033,506.6,m
+36,record,distance,5,77800,778.0,m
+36,record,enhanced_altitude,78,506.6,506.6,m
+36,record,enhanced_speed,73,0.833,0.833,m/s
+36,record,position_lat,0,464882688,464882688,semicircles
+36,record,position_long,1,-1443004672,-1443004672,semicircles
+36,record,speed,6,833,0.833,m/s
+36,record,timestamp,253,1120077173,2025-06-28 20:32:53,
+36,record,unknown_121,121,0,0,
+36,record,unknown_122,122,53,53,
+37,record,altitude,2,5024,504.79999999999995,m
+37,record,distance,5,80535,805.35,m
+37,record,enhanced_altitude,78,504.79999999999995,504.79999999999995,m
+37,record,enhanced_speed,73,0.833,0.833,m/s
+37,record,position_lat,0,464881534,464881534,semicircles
+37,record,position_long,1,-1443001210,-1443001210,semicircles
+37,record,speed,6,833,0.833,m/s
+37,record,timestamp,253,1120077206,2025-06-28 20:33:26,
+37,record,unknown_121,121,0,0,
+37,record,unknown_122,122,53,53,
+38,record,altitude,2,5015,503.0,m
+38,record,distance,5,83260,832.6,m
+38,record,enhanced_altitude,78,503.0,503.0,m
+38,record,enhanced_speed,73,0.833,0.833,m/s
+38,record,position_lat,0,464880384,464880384,semicircles
+38,record,position_long,1,-1442997760,-1442997760,semicircles
+38,record,speed,6,833,0.833,m/s
+38,record,timestamp,253,1120077239,2025-06-28 20:33:59,
+38,record,unknown_121,121,0,0,
+38,record,unknown_122,122,57,57,
+39,record,altitude,2,5007,501.4,m
+39,record,distance,5,84873,848.73,m
+39,record,enhanced_altitude,78,501.4,501.4,m
+39,record,enhanced_speed,73,0.833,0.833,m/s
+39,record,position_lat,0,464879360,464879360,semicircles
+39,record,position_long,1,-1442995968,-1442995968,semicircles
+39,record,speed,6,833,0.833,m/s
+39,record,timestamp,253,1120077258,2025-06-28 20:34:18,
+39,record,unknown_121,121,0,0,
+39,record,unknown_122,122,57,57,
+40,record,altitude,2,5000,500.0,m
+40,record,distance,5,87381,873.81,m
+40,record,enhanced_altitude,78,500.0,500.0,m
+40,record,enhanced_speed,73,0.833,0.833,m/s
+40,record,position_lat,0,464877335,464877335,semicircles
+40,record,position_long,1,-1442993690,-1442993690,semicircles
+40,record,speed,6,833,0.833,m/s
+40,record,timestamp,253,1120077288,2025-06-28 20:34:48,
+40,record,unknown_121,121,0,0,
+40,record,unknown_122,122,60,60,
+41,record,altitude,2,4986,497.20000000000005,m
+41,record,distance,5,87410,874.1,m
+41,record,enhanced_altitude,78,497.20000000000005,497.20000000000005,m
+41,record,enhanced_speed,73,0.835,0.835,m/s
+41,record,position_lat,0,464877312,464877312,semicircles
+41,record,position_long,1,-1442993664,-1442993664,semicircles
+41,record,speed,6,835,0.835,m/s
+41,record,timestamp,253,1120077288,2025-06-28 20:34:48,
+41,record,unknown_121,121,0,0,
+41,record,unknown_122,122,63,63,
+42,record,altitude,2,4980,496.0,m
+42,record,distance,5,90722,907.22,m
+42,record,enhanced_altitude,78,496.0,496.0,m
+42,record,enhanced_speed,73,0.833,0.833,m/s
+42,record,position_lat,0,464874240,464874240,semicircles
+42,record,position_long,1,-1442991360,-1442991360,semicircles
+42,record,speed,6,833,0.833,m/s
+42,record,timestamp,253,1120077328,2025-06-28 20:35:28,
+42,record,unknown_121,121,0,0,
+42,record,unknown_122,122,63,63,
+43,record,altitude,2,4974,494.79999999999995,m
+43,record,distance,5,93728,937.28,m
+43,record,enhanced_altitude,78,494.79999999999995,494.79999999999995,m
+43,record,enhanced_speed,73,0.833,0.833,m/s
+43,record,position_lat,0,464871168,464871168,semicircles
+43,record,position_long,1,-1442990080,-1442990080,semicircles
+43,record,speed,6,833,0.833,m/s
+43,record,timestamp,253,1120077364,2025-06-28 20:36:04,
+43,record,unknown_121,121,0,0,
+43,record,unknown_122,122,65,65,
+44,record,altitude,2,4968,493.6,m
+44,record,distance,5,96351,963.51,m
+44,record,enhanced_altitude,78,493.6,493.6,m
+44,record,enhanced_speed,73,0.833,0.833,m/s
+44,record,position_lat,0,464868357,464868357,semicircles
+44,record,position_long,1,-1442989824,-1442989824,semicircles
+44,record,speed,6,833,0.833,m/s
+44,record,timestamp,253,1120077396,2025-06-28 20:36:36,
+44,record,unknown_121,121,0,0,
+44,record,unknown_122,122,65,65,
+45,record,altitude,2,4962,492.4,m
+45,record,distance,5,98982,989.82,m
+45,record,enhanced_altitude,78,492.4,492.4,m
+45,record,enhanced_speed,73,0.833,0.833,m/s
+45,record,position_lat,0,464865536,464865536,semicircles
+45,record,position_long,1,-1442989568,-1442989568,semicircles
+45,record,speed,6,833,0.833,m/s
+45,record,timestamp,253,1120077427,2025-06-28 20:37:07,
+45,record,unknown_121,121,0,0,
+45,record,unknown_122,122,68,68,
+46,record,altitude,2,4957,491.4,m
+46,record,distance,5,101890,1018.9,m
+46,record,enhanced_altitude,78,491.4,491.4,m
+46,record,enhanced_speed,73,0.833,0.833,m/s
+46,record,position_lat,0,464862469,464862469,semicircles
+46,record,position_long,1,-1442988801,-1442988801,semicircles
+46,record,speed,6,833,0.833,m/s
+46,record,timestamp,253,1120077462,2025-06-28 20:37:42,
+46,record,unknown_121,121,0,0,
+46,record,unknown_122,122,68,68,
+47,record,altitude,2,4951,490.20000000000005,m
+47,record,distance,5,104807,1048.07,m
+47,record,enhanced_altitude,78,490.20000000000005,490.20000000000005,m
+47,record,enhanced_speed,73,0.833,0.833,m/s
+47,record,position_lat,0,464859392,464859392,semicircles
+47,record,position_long,1,-1442988032,-1442988032,semicircles
+47,record,speed,6,833,0.833,m/s
+47,record,timestamp,253,1120077497,2025-06-28 20:38:17,
+47,record,unknown_121,121,0,0,
+47,record,unknown_122,122,70,70,
+48,record,altitude,2,4945,489.0,m
+48,record,distance,5,107785,1077.85,m
+48,record,enhanced_altitude,78,489.0,489.0,m
+48,record,enhanced_speed,73,0.833,0.833,m/s
+48,record,position_lat,0,464856198,464856198,semicircles
+48,record,position_long,1,-1442987776,-1442987776,semicircles
+48,record,speed,6,833,0.833,m/s
+48,record,timestamp,253,1120077533,2025-06-28 20:38:53,
+48,record,unknown_121,121,0,0,
+48,record,unknown_122,122,70,70,
+49,record,altitude,2,4939,487.79999999999995,m
+49,record,distance,5,110774,1107.74,m
+49,record,enhanced_altitude,78,487.79999999999995,487.79999999999995,m
+49,record,enhanced_speed,73,0.833,0.833,m/s
+49,record,position_lat,0,464852992,464852992,semicircles
+49,record,position_long,1,-1442987520,-1442987520,semicircles
+49,record,speed,6,833,0.833,m/s
+49,record,timestamp,253,1120077569,2025-06-28 20:39:29,
+49,record,unknown_121,121,0,0,
+49,record,unknown_122,122,72,72,
+50,record,altitude,2,4934,486.79999999999995,m
+50,record,distance,5,114150,1141.5,m
+50,record,enhanced_altitude,78,486.79999999999995,486.79999999999995,m
+50,record,enhanced_speed,73,0.833,0.833,m/s
+50,record,position_lat,0,464849414,464849414,semicircles
+50,record,position_long,1,-1442986753,-1442986753,semicircles
+50,record,speed,6,833,0.833,m/s
+50,record,timestamp,253,1120077609,2025-06-28 20:40:09,
+50,record,unknown_121,121,0,0,
+50,record,unknown_122,122,72,72,
+51,record,altitude,2,4930,486.0,m
+51,record,distance,5,116644,1166.44,m
+51,record,enhanced_altitude,78,486.0,486.0,m
+51,record,enhanced_speed,73,0.833,0.833,m/s
+51,record,position_lat,0,464846770,464846770,semicircles
+51,record,position_long,1,-1442986186,-1442986186,semicircles
+51,record,speed,6,833,0.833,m/s
+51,record,timestamp,253,1120077639,2025-06-28 20:40:39,
+51,record,unknown_121,121,0,0,
+51,record,unknown_122,122,74,74,
+52,record,altitude,2,4926,485.20000000000005,m
+52,record,distance,5,117537,1175.37,m
+52,record,enhanced_altitude,78,485.20000000000005,485.20000000000005,m
+52,record,enhanced_speed,73,0.833,0.833,m/s
+52,record,position_lat,0,464845824,464845824,semicircles
+52,record,position_long,1,-1442985984,-1442985984,semicircles
+52,record,speed,6,833,0.833,m/s
+52,record,timestamp,253,1120077650,2025-06-28 20:40:50,
+52,record,unknown_121,121,0,0,
+52,record,unknown_122,122,74,74,
+53,record,altitude,2,4921,484.20000000000005,m
+53,record,distance,5,120391,1203.91,m
+53,record,enhanced_altitude,78,484.20000000000005,484.20000000000005,m
+53,record,enhanced_speed,73,0.833,0.833,m/s
+53,record,position_lat,0,464842757,464842757,semicircles
+53,record,position_long,1,-1442985898,-1442985898,semicircles
+53,record,speed,6,833,0.833,m/s
+53,record,timestamp,253,1120077684,2025-06-28 20:41:24,
+53,record,unknown_121,121,0,0,
+53,record,unknown_122,122,76,76,
+54,course_point,distance,4,121939,1219.39,m
+54,course_point,message_index,254,0,0,
+54,course_point,name,6,Water Stop,Water Stop,
+54,course_point,position_lat,2,464841093,464841093,semicircles
+54,course_point,position_long,3,-1442985851,-1442985851,semicircles
+54,course_point,timestamp,1,1120077703,2025-06-28 20:41:43,
+54,course_point,type,5,3,water,
+55,record,altitude,2,4917,483.4,m
+55,record,distance,5,121940,1219.4,m
+55,record,enhanced_altitude,78,483.4,483.4,m
+55,record,enhanced_speed,73,,,m/s
+55,record,position_lat,0,464841093,464841093,semicircles
+55,record,position_long,1,-1442985851,-1442985851,semicircles
+55,record,speed,6,,,m/s
+55,record,timestamp,253,1120077703,2025-06-28 20:41:43,
+55,record,unknown_121,121,0,0,
+55,record,unknown_122,122,76,76,
+56,record,altitude,2,4913,482.6,m
+56,record,distance,5,123245,1232.45,m
+56,record,enhanced_altitude,78,482.6,482.6,m
+56,record,enhanced_speed,73,0.833,0.833,m/s
+56,record,position_lat,0,464839691,464839691,semicircles
+56,record,position_long,1,-1442985813,-1442985813,semicircles
+56,record,speed,6,833,0.833,m/s
+56,record,timestamp,253,1120077718,2025-06-28 20:41:58,
+56,record,unknown_121,121,0,0,
+56,record,unknown_122,122,77,77,
+57,record,altitude,2,4909,481.79999999999995,m
+57,record,distance,5,126114,1261.14,m
+57,record,enhanced_altitude,78,481.79999999999995,481.79999999999995,m
+57,record,enhanced_speed,73,0.833,0.833,m/s
+57,record,position_lat,0,464836608,464836608,semicircles
+57,record,position_long,1,-1442985728,-1442985728,semicircles
+57,record,speed,6,833,0.833,m/s
+57,record,timestamp,253,1120077753,2025-06-28 20:42:33,
+57,record,unknown_121,121,0,0,
+57,record,unknown_122,122,77,77,
+58,record,altitude,2,4905,481.0,m
+58,record,distance,5,127823,1278.23,m
+58,record,enhanced_altitude,78,481.0,481.0,m
+58,record,enhanced_speed,73,0.833,0.833,m/s
+58,record,position_lat,0,464834816,464834816,semicircles
+58,record,position_long,1,-1442985216,-1442985216,semicircles
+58,record,speed,6,833,0.833,m/s
+58,record,timestamp,253,1120077773,2025-06-28 20:42:53,
+58,record,unknown_121,121,0,0,
+58,record,unknown_122,122,79,79,
+59,record,altitude,2,4901,480.20000000000005,m
+59,record,distance,5,130537,1305.37,m
+59,record,enhanced_altitude,78,480.20000000000005,480.20000000000005,m
+59,record,enhanced_speed,73,0.833,0.833,m/s
+59,record,position_lat,0,464832256,464832256,semicircles
+59,record,position_long,1,-1442983424,-1442983424,semicircles
+59,record,speed,6,833,0.833,m/s
+59,record,timestamp,253,1120077806,2025-06-28 20:43:26,
+59,record,unknown_121,121,0,0,
+59,record,unknown_122,122,79,79,
+60,record,altitude,2,4897,479.4,m
+60,record,distance,5,133033,1330.33,m
+60,record,enhanced_altitude,78,479.4,479.4,m
+60,record,enhanced_speed,73,0.833,0.833,m/s
+60,record,position_lat,0,464830208,464830208,semicircles
+60,record,position_long,1,-1442981205,-1442981205,semicircles
+60,record,speed,6,833,0.833,m/s
+60,record,timestamp,253,1120077836,2025-06-28 20:43:56,
+60,record,unknown_121,121,0,0,
+60,record,unknown_122,122,81,81,
+61,record,altitude,2,4893,478.6,m
+61,record,distance,5,135529,1355.29,m
+61,record,enhanced_altitude,78,478.6,478.6,m
+61,record,enhanced_speed,73,0.833,0.833,m/s
+61,record,position_lat,0,464828160,464828160,semicircles
+61,record,position_long,1,-1442978987,-1442978987,semicircles
+61,record,speed,6,833,0.833,m/s
+61,record,timestamp,253,1120077866,2025-06-28 20:44:26,
+61,record,unknown_121,121,0,0,
+61,record,unknown_122,122,81,81,
+62,record,altitude,2,4888,477.6,m
+62,record,distance,5,138025,1380.25,m
+62,record,enhanced_altitude,78,477.6,477.6,m
+62,record,enhanced_speed,73,0.833,0.833,m/s
+62,record,position_lat,0,464826112,464826112,semicircles
+62,record,position_long,1,-1442976768,-1442976768,semicircles
+62,record,speed,6,833,0.833,m/s
+62,record,timestamp,253,1120077896,2025-06-28 20:44:56,
+62,record,unknown_121,121,0,0,
+62,record,unknown_122,122,82,82,
+63,record,altitude,2,4884,476.79999999999995,m
+63,record,distance,5,139638,1396.38,m
+63,record,enhanced_altitude,78,476.79999999999995,476.79999999999995,m
+63,record,enhanced_speed,73,0.833,0.833,m/s
+63,record,position_lat,0,464825088,464825088,semicircles
+63,record,position_long,1,-1442974976,-1442974976,semicircles
+63,record,speed,6,833,0.833,m/s
+63,record,timestamp,253,1120077915,2025-06-28 20:45:15,
+63,record,unknown_121,121,0,0,
+63,record,unknown_122,122,82,82,
+64,record,altitude,2,4880,476.0,m
+64,record,distance,5,142586,1425.86,m
+64,record,enhanced_altitude,78,476.0,476.0,m
+64,record,enhanced_speed,73,0.833,0.833,m/s
+64,record,position_lat,0,464824064,464824064,semicircles
+64,record,position_long,1,-1442971136,-1442971136,semicircles
+64,record,speed,6,833,0.833,m/s
+64,record,timestamp,253,1120077951,2025-06-28 20:45:51,
+64,record,unknown_121,121,0,0,
+64,record,unknown_122,122,84,84,
+65,record,altitude,2,4875,475.0,m
+65,record,distance,5,143392,1433.92,m
+65,record,enhanced_altitude,78,475.0,475.0,m
+65,record,enhanced_speed,73,0.833,0.833,m/s
+65,record,position_lat,0,464823296,464823296,semicircles
+65,record,position_long,1,-1442970624,-1442970624,semicircles
+65,record,speed,6,833,0.833,m/s
+65,record,timestamp,253,1120077960,2025-06-28 20:46:00,
+65,record,unknown_121,121,0,0,
+65,record,unknown_122,122,84,84,
+66,record,altitude,2,4868,473.6,m
+66,record,distance,5,146275,1462.75,m
+66,record,enhanced_altitude,78,473.6,473.6,m
+66,record,enhanced_speed,73,0.833,0.833,m/s
+66,record,position_lat,0,464820224,464820224,semicircles
+66,record,position_long,1,-1442970112,-1442970112,semicircles
+66,record,speed,6,833,0.833,m/s
+66,record,timestamp,253,1120077995,2025-06-28 20:46:35,
+66,record,unknown_121,121,0,0,
+66,record,unknown_122,122,86,86,
+67,record,altitude,2,4861,472.20000000000005,m
+67,record,distance,5,148544,1485.44,m
+67,record,enhanced_altitude,78,472.20000000000005,472.20000000000005,m
+67,record,enhanced_speed,73,0.833,0.833,m/s
+67,record,position_lat,0,464817920,464817920,semicircles
+67,record,position_long,1,-1442969088,-1442969088,semicircles
+67,record,speed,6,833,0.833,m/s
+67,record,timestamp,253,1120078022,2025-06-28 20:47:02,
+67,record,unknown_121,121,0,0,
+67,record,unknown_122,122,86,86,
+68,record,altitude,2,4855,471.0,m
+68,record,distance,5,150176,1501.76,m
+68,record,enhanced_altitude,78,471.0,471.0,m
+68,record,enhanced_speed,73,0.833,0.833,m/s
+68,record,position_lat,0,464816640,464816640,semicircles
+68,record,position_long,1,-1442967552,-1442967552,semicircles
+68,record,speed,6,833,0.833,m/s
+68,record,timestamp,253,1120078042,2025-06-28 20:47:22,
+68,record,unknown_121,121,0,0,
+68,record,unknown_122,122,89,89,
+69,record,altitude,2,4848,469.6,m
+69,record,distance,5,153113,1531.13,m
+69,record,enhanced_altitude,78,469.6,469.6,m
+69,record,enhanced_speed,73,0.833,0.833,m/s
+69,record,position_lat,0,464814848,464814848,semicircles
+69,record,position_long,1,-1442964224,-1442964224,semicircles
+69,record,speed,6,833,0.833,m/s
+69,record,timestamp,253,1120078077,2025-06-28 20:47:57,
+69,record,unknown_121,121,0,0,
+69,record,unknown_122,122,89,89,
+70,record,altitude,2,4842,468.4,m
+70,record,distance,5,155813,1558.13,m
+70,record,enhanced_altitude,78,468.4,468.4,m
+70,record,enhanced_speed,73,0.833,0.833,m/s
+70,record,position_lat,0,464814080,464814080,semicircles
+70,record,position_long,1,-1442960640,-1442960640,semicircles
+70,record,speed,6,833,0.833,m/s
+70,record,timestamp,253,1120078109,2025-06-28 20:48:29,
+70,record,unknown_121,121,0,0,
+70,record,unknown_122,122,92,92,
+71,record,altitude,2,4836,467.20000000000005,m
+71,record,distance,5,157593,1575.93,m
+71,record,enhanced_altitude,78,467.20000000000005,467.20000000000005,m
+71,record,enhanced_speed,73,0.833,0.833,m/s
+71,record,position_lat,0,464814721,464814721,semicircles
+71,record,position_long,1,-1442958332,-1442958332,semicircles
+71,record,speed,6,833,0.833,m/s
+71,record,timestamp,253,1120078131,2025-06-28 20:48:51,
+71,record,unknown_121,121,0,0,
+71,record,unknown_122,122,92,92,
+72,record,altitude,2,4830,466.0,m
+72,record,distance,5,159366,1593.66,m
+72,record,enhanced_altitude,78,466.0,466.0,m
+72,record,enhanced_speed,73,0.833,0.833,m/s
+72,record,position_lat,0,464815360,464815360,semicircles
+72,record,position_long,1,-1442956032,-1442956032,semicircles
+72,record,speed,6,833,0.833,m/s
+72,record,timestamp,253,1120078152,2025-06-28 20:49:12,
+72,record,unknown_121,121,0,0,
+72,record,unknown_122,122,94,94,
+73,record,altitude,2,4823,464.6,m
+73,record,distance,5,160110,1601.1,m
+73,record,enhanced_altitude,78,464.6,464.6,m
+73,record,enhanced_speed,73,0.833,0.833,m/s
+73,record,position_lat,0,464815360,464815360,semicircles
+73,record,position_long,1,-1442955008,-1442955008,semicircles
+73,record,speed,6,833,0.833,m/s
+73,record,timestamp,253,1120078161,2025-06-28 20:49:21,
+73,record,unknown_121,121,0,0,
+73,record,unknown_122,122,94,94,
+74,record,altitude,2,4815,463.0,m
+74,record,distance,5,161283,1612.83,m
+74,record,enhanced_altitude,78,463.0,463.0,m
+74,record,enhanced_speed,73,0.833,0.833,m/s
+74,record,position_lat,0,464814592,464814592,semicircles
+74,record,position_long,1,-1442953728,-1442953728,semicircles
+74,record,speed,6,833,0.833,m/s
+74,record,timestamp,253,1120078175,2025-06-28 20:49:35,
+74,record,unknown_121,121,0,0,
+74,record,unknown_122,122,97,97,
+75,record,altitude,2,4806,461.20000000000005,m
+75,record,distance,5,163893,1638.93,m
+75,record,enhanced_altitude,78,461.20000000000005,461.20000000000005,m
+75,record,enhanced_speed,73,0.833,0.833,m/s
+75,record,position_lat,0,464812288,464812288,semicircles
+75,record,position_long,1,-1442951680,-1442951680,semicircles
+75,record,speed,6,833,0.833,m/s
+75,record,timestamp,253,1120078206,2025-06-28 20:50:06,
+75,record,unknown_121,121,0,0,
+75,record,unknown_122,122,97,97,
+76,record,altitude,2,4797,459.4,m
+76,record,distance,5,166583,1665.83,m
+76,record,enhanced_altitude,78,459.4,459.4,m
+76,record,enhanced_speed,73,0.833,0.833,m/s
+76,record,position_lat,0,464811262,464811262,semicircles
+76,record,position_long,1,-1442948218,-1442948218,semicircles
+76,record,speed,6,833,0.833,m/s
+76,record,timestamp,253,1120078238,2025-06-28 20:50:38,
+76,record,unknown_121,121,0,0,
+76,record,unknown_122,122,101,101,
+77,record,altitude,2,4789,457.79999999999995,m
+77,record,distance,5,169264,1692.64,m
+77,record,enhanced_altitude,78,457.79999999999995,457.79999999999995,m
+77,record,enhanced_speed,73,0.833,0.833,m/s
+77,record,position_lat,0,464810240,464810240,semicircles
+77,record,position_long,1,-1442944768,-1442944768,semicircles
+77,record,speed,6,833,0.833,m/s
+77,record,timestamp,253,1120078271,2025-06-28 20:51:11,
+77,record,unknown_121,121,0,0,
+77,record,unknown_122,122,101,101,
+78,record,altitude,2,4780,456.0,m
+78,record,distance,5,172100,1721.0,m
+78,record,enhanced_altitude,78,456.0,456.0,m
+78,record,enhanced_speed,73,0.833,0.833,m/s
+78,record,position_lat,0,464808830,464808830,semicircles
+78,record,position_long,1,-1442941307,-1442941307,semicircles
+78,record,speed,6,833,0.833,m/s
+78,record,timestamp,253,1120078305,2025-06-28 20:51:45,
+78,record,unknown_121,121,0,0,
+78,record,unknown_122,122,104,104,
+79,record,altitude,2,4771,454.20000000000005,m
+79,record,distance,5,174928,1749.28,m
+79,record,enhanced_altitude,78,454.20000000000005,454.20000000000005,m
+79,record,enhanced_speed,73,0.833,0.833,m/s
+79,record,position_lat,0,464807425,464807425,semicircles
+79,record,position_long,1,-1442937856,-1442937856,semicircles
+79,record,speed,6,833,0.833,m/s
+79,record,timestamp,253,1120078339,2025-06-28 20:52:19,
+79,record,unknown_121,121,0,0,
+79,record,unknown_122,122,104,104,
+80,record,altitude,2,4761,452.20000000000005,m
+80,record,distance,5,177422,1774.22,m
+80,record,enhanced_altitude,78,452.20000000000005,452.20000000000005,m
+80,record,enhanced_speed,73,0.833,0.833,m/s
+80,record,position_lat,0,464805759,464805759,semicircles
+80,record,position_long,1,-1442935166,-1442935166,semicircles
+80,record,speed,6,833,0.833,m/s
+80,record,timestamp,253,1120078369,2025-06-28 20:52:49,
+80,record,unknown_121,121,0,0,
+80,record,unknown_122,122,108,108,
+81,record,altitude,2,4751,450.20000000000005,m
+81,record,distance,5,179913,1799.13,m
+81,record,enhanced_altitude,78,450.20000000000005,450.20000000000005,m
+81,record,enhanced_speed,73,0.833,0.833,m/s
+81,record,position_lat,0,464804096,464804096,semicircles
+81,record,position_long,1,-1442932480,-1442932480,semicircles
+81,record,speed,6,833,0.833,m/s
+81,record,timestamp,253,1120078398,2025-06-28 20:53:18,
+81,record,unknown_121,121,0,0,
+81,record,unknown_122,122,108,108,
+82,record,altitude,2,4742,448.4,m
+82,record,distance,5,181822,1818.22,m
+82,record,enhanced_altitude,78,448.4,448.4,m
+82,record,enhanced_speed,73,0.833,0.833,m/s
+82,record,position_lat,0,464802304,464802304,semicircles
+82,record,position_long,1,-1442931200,-1442931200,semicircles
+82,record,speed,6,833,0.833,m/s
+82,record,timestamp,253,1120078421,2025-06-28 20:53:41,
+82,record,unknown_121,121,0,0,
+82,record,unknown_122,122,112,112,
+83,record,altitude,2,4732,446.4,m
+83,record,distance,5,182782,1827.82,m
+83,record,enhanced_altitude,78,446.4,446.4,m
+83,record,enhanced_speed,73,0.833,0.833,m/s
+83,record,position_lat,0,464802560,464802560,semicircles
+83,record,position_long,1,-1442929920,-1442929920,semicircles
+83,record,speed,6,833,0.833,m/s
+83,record,timestamp,253,1120078433,2025-06-28 20:53:53,
+83,record,unknown_121,121,0,0,
+83,record,unknown_122,122,112,112,
+84,record,altitude,2,4721,444.20000000000005,m
+84,record,distance,5,185051,1850.51,m
+84,record,enhanced_altitude,78,444.20000000000005,444.20000000000005,m
+84,record,enhanced_speed,73,0.833,0.833,m/s
+84,record,position_lat,0,464804864,464804864,semicircles
+84,record,position_long,1,-1442928896,-1442928896,semicircles
+84,record,speed,6,833,0.833,m/s
+84,record,timestamp,253,1120078460,2025-06-28 20:54:20,
+84,record,unknown_121,121,0,0,
+84,record,unknown_122,122,116,116,
+85,record,altitude,2,4709,441.79999999999995,m
+85,record,distance,5,186729,1867.29,m
+85,record,enhanced_altitude,78,441.79999999999995,441.79999999999995,m
+85,record,enhanced_speed,73,0.833,0.833,m/s
+85,record,position_lat,0,464806656,464806656,semicircles
+85,record,position_long,1,-1442928640,-1442928640,semicircles
+85,record,speed,6,833,0.833,m/s
+85,record,timestamp,253,1120078480,2025-06-28 20:54:40,
+85,record,unknown_121,121,0,0,
+85,record,unknown_122,122,118,118,
+86,record,altitude,2,4698,439.6,m
+86,record,distance,5,189595,1895.95,m
+86,record,enhanced_altitude,78,439.6,439.6,m
+86,record,enhanced_speed,73,0.833,0.833,m/s
+86,record,position_lat,0,464809722,464809722,semicircles
+86,record,position_long,1,-1442929023,-1442929023,semicircles
+86,record,speed,6,833,0.833,m/s
+86,record,timestamp,253,1120078515,2025-06-28 20:55:15,
+86,record,unknown_121,121,0,0,
+86,record,unknown_122,122,120,120,
+87,record,altitude,2,4685,437.0,m
+87,record,distance,5,192473,1924.73,m
+87,record,enhanced_altitude,78,437.0,437.0,m
+87,record,enhanced_speed,73,0.833,0.833,m/s
+87,record,position_lat,0,464812800,464812800,semicircles
+87,record,position_long,1,-1442929408,-1442929408,semicircles
+87,record,speed,6,833,0.833,m/s
+87,record,timestamp,253,1120078549,2025-06-28 20:55:49,
+87,record,unknown_121,121,0,0,
+87,record,unknown_122,122,123,123,
+88,record,altitude,2,4672,434.4,m
+88,record,distance,5,193496,1934.96,m
+88,record,enhanced_altitude,78,434.4,434.4,m
+88,record,enhanced_speed,73,0.833,0.833,m/s
+88,record,position_lat,0,464813824,464813824,semicircles
+88,record,position_long,1,-1442928896,-1442928896,semicircles
+88,record,speed,6,833,0.833,m/s
+88,record,timestamp,253,1120078561,2025-06-28 20:56:01,
+88,record,unknown_121,121,0,0,
+88,record,unknown_122,122,125,125,
+89,record,altitude,2,4658,431.6,m
+89,record,distance,5,196334,1963.34,m
+89,record,enhanced_altitude,78,431.6,431.6,m
+89,record,enhanced_speed,73,0.833,0.833,m/s
+89,record,position_lat,0,464816127,464816127,semicircles
+89,record,position_long,1,-1442926336,-1442926336,semicircles
+89,record,speed,6,833,0.833,m/s
+89,record,timestamp,253,1120078595,2025-06-28 20:56:35,
+89,record,unknown_121,121,0,0,
+89,record,unknown_122,122,128,128,
+90,record,altitude,2,4643,428.6,m
+90,record,distance,5,199172,1991.72,m
+90,record,enhanced_altitude,78,428.6,428.6,m
+90,record,enhanced_speed,73,0.833,0.833,m/s
+90,record,position_lat,0,464818432,464818432,semicircles
+90,record,position_long,1,-1442923776,-1442923776,semicircles
+90,record,speed,6,833,0.833,m/s
+90,record,timestamp,253,1120078630,2025-06-28 20:57:10,
+90,record,unknown_121,121,0,0,
+90,record,unknown_122,122,131,131,
+91,record,altitude,2,4629,425.79999999999995,m
+91,record,distance,5,201919,2019.19,m
+91,record,enhanced_altitude,78,425.79999999999995,425.79999999999995,m
+91,record,enhanced_speed,73,0.833,0.833,m/s
+91,record,position_lat,0,464821243,464821243,semicircles
+91,record,position_long,1,-1442922625,-1442922625,semicircles
+91,record,speed,6,833,0.833,m/s
+91,record,timestamp,253,1120078662,2025-06-28 20:57:42,
+91,record,unknown_121,121,0,0,
+91,record,unknown_122,122,134,134,
+92,record,altitude,2,4613,422.6,m
+92,record,distance,5,204674,2046.74,m
+92,record,enhanced_altitude,78,422.6,422.6,m
+92,record,enhanced_speed,73,0.833,0.833,m/s
+92,record,position_lat,0,464824064,464824064,semicircles
+92,record,position_long,1,-1442921472,-1442921472,semicircles
+92,record,speed,6,833,0.833,m/s
+92,record,timestamp,253,1120078696,2025-06-28 20:58:16,
+92,record,unknown_121,121,0,0,
+92,record,unknown_122,122,137,137,
+93,record,altitude,2,4600,420.0,m
+93,record,distance,5,207896,2078.96,m
+93,record,enhanced_altitude,78,420.0,420.0,m
+93,record,enhanced_speed,73,0.833,0.833,m/s
+93,record,position_lat,0,464827136,464827136,semicircles
+93,record,position_long,1,-1442919424,-1442919424,semicircles
+93,record,speed,6,833,0.833,m/s
+93,record,timestamp,253,1120078734,2025-06-28 20:58:54,
+93,record,unknown_121,121,0,0,
+93,record,unknown_122,122,140,140,
+94,record,altitude,2,4588,417.6,m
+94,record,distance,5,210779,2107.79,m
+94,record,enhanced_altitude,78,417.6,417.6,m
+94,record,enhanced_speed,73,0.833,0.833,m/s
+94,record,position_lat,0,464830208,464830208,semicircles
+94,record,position_long,1,-1442918912,-1442918912,semicircles
+94,record,speed,6,833,0.833,m/s
+94,record,timestamp,253,1120078769,2025-06-28 20:59:29,
+94,record,unknown_121,121,0,0,
+94,record,unknown_122,122,142,142,
+95,record,altitude,2,4574,414.79999999999995,m
+95,record,distance,5,212488,2124.88,m
+95,record,enhanced_altitude,78,414.79999999999995,414.79999999999995,m
+95,record,enhanced_speed,73,0.833,0.833,m/s
+95,record,position_lat,0,464832000,464832000,semicircles
+95,record,position_long,1,-1442919424,-1442919424,semicircles
+95,record,speed,6,833,0.833,m/s
+95,record,timestamp,253,1120078789,2025-06-28 20:59:49,
+95,record,unknown_121,121,0,0,
+95,record,unknown_122,122,145,145,
+96,record,altitude,2,4560,412.0,m
+96,record,distance,5,215041,2150.41,m
+96,record,enhanced_altitude,78,412.0,412.0,m
+96,record,enhanced_speed,73,0.833,0.833,m/s
+96,record,position_lat,0,464834556,464834556,semicircles
+96,record,position_long,1,-1442920702,-1442920702,semicircles
+96,record,speed,6,833,0.833,m/s
+96,record,timestamp,253,1120078820,2025-06-28 21:00:20,
+96,record,unknown_121,121,0,0,
+96,record,unknown_122,122,148,148,
+97,record,altitude,2,4545,409.0,m
+97,record,distance,5,217602,2176.02,m
+97,record,enhanced_altitude,78,409.0,409.0,m
+97,record,enhanced_speed,73,0.833,0.833,m/s
+97,record,position_lat,0,464837120,464837120,semicircles
+97,record,position_long,1,-1442921984,-1442921984,semicircles
+97,record,speed,6,833,0.833,m/s
+97,record,timestamp,253,1120078851,2025-06-28 21:00:51,
+97,record,unknown_121,121,0,0,
+97,record,unknown_122,122,151,151,
+98,record,altitude,2,4533,406.6,m
+98,record,distance,5,220612,2206.12,m
+98,record,enhanced_altitude,78,406.6,406.6,m
+98,record,enhanced_speed,73,0.833,0.833,m/s
+98,record,position_lat,0,464839933,464839933,semicircles
+98,record,position_long,1,-1442924030,-1442924030,semicircles
+98,record,speed,6,833,0.833,m/s
+98,record,timestamp,253,1120078887,2025-06-28 21:01:27,
+98,record,unknown_121,121,0,0,
+98,record,unknown_122,122,153,153,
+99,record,altitude,2,4518,403.6,m
+99,record,distance,5,223622,2236.22,m
+99,record,enhanced_altitude,78,403.6,403.6,m
+99,record,enhanced_speed,73,0.833,0.833,m/s
+99,record,position_lat,0,464842746,464842746,semicircles
+99,record,position_long,1,-1442926076,-1442926076,semicircles
+99,record,speed,6,833,0.833,m/s
+99,record,timestamp,253,1120078923,2025-06-28 21:02:03,
+99,record,unknown_121,121,0,0,
+99,record,unknown_122,122,156,156,
+100,record,altitude,2,4503,400.6,m
+100,record,distance,5,226642,2266.42,m
+100,record,enhanced_altitude,78,400.6,400.6,m
+100,record,enhanced_speed,73,0.833,0.833,m/s
+100,record,position_lat,0,464845568,464845568,semicircles
+100,record,position_long,1,-1442928128,-1442928128,semicircles
+100,record,speed,6,833,0.833,m/s
+100,record,timestamp,253,1120078959,2025-06-28 21:02:39,
+100,record,unknown_121,121,0,0,
+100,record,unknown_122,122,159,159,
+101,record,altitude,2,4488,397.6,m
+101,record,distance,5,228176,2281.76,m
+101,record,enhanced_altitude,78,397.6,397.6,m
+101,record,enhanced_speed,73,0.833,0.833,m/s
+101,record,position_lat,0,464847104,464847104,semicircles
+101,record,position_long,1,-1442928896,-1442928896,semicircles
+101,record,speed,6,833,0.833,m/s
+101,record,timestamp,253,1120078978,2025-06-28 21:02:58,
+101,record,unknown_121,121,0,0,
+101,record,unknown_122,122,162,162,
+102,record,altitude,2,4474,394.79999999999995,m
+102,record,distance,5,229147,2291.47,m
+102,record,enhanced_altitude,78,394.79999999999995,394.79999999999995,m
+102,record,enhanced_speed,73,0.833,0.833,m/s
+102,record,position_lat,0,464848128,464848128,semicircles
+102,record,position_long,1,-1442928640,-1442928640,semicircles
+102,record,speed,6,833,0.833,m/s
+102,record,timestamp,253,1120078989,2025-06-28 21:03:09,
+102,record,unknown_121,121,0,0,
+102,record,unknown_122,122,165,165,
+103,record,altitude,2,4460,392.0,m
+103,record,distance,5,230758,2307.58,m
+103,record,enhanced_altitude,78,392.0,392.0,m
+103,record,enhanced_speed,73,0.833,0.833,m/s
+103,record,position_lat,0,464849664,464849664,semicircles
+103,record,position_long,1,-1442927616,-1442927616,semicircles
+103,record,speed,6,833,0.833,m/s
+103,record,timestamp,253,1120079009,2025-06-28 21:03:29,
+103,record,unknown_121,121,0,0,
+103,record,unknown_122,122,168,168,
+104,record,altitude,2,4445,389.0,m
+104,record,distance,5,232967,2329.67,m
+104,record,enhanced_altitude,78,389.0,389.0,m
+104,record,enhanced_speed,73,0.833,0.833,m/s
+104,record,position_lat,0,464850944,464850944,semicircles
+104,record,position_long,1,-1442925056,-1442925056,semicircles
+104,record,speed,6,833,0.833,m/s
+104,record,timestamp,253,1120079035,2025-06-28 21:03:55,
+104,record,unknown_121,121,0,0,
+104,record,unknown_122,122,171,171,
+105,record,altitude,2,4430,386.0,m
+105,record,distance,5,235050,2350.5,m
+105,record,enhanced_altitude,78,386.0,386.0,m
+105,record,enhanced_speed,73,0.833,0.833,m/s
+105,record,position_lat,0,464851713,464851713,semicircles
+105,record,position_long,1,-1442922363,-1442922363,semicircles
+105,record,speed,6,833,0.833,m/s
+105,record,timestamp,253,1120079060,2025-06-28 21:04:20,
+105,record,unknown_121,121,0,0,
+105,record,unknown_122,122,174,174,
+106,record,altitude,2,4417,383.4,m
+106,record,distance,5,237125,2371.25,m
+106,record,enhanced_altitude,78,383.4,383.4,m
+106,record,enhanced_speed,73,0.833,0.833,m/s
+106,record,position_lat,0,464852480,464852480,semicircles
+106,record,position_long,1,-1442919680,-1442919680,semicircles
+106,record,speed,6,833,0.833,m/s
+106,record,timestamp,253,1120079085,2025-06-28 21:04:45,
+106,record,unknown_121,121,0,0,
+106,record,unknown_122,122,177,177,
+107,record,altitude,2,4406,381.20000000000005,m
+107,record,distance,5,239831,2398.31,m
+107,record,enhanced_altitude,78,381.20000000000005,381.20000000000005,m
+107,record,enhanced_speed,73,0.833,0.833,m/s
+107,record,position_lat,0,464853249,464853249,semicircles
+107,record,position_long,1,-1442916089,-1442916089,semicircles
+107,record,speed,6,833,0.833,m/s
+107,record,timestamp,253,1120079117,2025-06-28 21:05:17,
+107,record,unknown_121,121,0,0,
+107,record,unknown_122,122,179,179,
+108,record,altitude,2,4395,379.0,m
+108,record,distance,5,242525,2425.25,m
+108,record,enhanced_altitude,78,379.0,379.0,m
+108,record,enhanced_speed,73,0.833,0.833,m/s
+108,record,position_lat,0,464854016,464854016,semicircles
+108,record,position_long,1,-1442912512,-1442912512,semicircles
+108,record,speed,6,833,0.833,m/s
+108,record,timestamp,253,1120079150,2025-06-28 21:05:50,
+108,record,unknown_121,121,0,0,
+108,record,unknown_122,122,181,181,
+109,record,altitude,2,4383,376.6,m
+109,record,distance,5,245055,2450.55,m
+109,record,enhanced_altitude,78,376.6,376.6,m
+109,record,enhanced_speed,73,0.833,0.833,m/s
+109,record,position_lat,0,464855296,464855296,semicircles
+109,record,position_long,1,-1442909440,-1442909440,semicircles
+109,record,speed,6,833,0.833,m/s
+109,record,timestamp,253,1120079180,2025-06-28 21:06:20,
+109,record,unknown_121,121,0,0,
+109,record,unknown_122,122,183,183,
+110,record,altitude,2,4372,374.4,m
+110,record,distance,5,245659,2456.59,m
+110,record,enhanced_altitude,78,374.4,374.4,m
+110,record,enhanced_speed,73,0.833,0.833,m/s
+110,record,position_lat,0,464855808,464855808,semicircles
+110,record,position_long,1,-1442908928,-1442908928,semicircles
+110,record,speed,6,833,0.833,m/s
+110,record,timestamp,253,1120079187,2025-06-28 21:06:27,
+110,record,unknown_121,121,0,0,
+110,record,unknown_122,122,186,186,
+111,record,altitude,2,4363,372.6,m
+111,record,distance,5,246850,2468.5,m
+111,record,enhanced_altitude,78,372.6,372.6,m
+111,record,enhanced_speed,73,0.833,0.833,m/s
+111,record,position_lat,0,464857088,464857088,semicircles
+111,record,position_long,1,-1442908928,-1442908928,semicircles
+111,record,speed,6,833,0.833,m/s
+111,record,timestamp,253,1120079202,2025-06-28 21:06:42,
+111,record,unknown_121,121,0,0,
+111,record,unknown_122,122,186,186,
+112,record,altitude,2,4354,370.79999999999995,m
+112,record,distance,5,249661,2496.61,m
+112,record,enhanced_altitude,78,370.79999999999995,370.79999999999995,m
+112,record,enhanced_speed,73,0.833,0.833,m/s
+112,record,position_lat,0,464860027,464860027,semicircles
+112,record,position_long,1,-1442909822,-1442909822,semicircles
+112,record,speed,6,833,0.833,m/s
+112,record,timestamp,253,1120079235,2025-06-28 21:07:15,
+112,record,unknown_121,121,0,0,
+112,record,unknown_122,122,189,189,
+113,record,altitude,2,4344,368.79999999999995,m
+113,record,distance,5,252482,2524.82,m
+113,record,enhanced_altitude,78,368.79999999999995,368.79999999999995,m
+113,record,enhanced_speed,73,0.833,0.833,m/s
+113,record,position_lat,0,464862976,464862976,semicircles
+113,record,position_long,1,-1442910720,-1442910720,semicircles
+113,record,speed,6,833,0.833,m/s
+113,record,timestamp,253,1120079269,2025-06-28 21:07:49,
+113,record,unknown_121,121,0,0,
+113,record,unknown_122,122,189,189,
+114,record,altitude,2,4333,366.6,m
+114,record,distance,5,255892,2558.92,m
+114,record,enhanced_altitude,78,366.6,366.6,m
+114,record,enhanced_speed,73,0.833,0.833,m/s
+114,record,position_lat,0,464866553,464866553,semicircles
+114,record,position_long,1,-1442909697,-1442909697,semicircles
+114,record,speed,6,833,0.833,m/s
+114,record,timestamp,253,1120079310,2025-06-28 21:08:30,
+114,record,unknown_121,121,0,0,
+114,record,unknown_122,122,193,193,
+115,record,altitude,2,4320,364.0,m
+115,record,distance,5,259316,2593.16,m
+115,record,enhanced_altitude,78,364.0,364.0,m
+115,record,enhanced_speed,73,0.833,0.833,m/s
+115,record,position_lat,0,464870144,464870144,semicircles
+115,record,position_long,1,-1442908672,-1442908672,semicircles
+115,record,speed,6,833,0.833,m/s
+115,record,timestamp,253,1120079351,2025-06-28 21:09:11,
+115,record,unknown_121,121,0,0,
+115,record,unknown_122,122,196,196,
+116,record,altitude,2,4310,362.0,m
+116,record,distance,5,260994,2609.94,m
+116,record,enhanced_altitude,78,362.0,362.0,m
+116,record,enhanced_speed,73,0.833,0.833,m/s
+116,record,position_lat,0,464871936,464871936,semicircles
+116,record,position_long,1,-1442908928,-1442908928,semicircles
+116,record,speed,6,833,0.833,m/s
+116,record,timestamp,253,1120079371,2025-06-28 21:09:31,
+116,record,unknown_121,121,0,0,
+116,record,unknown_122,122,196,196,
+117,record,altitude,2,4300,360.0,m
+117,record,distance,5,262309,2623.09,m
+117,record,enhanced_altitude,78,360.0,360.0,m
+117,record,enhanced_speed,73,0.833,0.833,m/s
+117,record,position_lat,0,464873216,464873216,semicircles
+117,record,position_long,1,-1442909696,-1442909696,semicircles
+117,record,speed,6,833,0.833,m/s
+117,record,timestamp,253,1120079387,2025-06-28 21:09:47,
+117,record,unknown_121,121,0,0,
+117,record,unknown_122,122,200,200,
+118,record,altitude,2,4291,358.20000000000005,m
+118,record,distance,5,265540,2655.4,m
+118,record,enhanced_altitude,78,358.20000000000005,358.20000000000005,m
+118,record,enhanced_speed,73,0.833,0.833,m/s
+118,record,position_lat,0,464875520,464875520,semicircles
+118,record,position_long,1,-1442913024,-1442913024,semicircles
+118,record,speed,6,833,0.833,m/s
+118,record,timestamp,253,1120079426,2025-06-28 21:10:26,
+118,record,unknown_121,121,0,0,
+118,record,unknown_122,122,200,200,
+119,record,altitude,2,4280,356.0,m
+119,record,distance,5,266644,2666.44,m
+119,record,enhanced_altitude,78,356.0,356.0,m
+119,record,enhanced_speed,73,0.833,0.833,m/s
+119,record,position_lat,0,464876544,464876544,semicircles
+119,record,position_long,1,-1442913792,-1442913792,semicircles
+119,record,speed,6,833,0.833,m/s
+119,record,timestamp,253,1120079439,2025-06-28 21:10:39,
+119,record,unknown_121,121,0,0,
+119,record,unknown_122,122,204,204,
+120,record,altitude,2,4268,353.6,m
+120,record,distance,5,267597,2675.97,m
+120,record,enhanced_altitude,78,353.6,353.6,m
+120,record,enhanced_speed,73,0.833,0.833,m/s
+120,record,position_lat,0,464877568,464877568,semicircles
+120,record,position_long,1,-1442913792,-1442913792,semicircles
+120,record,speed,6,833,0.833,m/s
+120,record,timestamp,253,1120079451,2025-06-28 21:10:51,
+120,record,unknown_121,121,0,0,
+120,record,unknown_122,122,206,206,
+121,record,altitude,2,4253,350.6,m
+121,record,distance,5,270095,2700.95,m
+121,record,enhanced_altitude,78,350.6,350.6,m
+121,record,enhanced_speed,73,0.833,0.833,m/s
+121,record,position_lat,0,464879360,464879360,semicircles
+121,record,position_long,1,-1442911231,-1442911231,semicircles
+121,record,speed,6,833,0.833,m/s
+121,record,timestamp,253,1120079481,2025-06-28 21:11:21,
+121,record,unknown_121,121,0,0,
+121,record,unknown_122,122,209,209,
+122,record,altitude,2,4238,347.6,m
+122,record,distance,5,272593,2725.93,m
+122,record,enhanced_altitude,78,347.6,347.6,m
+122,record,enhanced_speed,73,0.833,0.833,m/s
+122,record,position_lat,0,464881152,464881152,semicircles
+122,record,position_long,1,-1442908672,-1442908672,semicircles
+122,record,speed,6,833,0.833,m/s
+122,record,timestamp,253,1120079511,2025-06-28 21:11:51,
+122,record,unknown_121,121,0,0,
+122,record,unknown_122,122,212,212,
+123,record,altitude,2,4222,344.4,m
+123,record,distance,5,275733,2757.33,m
+123,record,enhanced_altitude,78,344.4,344.4,m
+123,record,enhanced_speed,73,0.833,0.833,m/s
+123,record,position_lat,0,464883712,464883712,semicircles
+123,record,position_long,1,-1442905856,-1442905856,semicircles
+123,record,speed,6,833,0.833,m/s
+123,record,timestamp,253,1120079548,2025-06-28 21:12:28,
+123,record,unknown_121,121,0,0,
+123,record,unknown_122,122,215,215,
+124,record,altitude,2,4209,341.79999999999995,m
+124,record,distance,5,278481,2784.81,m
+124,record,enhanced_altitude,78,341.79999999999995,341.79999999999995,m
+124,record,enhanced_speed,73,0.833,0.833,m/s
+124,record,position_lat,0,464886650,464886650,semicircles
+124,record,position_long,1,-1442905472,-1442905472,semicircles
+124,record,speed,6,833,0.833,m/s
+124,record,timestamp,253,1120079581,2025-06-28 21:13:01,
+124,record,unknown_121,121,0,0,
+124,record,unknown_122,122,218,218,
+125,record,altitude,2,4195,339.0,m
+125,record,distance,5,281240,2812.4,m
+125,record,enhanced_altitude,78,339.0,339.0,m
+125,record,enhanced_speed,73,0.833,0.833,m/s
+125,record,position_lat,0,464889600,464889600,semicircles
+125,record,position_long,1,-1442905088,-1442905088,semicircles
+125,record,speed,6,833,0.833,m/s
+125,record,timestamp,253,1120079614,2025-06-28 21:13:34,
+125,record,unknown_121,121,0,0,
+125,record,unknown_122,122,221,221,
+126,record,altitude,2,4180,336.0,m
+126,record,distance,5,282211,2822.11,m
+126,record,enhanced_altitude,78,336.0,336.0,m
+126,record,enhanced_speed,73,0.833,0.833,m/s
+126,record,position_lat,0,464890624,464890624,semicircles
+126,record,position_long,1,-1442904832,-1442904832,semicircles
+126,record,speed,6,833,0.833,m/s
+126,record,timestamp,253,1120079626,2025-06-28 21:13:46,
+126,record,unknown_121,121,0,0,
+126,record,unknown_122,122,224,224,
+127,record,altitude,2,4165,333.0,m
+127,record,distance,5,282944,2829.44,m
+127,record,enhanced_altitude,78,333.0,333.0,m
+127,record,enhanced_speed,73,0.833,0.833,m/s
+127,record,position_lat,0,464891136,464891136,semicircles
+127,record,position_long,1,-1442904064,-1442904064,semicircles
+127,record,speed,6,833,0.833,m/s
+127,record,timestamp,253,1120079635,2025-06-28 21:13:55,
+127,record,unknown_121,121,0,0,
+127,record,unknown_122,122,227,227,
+128,record,altitude,2,4148,329.6,m
+128,record,distance,5,283725,2837.25,m
+128,record,enhanced_altitude,78,329.6,329.6,m
+128,record,enhanced_speed,73,0.833,0.833,m/s
+128,record,position_lat,0,464891392,464891392,semicircles
+128,record,position_long,1,-1442903040,-1442903040,semicircles
+128,record,speed,6,833,0.833,m/s
+128,record,timestamp,253,1120079644,2025-06-28 21:14:04,
+128,record,unknown_121,121,0,0,
+128,record,unknown_122,122,230,230,
+129,record,altitude,2,4131,326.20000000000005,m
+129,record,distance,5,285490,2854.9,m
+129,record,enhanced_altitude,78,326.20000000000005,326.20000000000005,m
+129,record,enhanced_speed,73,0.833,0.833,m/s
+129,record,position_lat,0,464890112,464890112,semicircles
+129,record,position_long,1,-1442901248,-1442901248,semicircles
+129,record,speed,6,833,0.833,m/s
+129,record,timestamp,253,1120079665,2025-06-28 21:14:25,
+129,record,unknown_121,121,0,0,
+129,record,unknown_122,122,234,234,
+130,record,altitude,2,4111,322.20000000000005,m
+130,record,distance,5,288300,2883.0,m
+130,record,enhanced_altitude,78,322.20000000000005,322.20000000000005,m
+130,record,enhanced_speed,73,0.833,0.833,m/s
+130,record,position_lat,0,464887299,464887299,semicircles
+130,record,position_long,1,-1442899841,-1442899841,semicircles
+130,record,speed,6,833,0.833,m/s
+130,record,timestamp,253,1120079699,2025-06-28 21:14:59,
+130,record,unknown_121,121,0,0,
+130,record,unknown_122,122,238,238,
+131,record,altitude,2,4091,318.20000000000005,m
+131,record,distance,5,291116,2911.16,m
+131,record,enhanced_altitude,78,318.20000000000005,318.20000000000005,m
+131,record,enhanced_speed,73,0.833,0.833,m/s
+131,record,position_lat,0,464884480,464884480,semicircles
+131,record,position_long,1,-1442898432,-1442898432,semicircles
+131,record,speed,6,833,0.833,m/s
+131,record,timestamp,253,1120079733,2025-06-28 21:15:33,
+131,record,unknown_121,121,0,0,
+131,record,unknown_122,122,242,242,
+132,record,altitude,2,4071,314.20000000000005,m
+132,record,distance,5,294105,2941.05,m
+132,record,enhanced_altitude,78,314.20000000000005,314.20000000000005,m
+132,record,enhanced_speed,73,0.833,0.833,m/s
+132,record,position_lat,0,464882048,464882048,semicircles
+132,record,position_long,1,-1442895744,-1442895744,semicircles
+132,record,speed,6,833,0.833,m/s
+132,record,timestamp,253,1120079769,2025-06-28 21:16:09,
+132,record,unknown_121,121,0,0,
+132,record,unknown_122,122,246,246,
+133,record,altitude,2,4051,310.20000000000005,m
+133,record,distance,5,297094,2970.94,m
+133,record,enhanced_altitude,78,310.20000000000005,310.20000000000005,m
+133,record,enhanced_speed,73,0.833,0.833,m/s
+133,record,position_lat,0,464879616,464879616,semicircles
+133,record,position_long,1,-1442893056,-1442893056,semicircles
+133,record,speed,6,833,0.833,m/s
+133,record,timestamp,253,1120079805,2025-06-28 21:16:45,
+133,record,unknown_121,121,0,0,
+133,record,unknown_122,122,250,250,
+134,record,altitude,2,4030,306.0,m
+134,record,distance,5,299520,2995.2,m
+134,record,enhanced_altitude,78,306.0,306.0,m
+134,record,enhanced_speed,73,0.833,0.833,m/s
+134,record,position_lat,0,464878592,464878592,semicircles
+134,record,position_long,1,-1442889984,-1442889984,semicircles
+134,record,speed,6,833,0.833,m/s
+134,record,timestamp,253,1120079834,2025-06-28 21:17:14,
+134,record,unknown_121,121,0,0,
+134,record,unknown_122,122,254,254,
+135,record,altitude,2,4009,301.79999999999995,m
+135,record,distance,5,301760,3017.6,m
+135,record,enhanced_altitude,78,301.79999999999995,301.79999999999995,m
+135,record,enhanced_speed,73,0.833,0.833,m/s
+135,record,position_lat,0,464878463,464878463,semicircles
+135,record,position_long,1,-1442886905,-1442886905,semicircles
+135,record,speed,6,833,0.833,m/s
+135,record,timestamp,253,1120079861,2025-06-28 21:17:41,
+135,record,unknown_121,121,0,0,
+135,record,unknown_122,122,258,258,
+136,record,altitude,2,3989,297.79999999999995,m
+136,record,distance,5,303990,3039.9,m
+136,record,enhanced_altitude,78,297.79999999999995,297.79999999999995,m
+136,record,enhanced_speed,73,0.833,0.833,m/s
+136,record,position_lat,0,464878336,464878336,semicircles
+136,record,position_long,1,-1442883840,-1442883840,semicircles
+136,record,speed,6,833,0.833,m/s
+136,record,timestamp,253,1120079887,2025-06-28 21:18:07,
+136,record,unknown_121,121,0,0,
+136,record,unknown_122,122,262,262,
+137,record,altitude,2,3968,293.6,m
+137,record,distance,5,306997,3069.97,m
+137,record,enhanced_altitude,78,293.6,293.6,m
+137,record,enhanced_speed,73,0.833,0.833,m/s
+137,record,position_lat,0,464877438,464877438,semicircles
+137,record,position_long,1,-1442879864,-1442879864,semicircles
+137,record,speed,6,833,0.833,m/s
+137,record,timestamp,253,1120079923,2025-06-28 21:18:43,
+137,record,unknown_121,121,0,0,
+137,record,unknown_122,122,266,266,
+138,record,altitude,2,3947,289.4,m
+138,record,distance,5,309991,3099.91,m
+138,record,enhanced_altitude,78,289.4,289.4,m
+138,record,enhanced_speed,73,0.833,0.833,m/s
+138,record,position_lat,0,464876544,464876544,semicircles
+138,record,position_long,1,-1442875904,-1442875904,semicircles
+138,record,speed,6,833,0.833,m/s
+138,record,timestamp,253,1120079959,2025-06-28 21:19:19,
+138,record,unknown_121,121,0,0,
+138,record,unknown_122,122,271,271,
+139,record,altitude,2,3925,285.0,m
+139,record,distance,5,313044,3130.44,m
+139,record,enhanced_altitude,78,285.0,285.0,m
+139,record,enhanced_speed,73,0.833,0.833,m/s
+139,record,position_lat,0,464874835,464874835,semicircles
+139,record,position_long,1,-1442872316,-1442872316,semicircles
+139,record,speed,6,833,0.833,m/s
+139,record,timestamp,253,1120079996,2025-06-28 21:19:56,
+139,record,unknown_121,121,0,0,
+139,record,unknown_122,122,275,275,
+140,record,altitude,2,3905,281.0,m
+140,record,distance,5,316097,3160.97,m
+140,record,enhanced_altitude,78,281.0,281.0,m
+140,record,enhanced_speed,73,0.833,0.833,m/s
+140,record,position_lat,0,464873127,464873127,semicircles
+140,record,position_long,1,-1442868728,-1442868728,semicircles
+140,record,speed,6,833,0.833,m/s
+140,record,timestamp,253,1120080033,2025-06-28 21:20:33,
+140,record,unknown_121,121,0,0,
+140,record,unknown_122,122,279,279,
+141,record,altitude,2,3884,276.79999999999995,m
+141,record,distance,5,319140,3191.4,m
+141,record,enhanced_altitude,78,276.79999999999995,276.79999999999995,m
+141,record,enhanced_speed,73,0.833,0.833,m/s
+141,record,position_lat,0,464871424,464871424,semicircles
+141,record,position_long,1,-1442865152,-1442865152,semicircles
+141,record,speed,6,833,0.833,m/s
+141,record,timestamp,253,1120080069,2025-06-28 21:21:09,
+141,record,unknown_121,121,0,0,
+141,record,unknown_122,122,283,283,
+142,record,altitude,2,3867,273.4,m
+142,record,distance,5,321866,3218.66,m
+142,record,enhanced_altitude,78,273.4,273.4,m
+142,record,enhanced_speed,73,0.833,0.833,m/s
+142,record,position_lat,0,464871039,464871039,semicircles
+142,record,position_long,1,-1442861432,-1442861432,semicircles
+142,record,speed,6,833,0.833,m/s
+142,record,timestamp,253,1120080102,2025-06-28 21:21:42,
+142,record,unknown_121,121,0,0,
+142,record,unknown_122,122,286,286,
+143,record,altitude,2,3851,270.20000000000005,m
+143,record,distance,5,324581,3245.81,m
+143,record,enhanced_altitude,78,270.20000000000005,270.20000000000005,m
+143,record,enhanced_speed,73,0.833,0.833,m/s
+143,record,position_lat,0,464870656,464870656,semicircles
+143,record,position_long,1,-1442857728,-1442857728,semicircles
+143,record,speed,6,833,0.833,m/s
+143,record,timestamp,253,1120080134,2025-06-28 21:22:14,
+143,record,unknown_121,121,0,0,
+143,record,unknown_122,122,290,290,
+144,record,altitude,2,3831,266.20000000000005,m
+144,record,distance,5,327603,3276.03,m
+144,record,enhanced_altitude,78,266.20000000000005,266.20000000000005,m
+144,record,enhanced_speed,73,0.833,0.833,m/s
+144,record,position_lat,0,464868096,464868096,semicircles
+144,record,position_long,1,-1442855168,-1442855168,semicircles
+144,record,speed,6,833,0.833,m/s
+144,record,timestamp,253,1120080171,2025-06-28 21:22:51,
+144,record,unknown_121,121,0,0,
+144,record,unknown_122,122,294,294,
+145,record,altitude,2,3817,263.4,m
+145,record,distance,5,328384,3283.84,m
+145,record,enhanced_altitude,78,263.4,263.4,m
+145,record,enhanced_speed,73,0.833,0.833,m/s
+145,record,position_lat,0,464867840,464867840,semicircles
+145,record,position_long,1,-1442854144,-1442854144,semicircles
+145,record,speed,6,833,0.833,m/s
+145,record,timestamp,253,1120080180,2025-06-28 21:23:00,
+145,record,unknown_121,121,0,0,
+145,record,unknown_122,122,297,297,
+146,record,altitude,2,3802,260.4,m
+146,record,distance,5,330443,3304.43,m
+146,record,enhanced_altitude,78,260.4,260.4,m
+146,record,enhanced_speed,73,0.833,0.833,m/s
+146,record,position_lat,0,464867584,464867584,semicircles
+146,record,position_long,1,-1442851328,-1442851328,semicircles
+146,record,speed,6,833,0.833,m/s
+146,record,timestamp,253,1120080205,2025-06-28 21:23:25,
+146,record,unknown_121,121,0,0,
+146,record,unknown_122,122,300,300,
+147,record,altitude,2,3789,257.79999999999995,m
+147,record,distance,5,332263,3322.63,m
+147,record,enhanced_altitude,78,257.79999999999995,257.79999999999995,m
+147,record,enhanced_speed,73,0.833,0.833,m/s
+147,record,position_lat,0,464868352,464868352,semicircles
+147,record,position_long,1,-1442849024,-1442849024,semicircles
+147,record,speed,6,833,0.833,m/s
+147,record,timestamp,253,1120080227,2025-06-28 21:23:47,
+147,record,unknown_121,121,0,0,
+147,record,unknown_122,122,302,302,
+148,record,altitude,2,3777,255.39999999999998,m
+148,record,distance,5,335569,3355.69,m
+148,record,enhanced_altitude,78,255.39999999999998,255.39999999999998,m
+148,record,enhanced_speed,73,0.833,0.833,m/s
+148,record,position_lat,0,464870268,464870268,semicircles
+148,record,position_long,1,-1442845192,-1442845192,semicircles
+148,record,speed,6,833,0.833,m/s
+148,record,timestamp,253,1120080266,2025-06-28 21:24:26,
+148,record,unknown_121,121,0,0,
+148,record,unknown_122,122,305,305,
+149,record,altitude,2,3765,253.0,m
+149,record,distance,5,335571,3355.71,m
+149,record,enhanced_altitude,78,253.0,253.0,m
+149,record,enhanced_speed,73,0.846,0.846,m/s
+149,record,position_lat,0,464870267,464870267,semicircles
+149,record,position_long,1,-1442845195,-1442845195,semicircles
+149,record,speed,6,846,0.846,m/s
+149,record,timestamp,253,1120080266,2025-06-28 21:24:26,
+149,record,unknown_121,121,0,0,
+149,record,unknown_122,122,307,307,
+150,record,altitude,2,3754,250.79999999999995,m
+150,record,distance,5,336243,3362.43,m
+150,record,enhanced_altitude,78,250.79999999999995,250.79999999999995,m
+150,record,enhanced_speed,73,0.833,0.833,m/s
+150,record,position_lat,0,464870656,464870656,semicircles
+150,record,position_long,1,-1442844416,-1442844416,semicircles
+150,record,speed,6,833,0.833,m/s
+150,record,timestamp,253,1120080274,2025-06-28 21:24:34,
+150,record,unknown_121,121,0,0,
+150,record,unknown_122,122,309,309,
+151,record,altitude,2,3743,248.60000000000002,m
+151,record,distance,5,337384,3373.84,m
+151,record,enhanced_altitude,78,248.60000000000002,248.60000000000002,m
+151,record,enhanced_speed,73,0.833,0.833,m/s
+151,record,position_lat,0,464870912,464870912,semicircles
+151,record,position_long,1,-1442842880,-1442842880,semicircles
+151,record,speed,6,833,0.833,m/s
+151,record,timestamp,253,1120080288,2025-06-28 21:24:48,
+151,record,unknown_121,121,0,0,
+151,record,unknown_122,122,311,311,
+152,record,altitude,2,3730,246.0,m
+152,record,distance,5,339164,3391.64,m
+152,record,enhanced_altitude,78,246.0,246.0,m
+152,record,enhanced_speed,73,0.833,0.833,m/s
+152,record,position_lat,0,464870270,464870270,semicircles
+152,record,position_long,1,-1442840572,-1442840572,semicircles
+152,record,speed,6,833,0.833,m/s
+152,record,timestamp,253,1120080309,2025-06-28 21:25:09,
+152,record,unknown_121,121,0,0,
+152,record,unknown_122,122,314,314,
+153,record,altitude,2,3719,243.79999999999995,m
+153,record,distance,5,340937,3409.37,m
+153,record,enhanced_altitude,78,243.79999999999995,243.79999999999995,m
+153,record,enhanced_speed,73,0.833,0.833,m/s
+153,record,position_lat,0,464869632,464869632,semicircles
+153,record,position_long,1,-1442838272,-1442838272,semicircles
+153,record,speed,6,833,0.833,m/s
+153,record,timestamp,253,1120080331,2025-06-28 21:25:31,
+153,record,unknown_121,121,0,0,
+153,record,unknown_122,122,316,316,
+154,record,altitude,2,3711,242.20000000000005,m
+154,record,distance,5,343038,3430.38,m
+154,record,enhanced_altitude,78,242.20000000000005,242.20000000000005,m
+154,record,enhanced_speed,73,0.833,0.833,m/s
+154,record,position_lat,0,464870144,464870144,semicircles
+154,record,position_long,1,-1442835456,-1442835456,semicircles
+154,record,speed,6,833,0.833,m/s
+154,record,timestamp,253,1120080356,2025-06-28 21:25:56,
+154,record,unknown_121,121,0,0,
+154,record,unknown_122,122,316,316,
+155,record,altitude,2,3703,240.60000000000002,m
+155,record,distance,5,345083,3450.83,m
+155,record,enhanced_altitude,78,240.60000000000002,240.60000000000002,m
+155,record,enhanced_speed,73,0.833,0.833,m/s
+155,record,position_lat,0,464870144,464870144,semicircles
+155,record,position_long,1,-1442832640,-1442832640,semicircles
+155,record,speed,6,833,0.833,m/s
+155,record,timestamp,253,1120080380,2025-06-28 21:26:20,
+155,record,unknown_121,121,0,0,
+155,record,unknown_122,122,319,319,
+156,record,altitude,2,3696,239.20000000000005,m
+156,record,distance,5,345084,3450.84,m
+156,record,enhanced_altitude,78,239.20000000000005,239.20000000000005,m
+156,record,enhanced_speed,73,0.846,0.846,m/s
+156,record,position_lat,0,464870145,464870145,semicircles
+156,record,position_long,1,-1442832640,-1442832640,semicircles
+156,record,speed,6,846,0.846,m/s
+156,record,timestamp,253,1120080380,2025-06-28 21:26:20,
+156,record,unknown_121,121,0,0,
+156,record,unknown_122,122,319,319,
+157,record,altitude,2,3690,238.0,m
+157,record,distance,5,346890,3468.9,m
+157,record,enhanced_altitude,78,238.0,238.0,m
+157,record,enhanced_speed,73,0.833,0.833,m/s
+157,record,position_lat,0,464870529,464870529,semicircles
+157,record,position_long,1,-1442830203,-1442830203,semicircles
+157,record,speed,6,833,0.833,m/s
+157,record,timestamp,253,1120080402,2025-06-28 21:26:42,
+157,record,unknown_121,121,0,0,
+157,record,unknown_122,122,322,322,
+158,record,altitude,2,3683,236.60000000000002,m
+158,record,distance,5,348689,3486.89,m
+158,record,enhanced_altitude,78,236.60000000000002,236.60000000000002,m
+158,record,enhanced_speed,73,0.833,0.833,m/s
+158,record,position_lat,0,464870912,464870912,semicircles
+158,record,position_long,1,-1442827776,-1442827776,semicircles
+158,record,speed,6,833,0.833,m/s
+158,record,timestamp,253,1120080424,2025-06-28 21:27:04,
+158,record,unknown_121,121,0,0,
+158,record,unknown_122,122,322,322,
+159,record,altitude,2,3676,235.20000000000005,m
+159,record,distance,5,350512,3505.12,m
+159,record,enhanced_altitude,78,235.20000000000005,235.20000000000005,m
+159,record,enhanced_speed,73,0.833,0.833,m/s
+159,record,position_lat,0,464871681,464871681,semicircles
+159,record,position_long,1,-1442825468,-1442825468,semicircles
+159,record,speed,6,833,0.833,m/s
+159,record,timestamp,253,1120080446,2025-06-28 21:27:26,
+159,record,unknown_121,121,0,0,
+159,record,unknown_122,122,325,325,
+160,record,altitude,2,3669,233.79999999999995,m
+160,record,distance,5,352329,3523.29,m
+160,record,enhanced_altitude,78,233.79999999999995,233.79999999999995,m
+160,record,enhanced_speed,73,0.833,0.833,m/s
+160,record,position_lat,0,464872448,464872448,semicircles
+160,record,position_long,1,-1442823168,-1442823168,semicircles
+160,record,speed,6,833,0.833,m/s
+160,record,timestamp,253,1120080467,2025-06-28 21:27:47,
+160,record,unknown_121,121,0,0,
+160,record,unknown_122,122,325,325,
+161,record,altitude,2,3660,232.0,m
+161,record,distance,5,354976,3549.76,m
+161,record,enhanced_altitude,78,232.0,232.0,m
+161,record,enhanced_speed,73,0.833,0.833,m/s
+161,record,position_lat,0,464872960,464872960,semicircles
+161,record,position_long,1,-1442819584,-1442819584,semicircles
+161,record,speed,6,833,0.833,m/s
+161,record,timestamp,253,1120080499,2025-06-28 21:28:19,
+161,record,unknown_121,121,0,0,
+161,record,unknown_122,122,328,328,
+162,record,altitude,2,3652,230.39999999999998,m
+162,record,distance,5,357623,3576.23,m
+162,record,enhanced_altitude,78,230.39999999999998,230.39999999999998,m
+162,record,enhanced_speed,73,0.833,0.833,m/s
+162,record,position_lat,0,464872448,464872448,semicircles
+162,record,position_long,1,-1442816000,-1442816000,semicircles
+162,record,speed,6,833,0.833,m/s
+162,record,timestamp,253,1120080531,2025-06-28 21:28:51,
+162,record,unknown_121,121,0,0,
+162,record,unknown_122,122,328,328,
+163,record,altitude,2,3646,229.20000000000005,m
+163,record,distance,5,360342,3603.42,m
+163,record,enhanced_altitude,78,229.20000000000005,229.20000000000005,m
+163,record,enhanced_speed,73,0.833,0.833,m/s
+163,record,position_lat,0,464870782,464870782,semicircles
+163,record,position_long,1,-1442812925,-1442812925,semicircles
+163,record,speed,6,833,0.833,m/s
+163,record,timestamp,253,1120080564,2025-06-28 21:29:24,
+163,record,unknown_121,121,0,0,
+163,record,unknown_122,122,331,331,
+164,record,altitude,2,3638,227.60000000000002,m
+164,record,distance,5,363055,3630.55,m
+164,record,enhanced_altitude,78,227.60000000000002,227.60000000000002,m
+164,record,enhanced_speed,73,0.833,0.833,m/s
+164,record,position_lat,0,464869120,464869120,semicircles
+164,record,position_long,1,-1442809856,-1442809856,semicircles
+164,record,speed,6,833,0.833,m/s
+164,record,timestamp,253,1120080596,2025-06-28 21:29:56,
+164,record,unknown_121,121,0,0,
+164,record,unknown_122,122,331,331,
+165,record,altitude,2,3632,226.39999999999998,m
+165,record,distance,5,366088,3660.88,m
+165,record,enhanced_altitude,78,226.39999999999998,226.39999999999998,m
+165,record,enhanced_speed,73,0.833,0.833,m/s
+165,record,position_lat,0,464867840,464867840,semicircles
+165,record,position_long,1,-1442806016,-1442806016,semicircles
+165,record,speed,6,833,0.833,m/s
+165,record,timestamp,253,1120080633,2025-06-28 21:30:33,
+165,record,unknown_121,121,0,0,
+165,record,unknown_122,122,334,334,
+166,record,altitude,2,3626,225.20000000000005,m
+166,record,distance,5,368157,3681.57,m
+166,record,enhanced_altitude,78,225.20000000000005,225.20000000000005,m
+166,record,enhanced_speed,73,0.833,0.833,m/s
+166,record,position_lat,0,464866686,464866686,semicircles
+166,record,position_long,1,-1442803581,-1442803581,semicircles
+166,record,speed,6,833,0.833,m/s
+166,record,timestamp,253,1120080657,2025-06-28 21:30:57,
+166,record,unknown_121,121,0,0,
+166,record,unknown_122,122,334,334,
+167,record,altitude,2,3621,224.20000000000005,m
+167,record,distance,5,370221,3702.21,m
+167,record,enhanced_altitude,78,224.20000000000005,224.20000000000005,m
+167,record,enhanced_speed,73,0.833,0.833,m/s
+167,record,position_lat,0,464865536,464865536,semicircles
+167,record,position_long,1,-1442801152,-1442801152,semicircles
+167,record,speed,6,833,0.833,m/s
+167,record,timestamp,253,1120080682,2025-06-28 21:31:22,
+167,record,unknown_121,121,0,0,
+167,record,unknown_122,122,336,336,
+168,record,altitude,2,3617,223.39999999999998,m
+168,record,distance,5,372789,3727.89,m
+168,record,enhanced_altitude,78,223.39999999999998,223.39999999999998,m
+168,record,enhanced_speed,73,0.833,0.833,m/s
+168,record,position_lat,0,464863870,464863870,semicircles
+168,record,position_long,1,-1442798334,-1442798334,semicircles
+168,record,speed,6,833,0.833,m/s
+168,record,timestamp,253,1120080713,2025-06-28 21:31:53,
+168,record,unknown_121,121,0,0,
+168,record,unknown_122,122,336,336,
+169,record,altitude,2,3614,222.79999999999995,m
+169,record,distance,5,375352,3753.52,m
+169,record,enhanced_altitude,78,222.79999999999995,222.79999999999995,m
+169,record,enhanced_speed,73,0.833,0.833,m/s
+169,record,position_lat,0,464862208,464862208,semicircles
+169,record,position_long,1,-1442795520,-1442795520,semicircles
+169,record,speed,6,833,0.833,m/s
+169,record,timestamp,253,1120080744,2025-06-28 21:32:24,
+169,record,unknown_121,121,0,0,
+169,record,unknown_122,122,337,337,
+170,record,altitude,2,3611,222.20000000000005,m
+170,record,distance,5,377609,3776.09,m
+170,record,enhanced_altitude,78,222.20000000000005,222.20000000000005,m
+170,record,enhanced_speed,73,0.833,0.833,m/s
+170,record,position_lat,0,464861184,464861184,semicircles
+170,record,position_long,1,-1442792704,-1442792704,semicircles
+170,record,speed,6,833,0.833,m/s
+170,record,timestamp,253,1120080771,2025-06-28 21:32:51,
+170,record,unknown_121,121,0,0,
+170,record,unknown_122,122,337,337,
+171,record,altitude,2,3610,222.0,m
+171,record,distance,5,380137,3801.37,m
+171,record,enhanced_altitude,78,222.0,222.0,m
+171,record,enhanced_speed,73,0.833,0.833,m/s
+171,record,position_lat,0,464860927,464860927,semicircles
+171,record,position_long,1,-1442789240,-1442789240,semicircles
+171,record,speed,6,833,0.833,m/s
+171,record,timestamp,253,1120080801,2025-06-28 21:33:21,
+171,record,unknown_121,121,0,0,
+171,record,unknown_122,122,337,337,
+172,record,altitude,2,3609,221.79999999999995,m
+172,record,distance,5,382653,3826.53,m
+172,record,enhanced_altitude,78,221.79999999999995,221.79999999999995,m
+172,record,enhanced_speed,73,0.833,0.833,m/s
+172,record,position_lat,0,464860673,464860673,semicircles
+172,record,position_long,1,-1442785792,-1442785792,semicircles
+172,record,speed,6,833,0.833,m/s
+172,record,timestamp,253,1120080831,2025-06-28 21:33:51,
+172,record,unknown_121,121,0,0,
+172,record,unknown_122,122,337,337,
+173,record,altitude,2,3609,221.79999999999995,m
+173,record,distance,5,383613,3836.13,m
+173,record,enhanced_altitude,78,221.79999999999995,221.79999999999995,m
+173,record,enhanced_speed,73,0.833,0.833,m/s
+173,record,position_lat,0,464860416,464860416,semicircles
+173,record,position_long,1,-1442784512,-1442784512,semicircles
+173,record,speed,6,833,0.833,m/s
+173,record,timestamp,253,1120080843,2025-06-28 21:34:03,
+173,record,unknown_121,121,0,0,
+173,record,unknown_122,122,338,338,
+174,record,altitude,2,3608,221.60000000000002,m
+174,record,distance,5,384347,3843.47,m
+174,record,enhanced_altitude,78,221.60000000000002,221.60000000000002,m
+174,record,enhanced_speed,73,0.833,0.833,m/s
+174,record,position_lat,0,464859904,464859904,semicircles
+174,record,position_long,1,-1442783744,-1442783744,semicircles
+174,record,speed,6,833,0.833,m/s
+174,record,timestamp,253,1120080852,2025-06-28 21:34:12,
+174,record,unknown_121,121,0,0,
+174,record,unknown_122,122,338,338,
+175,record,altitude,2,3607,221.39999999999998,m
+175,record,distance,5,386623,3866.23,m
+175,record,enhanced_altitude,78,221.39999999999998,221.39999999999998,m
+175,record,enhanced_speed,73,0.833,0.833,m/s
+175,record,position_lat,0,464857476,464857476,semicircles
+175,record,position_long,1,-1442783360,-1442783360,semicircles
+175,record,speed,6,833,0.833,m/s
+175,record,timestamp,253,1120080879,2025-06-28 21:34:39,
+175,record,unknown_121,121,0,0,
+175,record,unknown_122,122,338,338,
+176,record,altitude,2,3606,221.20000000000005,m
+176,record,distance,5,388907,3889.07,m
+176,record,enhanced_altitude,78,221.20000000000005,221.20000000000005,m
+176,record,enhanced_speed,73,0.833,0.833,m/s
+176,record,position_lat,0,464855040,464855040,semicircles
+176,record,position_long,1,-1442782976,-1442782976,semicircles
+176,record,speed,6,833,0.833,m/s
+176,record,timestamp,253,1120080906,2025-06-28 21:35:06,
+176,record,unknown_121,121,0,0,
+176,record,unknown_122,122,338,338,
+177,record,altitude,2,3605,221.0,m
+177,record,distance,5,391751,3917.51,m
+177,record,enhanced_altitude,78,221.0,221.0,m
+177,record,enhanced_speed,73,0.833,0.833,m/s
+177,record,position_lat,0,464852228,464852228,semicircles
+177,record,position_long,1,-1442781441,-1442781441,semicircles
+177,record,speed,6,833,0.833,m/s
+177,record,timestamp,253,1120080940,2025-06-28 21:35:40,
+177,record,unknown_121,121,0,0,
+177,record,unknown_122,122,338,338,
+178,record,altitude,2,3604,220.79999999999995,m
+178,record,distance,5,394602,3946.02,m
+178,record,enhanced_altitude,78,220.79999999999995,220.79999999999995,m
+178,record,enhanced_speed,73,0.833,0.833,m/s
+178,record,position_lat,0,464849409,464849409,semicircles
+178,record,position_long,1,-1442779904,-1442779904,semicircles
+178,record,speed,6,833,0.833,m/s
+178,record,timestamp,253,1120080975,2025-06-28 21:36:15,
+178,record,unknown_121,121,0,0,
+178,record,unknown_122,122,339,339,
+179,record,altitude,2,3604,220.79999999999995,m
+179,record,distance,5,397018,3970.18,m
+179,record,enhanced_altitude,78,220.79999999999995,220.79999999999995,m
+179,record,enhanced_speed,73,0.833,0.833,m/s
+179,record,position_lat,0,464847106,464847106,semicircles
+179,record,position_long,1,-1442778369,-1442778369,semicircles
+179,record,speed,6,833,0.833,m/s
+179,record,timestamp,253,1120081004,2025-06-28 21:36:44,
+179,record,unknown_121,121,0,0,
+179,record,unknown_122,122,339,339,
+180,record,altitude,2,3603,220.60000000000002,m
+180,record,distance,5,399437,3994.37,m
+180,record,enhanced_altitude,78,220.60000000000002,220.60000000000002,m
+180,record,enhanced_speed,73,0.833,0.833,m/s
+180,record,position_lat,0,464844800,464844800,semicircles
+180,record,position_long,1,-1442776832,-1442776832,semicircles
+180,record,speed,6,833,0.833,m/s
+180,record,timestamp,253,1120081033,2025-06-28 21:37:13,
+180,record,unknown_121,121,0,0,
+180,record,unknown_122,122,339,339,
+181,record,altitude,2,3603,220.60000000000002,m
+181,record,distance,5,401069,4010.69,m
+181,record,enhanced_altitude,78,220.60000000000002,220.60000000000002,m
+181,record,enhanced_speed,73,0.833,0.833,m/s
+181,record,position_lat,0,464843520,464843520,semicircles
+181,record,position_long,1,-1442775296,-1442775296,semicircles
+181,record,speed,6,833,0.833,m/s
+181,record,timestamp,253,1120081052,2025-06-28 21:37:32,
+181,record,unknown_121,121,0,0,
+181,record,unknown_122,122,339,339,
+182,record,altitude,2,3604,220.79999999999995,m
+182,record,distance,5,402903,4029.03,m
+182,record,enhanced_altitude,78,220.79999999999995,220.79999999999995,m
+182,record,enhanced_speed,73,0.833,0.833,m/s
+182,record,position_lat,0,464843007,464843007,semicircles
+182,record,position_long,1,-1442772859,-1442772859,semicircles
+182,record,speed,6,833,0.833,m/s
+182,record,timestamp,253,1120081074,2025-06-28 21:37:54,
+182,record,unknown_121,121,0,0,
+182,record,unknown_122,122,339,339,
+183,record,altitude,2,3605,221.0,m
+183,record,distance,5,404729,4047.29,m
+183,record,enhanced_altitude,78,221.0,221.0,m
+183,record,enhanced_speed,73,0.833,0.833,m/s
+183,record,position_lat,0,464842496,464842496,semicircles
+183,record,position_long,1,-1442770432,-1442770432,semicircles
+183,record,speed,6,833,0.833,m/s
+183,record,timestamp,253,1120081096,2025-06-28 21:38:16,
+183,record,unknown_121,121,0,0,
+183,record,unknown_122,122,339,339,
+184,record,altitude,2,3606,221.20000000000005,m
+184,record,distance,5,407899,4078.99,m
+184,record,enhanced_altitude,78,221.20000000000005,221.20000000000005,m
+184,record,enhanced_speed,73,0.833,0.833,m/s
+184,record,position_lat,0,464842752,464842752,semicircles
+184,record,position_long,1,-1442766080,-1442766080,semicircles
+184,record,speed,6,833,0.833,m/s
+184,record,timestamp,253,1120081134,2025-06-28 21:38:54,
+184,record,unknown_121,121,0,0,
+184,record,unknown_122,122,339,339,
+185,record,altitude,2,3606,221.20000000000005,m
+185,record,distance,5,409763,4097.63,m
+185,record,enhanced_altitude,78,221.20000000000005,221.20000000000005,m
+185,record,enhanced_speed,73,0.833,0.833,m/s
+185,record,position_lat,0,464842752,464842752,semicircles
+185,record,position_long,1,-1442763514,-1442763514,semicircles
+185,record,speed,6,833,0.833,m/s
+185,record,timestamp,253,1120081157,2025-06-28 21:39:17,
+185,record,unknown_121,121,0,0,
+185,record,unknown_122,122,339,339,
+186,record,altitude,2,3607,221.39999999999998,m
+186,record,distance,5,411619,4116.19,m
+186,record,enhanced_altitude,78,221.39999999999998,221.39999999999998,m
+186,record,enhanced_speed,73,0.833,0.833,m/s
+186,record,position_lat,0,464842752,464842752,semicircles
+186,record,position_long,1,-1442760960,-1442760960,semicircles
+186,record,speed,6,833,0.833,m/s
+186,record,timestamp,253,1120081179,2025-06-28 21:39:39,
+186,record,unknown_121,121,0,0,
+186,record,unknown_122,122,339,339,
+187,record,altitude,2,3607,221.39999999999998,m
+187,record,distance,5,412689,4126.89,m
+187,record,enhanced_altitude,78,221.39999999999998,221.39999999999998,m
+187,record,enhanced_speed,73,0.833,0.833,m/s
+187,record,position_lat,0,464842610,464842610,semicircles
+187,record,position_long,1,-1442759498,-1442759498,semicircles
+187,record,speed,6,833,0.833,m/s
+187,record,timestamp,253,1120081192,2025-06-28 21:39:52,
+187,record,unknown_121,121,0,0,
+187,record,unknown_122,122,339,339,
+188,event,event,0,0,timer,
+188,event,event_group,4,0,0,
+188,event,event_type,1,9,stop_disable_all,
+188,event,timestamp,253,1120081192,2025-06-28 21:39:52,
+189,file_creator,hardware_version,1,0,0,
+189,file_creator,unknown_2,2,course-service-26.22,course-service-26.22,
