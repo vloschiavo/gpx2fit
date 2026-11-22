@@ -101,24 +101,24 @@ Each task is sized to fit in one small working session. Every task lists what to
 
 ## Phase 3: Geometry
 
-- [ ] **3.1 Haversine and cumulative distance**
+- [x] **3.1 Haversine and cumulative distance**
   - Needs: `course.h`
   - Output: `src/geo.c`: `haversine_m()`, `course_compute_distances()` which sets `tp[i].dist` and skips zero-length segments safely.
   - Done when: a test with known distances (for example one degree of latitude is about 111.19 km) passes within a tolerance.
 
-- [ ] **3.2 Local projection helper**
+- [x] **3.2 Local projection helper**
   - Output: equirectangular conversion to local x/y meters around a reference latitude, with a documented accuracy limit.
   - Done when: round-trip and distance tests pass against haversine within 0.1% for tracks under 100 km.
 
-- [ ] **3.3 Point-to-segment projection**
+- [x] **3.3 Point-to-segment projection**
   - Output: `project_to_segment()` returning the clamped parameter `t`, the projected lat/lon, and the perpendicular distance. Handles zero-length segments.
   - Done when: tests cover perpendicular, before-start clamp, after-end clamp, and degenerate segment cases.
 
-- [ ] **3.4 Elevation statistics**
+- [x] **3.4 Elevation statistics**
   - Output: total ascent and descent, with a simple noise threshold (for example ignore changes under 1 m), and min/max elevation. Safe when `has_ele` is false.
   - Done when: a synthetic profile with known ascent gives the expected value.
 
-- [ ] **3.5 Geometry test suite**
+- [x] **3.5 Geometry test suite**
   - Output: `tests/test_geo.c` collecting tests from 3.1 to 3.4.
   - Done when: `make test` passes, ASan and UBSan clean.
 
