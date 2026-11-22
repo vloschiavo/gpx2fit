@@ -53,7 +53,7 @@ Each task is sized to fit in one small working session. Every task lists what to
   - Output: `src/course.h` with `struct trackpoint`, `struct waypoint`, `struct course_pt`, `struct course`, plus init/free function declarations. `struct waypoint` has `name`, lat and lon, and no `sym` field.
   - Done when: the header compiles on its own (`gcc -fsyntax-only`) and every field has a comment on units (degrees, meters, seconds).
 
-- [ ] **1.3 Course memory management**
+- [x] **1.3 Course memory management**
   - Needs: `course.h`
   - Output: `src/course.c` with `course_init`, `course_free`, growable-array helpers for trackpoints and waypoints.
   - Done when: a tiny test adds 10,000 points, frees them, and runs clean under ASan.

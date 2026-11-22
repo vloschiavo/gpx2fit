@@ -29,11 +29,25 @@ asan:
 	    CFLAGS="-O1 -g -std=c11 -Wall -Wextra -Wpedantic -fsanitize=address,undefined -fno-omit-frame-pointer" \
 	    LDFLAGS="-fsanitize=address,undefined"
 
-# Test runner: no tests exist yet; later tasks add tests/ programs here.
-test: all
-	@echo "No tests yet."
+# Tests: every tests/test_*.c is built against all of src/ except main.c,
+# with ASan + UBSan (any report aborts the test), then run.
+LIB_SRC   = $(filter-out src/main.c,$(SRC))
+TEST_SRC  = $(wildcard tests/test_*.c)
+TEST_BIN  = $(TEST_SRC:tests/%.c=build-test/%)
+SAN_FLAGS = -fsanitize=address,undefined -fno-sanitize-recover=undefined \
+            -fno-omit-frame-pointer
+
+build-test/%: tests/%.c $(LIB_SRC) $(wildcard src/*.h) | build-test
+	$(CC) -O1 -g -std=c11 -Wall -Wextra -Wpedantic $(SAN_FLAGS) -Isrc \
+	    -o $@ $< $(LIB_SRC)
+
+build-test:
+	mkdir -p $@
+
+test: all $(TEST_BIN)
+	@set -e; for t in $(TEST_BIN); do echo "== $$t"; ./$$t; done
 
 clean:
-	rm -rf $(BUILD) build-asan $(TARGET) $(TARGET)-asan
+	rm -rf $(BUILD) build-asan build-test $(TARGET) $(TARGET)-asan
 
 -include $(DEP)

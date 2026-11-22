@@ -66,4 +66,13 @@ void course_init(struct course *c);
  * state so a second call, or course_init-style reuse, is safe. */
 void course_free(struct course *c);
 
+/* Append a trackpoint (copied by value), growing the array as needed.
+ * Returns 0 on success, -1 on allocation failure (course left unchanged). */
+int course_add_trackpoint(struct course *c, const struct trackpoint *tp);
+
+/* Append a waypoint. The name is copied (NULL allowed); lat/lon in degrees.
+ * Returns 0 on success, -1 on allocation failure (course left unchanged). */
+int course_add_waypoint(struct course *c, const char *name,
+                        double lat, double lon);
+
 #endif /* COURSE_H */
