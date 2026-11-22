@@ -115,7 +115,8 @@ struct snap_options {
 struct snap_report {
     size_t n_snapped;   /* course points created */
     size_t n_skipped;   /* waypoints with no candidate within the threshold */
-    size_t n_unordered; /* ordered mode: waypoints that could not keep GPX order */
+    size_t n_unordered; /* ordered mode: waypoints that could not keep GPX order
+                         * (warned about only if they had several passes) */
 };
 
 #define SNAP_OK      0

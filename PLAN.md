@@ -147,7 +147,7 @@ Each task is sized to fit in one small working session. Every task lists what to
   - Output: `--pass=first` and `--pass=last`.
   - Done when: out-and-back fixture shows the expected pass for each mode.
 
-- [ ] **4.6 Sorting, `--strict`, and the summary**
+- [x] **4.6 Sorting, `--strict`, and the summary**
   - Output: course points sorted by distance, nonzero exit under `--strict` if any waypoint was skipped, and a printed summary line for each course point (name, km, offset).
   - Done when: the sample GPX produces the expected report, including the 400 m skipped waypoint.
 

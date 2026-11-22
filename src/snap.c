@@ -20,7 +20,9 @@
  *                 first (lowest waypoint index, then lowest candidate index).
  *            Waypoints that cannot join the longest chain (the GPX order
  *            contradicts the track order) fall back to their nearest
- *            candidate and are counted in n_unordered.
+ *            candidate and are counted in n_unordered. They are reported
+ *            on stderr only if they had more than one candidate: with a
+ *            single pass there was no choice for the order to affect.
  *   Waypoints with no candidate within the threshold are skipped in every
  *   mode and take no part in the ordering.
  */
@@ -553,10 +555,13 @@ int snap_waypoints(struct course *c, const struct snap_options *opt,
         }
         if (opt->mode == SNAP_ORDERED && !in_chain[w]) {
             r.n_unordered++;
-            if (!opt->quiet)
+            /* A fallback waypoint always gets its nearest pass, so the
+             * warning only carries information when the track passes it more
+             * than once, i.e. when ordering could have picked another pass. */
+            if (!opt->quiet && all[w].n > 1)
                 fprintf(stderr, "warning: waypoint '%s' is out of GPX order "
-                        "along the track; using its nearest pass\n",
-                        display_name(wp->name));
+                        "along the track; using its nearest of %zu passes\n",
+                        display_name(wp->name), all[w].n);
         }
         if (add_course_point(c, wp, &all[w].v[choice[w]]) != 0)
             goto done;
