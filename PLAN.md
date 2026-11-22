@@ -44,7 +44,7 @@ Each task is sized to fit in one small working session. Every task lists what to
 
 ## Phase 1: Project skeleton
 
-- [ ] **1.1 Directory layout and Makefile**
+- [x] **1.1 Directory layout and Makefile**
   - Needs: the architecture section of `plan.md`.
   - Output: `Makefile` (targets `all`, `test`, `clean`, `asan`), empty `src/` and `tests/` dirs, flags `-std=c11 -Wall -Wextra -Wpedantic`. A rule that generates `default_map.h` from `data/default.map` is added in 5.3.
   - Done when: `make` builds a stub `main.c` that prints usage.
