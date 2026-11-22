@@ -1,0 +1,62 @@
+# Compiled object files, static/shared libraries, and binaries
+*.o
+*.obj
+*.lo
+*.la
+*.a
+*.so
+*.so.*
+*.dylib
+*.dll
+*.exe
+*.out
+*.app
+*.dSYM/
+
+# Dependency & preprocessor files
+*.d
+*.dep
+*.gch
+*.pch
+*.ilk
+*.exp
+*.lib
+*.pdb
+*.map
+
+# Build systems & generators (outside build/ dirs)
+build/
+cmake-build-*/
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+CPackConfig.cmake
+CPackSourceConfig.cmake
+compile_commands.json
+Makefile.in
+*.ninja_log
+.ninja_deps
+
+# Testing & coverage artifacts
+*.gcno
+*.gcda
+*.gcov
+*.lcov
+*.info
+coverage/
+Testing/
+
+# Package managers & local dependency caches
+vcpkg_installed/
+conaninfo.txt
+conanbuildinfo.*
+_deps/
+
+# Editors, IDEs, and OS clutter
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
