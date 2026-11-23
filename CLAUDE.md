@@ -83,3 +83,13 @@ Each module has a matching `.h` describing its contract.
 decoded `.csv`) used as a decoding/format oracle. `PLAN.md` tracks the phased
 build (phase numbers appear in commit messages and source comments);
 `NOTES.md` / `NOTES_phase7.md` are working notes.
+
+## Plan Orchestration Workflow
+When asked to execute `PLAN.md`:
+1. Read `PLAN.md` and identify the next unchecked (`- [ ]`) task whose dependencies are complete.
+2. Delegate the task to the `worker` subagent with:
+   - The exact task description, scope, and acceptance criteria from `PLAN.md`
+   - Instructions to keep edits strictly within scope and report test results
+3. After `worker` reports back, if the task warrants a check, delegate to the `reviewer` subagent to inspect the changes against acceptance criteria.
+4. If `reviewer` reports issues, send a focused follow-up to `worker` to fix them before moving on.
+5. Once verified, update `PLAN.md` to mark the task `- [x]` and proceed to the next task (or pause if blocked/ambiguous).

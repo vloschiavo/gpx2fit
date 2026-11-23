@@ -59,6 +59,7 @@ _deps/
 *~
 .DS_Store
 Thumbs.db
+.claude/
 
 # binaries
 gpx2fit
