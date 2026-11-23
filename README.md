@@ -127,7 +127,8 @@ failed run does not leave a partial `.fit` behind.
    rule (such as "Start") still become course points, with the generic icon
    and a warning.
 4. Send the `.fit` to your device through Garmin Connect, or copy it to the
-   device's courses folder over USB.
+   device's courses folder over USB.  The easist is probably to use Garmin
+   connect Training & Planning -> Courses -> Import to upload the .fit.
 
 ## Waypoint types
 
