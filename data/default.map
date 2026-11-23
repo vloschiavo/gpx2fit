@@ -1,0 +1,29 @@
+# default.map: waypoint name -> FIT course_point type.
+#
+# Format:  keyword = type     (# starts a comment)
+# Matching is a case-insensitive substring match; the FIRST matching line wins,
+# so put specific keywords above general ones. This file is embedded into the
+# binary at build time (see the Makefile); user rules from --map are tried
+# before these.
+#
+# CAUTION: substring matching means "camp" also matches "Campbell Creek" and
+# "water" also matches "Waterfall". Override with a line in your --map file,
+# e.g.  waterfall = generic
+
+# From the CalTopo exports (NOTES.md 5.1)
+water   = water
+camp    = campsite
+caution = danger
+
+# Extras that are not in any export yet (NOTES.md 5.1); delete what you dislike.
+hazard    = danger
+danger    = danger
+first aid = first_aid
+summit    = summit
+overlook  = overlook
+shelter   = shelter
+toilet    = toilet
+food      = food
+
+# "Start" and "Ranger Station" (from the sample) deliberately have no rule:
+# they get type generic plus a warning (decision pending, see NOTES.md 5.1).

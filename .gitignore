@@ -22,7 +22,6 @@
 *.exp
 *.lib
 *.pdb
-*.map
 
 # Build systems & generators (outside build/ dirs)
 build/
@@ -60,3 +59,9 @@ _deps/
 *~
 .DS_Store
 Thumbs.db
+
+# binaries
+gpx2fit
+gpx2fit-asan
+build-test/
+build-asan/
