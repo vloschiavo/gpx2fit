@@ -69,7 +69,7 @@ Prepare `LIB_SRC` so every stage (GPX read, custom map parse, FIT write, warning
   - Output: `read_gpx_mem(const char *buf, size_t len, const char *fallback_name, struct course *c, ...)` feeding chunks into `XML_Parse` without `fopen`/`fread`. Refactor `read_gpx(path, ...)` to read the file into a buffer and delegate to `read_gpx_mem()`.
   - Done when: all existing GPX unit tests and `fuzz_gpx.c` pass with zero behavior change[cite: 2, 4].
 
-- [ ] **13.2 Structured warning & error collector**
+- [x] **13.2 Structured warning & error collector**
   - Needs: `src/gpx.c`, `src/snap.c`, `src/symmap.c`, `src/main.c`[cite: 2, 4]
   - Output: optional callback or `struct diag_list` passed into library functions so warnings/errors are captured into strings for WASM callers while `main.c` still prints them to `stderr`[cite: 5].
   - Done when: `make test` passes and CLI stderr output matches `tests/run.sh` byte-for-byte[cite: 1, 2, 4].
