@@ -83,9 +83,12 @@ static char *dup_str(const char *s)
     return d;
 }
 
-/* File name without directory and extension, e.g. "a/b/route.gpx" -> "route". */
+/* File name without directory and extension, e.g. "a/b/route.gpx" -> "route".
+ * A NULL input yields "course". */
 static char *name_from_path(const char *path)
 {
+    if (!path)
+        path = "course";
     const char *base = strrchr(path, '/');
     base = base ? base + 1 : path;
     size_t n = strlen(base);
@@ -461,29 +464,38 @@ static void state_free(struct gpx_state *st)
     free(st->text);
 }
 
-int read_gpx(const char *path, struct course *c, const struct gpx_options *opt,
-             char *err, size_t errsz)
+int read_gpx_mem(const char *buf, size_t len, const char *fallback_name,
+                 struct course *c, const struct gpx_options *opt,
+                 char *err, size_t errsz)
 {
     struct gpx_state st;
     int rc = -1;
-    FILE *f;
     XML_Parser p;
-    static char buf[64 * 1024];
+    struct gpx_options default_opt;
+    const char *data = buf ? buf : "";
+
+    if (err && errsz > 0)
+        err[0] = '\0';
+    if (len > 0 && !buf) {
+        if (err && errsz > 0)
+            snprintf(err, errsz, "invalid input: NULL buffer");
+        return -1;
+    }
 
     memset(&st, 0, sizeof st);
     st.c = c;
-    st.opt = opt;
-    err[0] = '\0';
-
-    f = fopen(path, "rb");
-    if (!f) {
-        snprintf(err, errsz, "cannot open '%s': %s", path, strerror(errno));
-        return -1;
+    if (opt)
+        st.opt = opt;
+    else {
+        default_opt.track = 0;
+        default_opt.quiet = false;
+        st.opt = &default_opt;
     }
+
     p = XML_ParserCreateNS(NULL, ' ');
     if (!p) {
-        snprintf(err, errsz, "out of memory");
-        fclose(f);
+        if (err && errsz > 0)
+            snprintf(err, errsz, "out of memory");
         return -1;
     }
     st.parser = p;
@@ -491,30 +503,45 @@ int read_gpx(const char *path, struct course *c, const struct gpx_options *opt,
     XML_SetElementHandler(p, on_start, on_end);
     XML_SetCharacterDataHandler(p, on_text);
 
-    for (;;) {
-        size_t n = fread(buf, 1, sizeof buf, f);
-        if (ferror(f)) {
-            snprintf(err, errsz, "error reading '%s'", path);
-            goto done;
+    {
+        size_t pos = 0;
+        const size_t CHUNK = 64 * 1024;
+        for (;;) {
+            size_t n = len - pos;
+            if (n > CHUNK)
+                n = CHUNK;
+            int final = (pos + n == len);
+            if (XML_Parse(p, data + pos, (int)n, final) == XML_STATUS_ERROR) {
+                if (st.failed) {
+                    if (err && errsz > 0)
+                        snprintf(err, errsz, "%s", st.err);
+                } else {
+                    if (err && errsz > 0)
+                        snprintf(err, errsz, "line %lu: %s",
+                                 (unsigned long)XML_GetCurrentLineNumber(p),
+                                 XML_ErrorString(XML_GetErrorCode(p)));
+                }
+                goto done;
+            }
+            pos += n;
+            if (final)
+                break;
         }
-        int final = feof(f);
-        if (XML_Parse(p, buf, (int)n, final) == XML_STATUS_ERROR) {
-            if (st.failed)
-                snprintf(err, errsz, "%s", st.err);
-            else
-                snprintf(err, errsz, "line %lu: %s",
-                         (unsigned long)XML_GetCurrentLineNumber(p),
-                         XML_ErrorString(XML_GetErrorCode(p)));
-            goto done;
-        }
-        if (final)
-            break;
     }
 
     {
-        long sel = select_track(&st, err, errsz);
-        if (sel < 0)
+        char ebuf[256];
+        char *euse = (err && errsz > 0) ? err : ebuf;
+        size_t esz = (err && errsz > 0) ? errsz : sizeof ebuf;
+        if (!err || errsz == 0)
+            ebuf[0] = '\0';
+
+        long sel = select_track(&st, euse, esz);
+        if (sel < 0) {
+            if (err && errsz > 0 && st.err[0] && !err[0])
+                snprintf(err, errsz, "%s", st.err);
             goto done;
+        }
         struct gpx_trk *t = &st.trks[sel];
 
         if (t->n_seg > 1)
@@ -534,10 +561,11 @@ int read_gpx(const char *path, struct course *c, const struct gpx_options *opt,
             c->name = t->name;
             t->name = NULL;
         } else {
-            c->name = name_from_path(path);
+            c->name = name_from_path(fallback_name);
         }
         if (!c->name) {
-            snprintf(err, errsz, "out of memory");
+            if (err && errsz > 0)
+                snprintf(err, errsz, "out of memory");
             goto done;
         }
     }
@@ -545,7 +573,57 @@ int read_gpx(const char *path, struct course *c, const struct gpx_options *opt,
 
 done:
     XML_ParserFree(p);
-    fclose(f);
     state_free(&st);
+    return rc;
+}
+
+int read_gpx(const char *path, struct course *c, const struct gpx_options *opt,
+             char *err, size_t errsz)
+{
+    FILE *f;
+    char *buf = NULL;
+    size_t len = 0, cap = 0;
+    int rc;
+
+    if (err && errsz > 0)
+        err[0] = '\0';
+
+    f = fopen(path, "rb");
+    if (!f) {
+        if (err && errsz > 0)
+            snprintf(err, errsz, "cannot open '%s': %s", path, strerror(errno));
+        return -1;
+    }
+
+    for (;;) {
+        if (len == cap) {
+            size_t ncap = cap ? cap * 2 : 64 * 1024;
+            char *nb = realloc(buf, ncap);
+            if (!nb) {
+                free(buf);
+                fclose(f);
+                if (err && errsz > 0)
+                    snprintf(err, errsz, "out of memory");
+                return -1;
+            }
+            buf = nb;
+            cap = ncap;
+        }
+        size_t got = fread(buf + len, 1, cap - len, f);
+        if (got == 0) {
+            if (ferror(f)) {
+                snprintf(err, errsz, "error reading '%s'", path);
+                free(buf);
+                fclose(f);
+                return -1;
+            }
+            break;
+        }
+        len += got;
+    }
+    fclose(f);
+
+    rc = read_gpx_mem(buf, len, path, c, opt, err, errsz);
+    free(buf);
     return rc;
 }

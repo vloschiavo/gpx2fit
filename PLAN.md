@@ -64,7 +64,7 @@ Keep local development focused on native x86_64 builds (`make`, `make test`, `ma
 
 Prepare `LIB_SRC` so every stage (GPX read, custom map parse, FIT write, warnings) runs in memory with zero filesystem assumptions[cite: 1, 5].
 
-- [ ] **13.1 In-memory GPX reader (`read_gpx_mem`)**
+- [x] **13.1 In-memory GPX reader (`read_gpx_mem`)**
   - Needs: `src/gpx.h`, `src/gpx.c`[cite: 4]
   - Output: `read_gpx_mem(const char *buf, size_t len, const char *fallback_name, struct course *c, ...)` feeding chunks into `XML_Parse` without `fopen`/`fread`. Refactor `read_gpx(path, ...)` to read the file into a buffer and delegate to `read_gpx_mem()`.
   - Done when: all existing GPX unit tests and `fuzz_gpx.c` pass with zero behavior change[cite: 2, 4].

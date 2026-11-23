@@ -31,6 +31,16 @@ struct gpx_options {
 int read_gpx(const char *path, struct course *c, const struct gpx_options *opt,
              char *err, size_t errsz);
 
+/* In-memory variant: parse `buf` (length `len`) exactly as read_gpx would parse
+ * a file, without any filesystem access. `fallback_name` is used (like a file
+ * path: directory and final extension stripped) for c->name when the chosen
+ * track has no <name>. A NULL fallback_name defaults to "course". `opt` and
+ * `err`/`errsz` behave as in read_gpx; a NULL opt selects track 0 with
+ * warnings enabled. */
+int read_gpx_mem(const char *buf, size_t len, const char *fallback_name,
+                 struct course *c, const struct gpx_options *opt,
+                 char *err, size_t errsz);
+
 /* Element-name helpers, exposed for unit tests. */
 
 /* Strip a namespace from an element name. Understands expat's "uri local"
