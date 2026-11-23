@@ -301,7 +301,7 @@ Work through these in order. Verify against `reference_course.csv` and the decod
 - [x] **10.3 Static analysis**
   - Done when: `cppcheck` or `clang-tidy` output is reviewed and issues are fixed or explained.
 
-- [ ] **10.4 README**
+- [X] **10.4 README**
   - Output: usage, options table, build and install steps (`libexpat1-dev`), the CalTopo workflow (name waypoints "Water", "Camp", "Caution"), the `--map` file format and `default.map`, limitations, and notes on tested devices.
   - Done when: someone else can follow it from scratch.
 
