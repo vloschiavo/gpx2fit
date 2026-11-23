@@ -38,7 +38,7 @@ Each task fits in one small working session. Do the tasks in order unless noted.
 
 Keep local development focused on native x86_64 builds (`make`, `make test`, `make test-asan`)[cite: 1] and let GitHub Actions build cross-platform binaries on native runners.
 
-- [ ] **12.1 Add `install` target and `LICENSE` (completes 10.5)**
+- [x] **12.1 Add `install` target and `LICENSE` (completes 10.5)**
   - Needs: `Makefile`[cite: 1]
   - Output: `LICENSE` (MIT)[cite: 4, 5] and `install` target in `Makefile` honoring `PREFIX ?= /usr/local` and `DESTDIR`[cite: 1, 4].
   - Done when: `make install PREFIX=/tmp/gpx2fit-test` installs the binary cleanly[cite: 4].

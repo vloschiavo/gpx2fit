@@ -14,7 +14,9 @@ SRC     = $(filter-out $(wildcard src/test_*.c),$(wildcard src/*.c))
 OBJ     = $(SRC:src/%.c=$(BUILD)/%.o)
 DEP     = $(OBJ:.o=.d)
 
-.PHONY: all test clean asan test-asan
+PREFIX ?= /usr/local
+
+.PHONY: all test clean asan test-asan install
 
 all: $(TARGET)
 
@@ -114,6 +116,10 @@ fuzz-libfuzzer: build-fuzz/fuzz_gpx_libfuzzer
 	cp tests/data/*.gpx build-fuzz/corpus/
 	./build-fuzz/fuzz_gpx_libfuzzer -max_total_time=$(FUZZ_SECONDS) \
 	    -artifact_prefix=$(FUZZ_OUT)/ build-fuzz/corpus
+
+install: $(TARGET)
+	install -d $(DESTDIR)$(PREFIX)/bin
+	install -m 0755 $(TARGET) $(DESTDIR)$(PREFIX)/bin/$(TARGET)
 
 clean:
 	rm -rf $(BUILD) build-asan build-test build-fuzz $(TARGET) $(TARGET)-asan $(GEN_HDR) $(GEN_HDR).tmp
