@@ -1,0 +1,21 @@
+file_id type=6 manufacturer=255 product=0 time_created=1104624000
+course sport=17 name=NNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNN sub_sport=0
+lap start_time=1104624000 timestamp=1104624720 start_position_lat=459322891 start_position_long=-1449551462 end_position_lat=459442196 end_position_long=-1449408297 total_ascent=30 total_descent=0 swc_lat=459322891 swc_long=-1449551462 nec_lat=459442196 nec_long=-1449408297 avg_speed=1.389 total_elapsed_time=720.0 total_timer_time=720.0 total_distance=1000.0 message_index=0
+event timestamp=1104624000 event=0 event_group=0 event_type=0
+course_point message_index=0 timestamp=1104624000 type=0 position_lat=459322891 position_long=-1449551462 distance=0.0 name=Start
+record position_lat=459322891 position_long=-1449551462 timestamp=1104624000 distance=0.0 altitude=500.0
+record position_lat=459334822 position_long=-1449537146 timestamp=1104624072 distance=100.0 altitude=503.0
+record position_lat=459346752 position_long=-1449522829 timestamp=1104624144 distance=200.0 altitude=506.0
+course_point message_index=1 timestamp=1104624180 type=3 position_lat=459352718 position_long=-1449515671 distance=250.0 name=Water
+record position_lat=459358683 position_long=-1449508513 timestamp=1104624216 distance=300.0 altitude=509.0
+record position_lat=459370613 position_long=-1449494196 timestamp=1104624288 distance=400.0 altitude=512.0
+record position_lat=459382544 position_long=-1449479880 timestamp=1104624360 distance=500.0 altitude=515.0
+course_point message_index=2 timestamp=1104624432 type=27 position_lat=459394474 position_long=-1449465563 distance=600.0 name=Camp
+record position_lat=459394474 position_long=-1449465563 timestamp=1104624432 distance=600.0
+record position_lat=459406405 position_long=-1449451246 timestamp=1104624504 distance=700.0 altitude=521.0
+record position_lat=459418335 position_long=-1449436930 timestamp=1104624576 distance=800.0 altitude=524.0
+record position_lat=459430266 position_long=-1449422613 timestamp=1104624648 distance=900.0 altitude=527.0
+course_point message_index=3 timestamp=1104624720 type=0 position_lat=459442196 position_long=-1449408297 distance=1000.0 name=Ranger Station
+record position_lat=459442196 position_long=-1449408297 timestamp=1104624720 distance=1000.0 altitude=530.0
+course_point message_index=4 timestamp=1104624720 type=5 position_lat=459442244 position_long=-1449408240 distance=1000.4 name=Café über sto
+event timestamp=1104624720 event=0 event_group=0 event_type=9
