@@ -281,6 +281,9 @@ static void test_defaults(void)
     CHECK(symmap_lookup(&m, "Caution") == FIT_CP_DANGER);
     CHECK(symmap_lookup(&m, "water 2") == FIT_CP_WATER);
     CHECK(symmap_lookup(&m, "CAMP") == FIT_CP_CAMPSITE);
+    /* "H2O" waypoint names (Sonora Pass export, phase 9) are water too. */
+    CHECK(symmap_lookup(&m, "H2O Sardine Cr") == FIT_CP_WATER);
+    CHECK(symmap_lookup(&m, "h2o") == FIT_CP_WATER);
     CHECK(!symmap_find(&m, "Totally Unknown Name", &t) && t == FIT_CP_GENERIC);
 
     /* The other names in the CalTopo sample have no rule on purpose. */

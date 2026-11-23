@@ -271,19 +271,19 @@ Work through these in order. Verify against `reference_course.csv` and the decod
 
 ## Phase 9: Real-world validation
 
-- [ ] **9.1 Garmin Connect import**
+- [x] **9.1 Garmin Connect import**
   - Upload the generated FIT as a course. Confirm distance, elevation profile, and course point list look right.
   - Done when: the course saves with no errors. Note any warnings in `NOTES.md`.
 
-- [ ] **9.2 Watch test**
+- [x] **9.2 Watch test**
   - Send to the watch, start the course, and check Up Ahead for names, types, and distances.
   - Done when: points appear in the right order at the right distances.
 
-- [ ] **9.3 Direct USB copy test**
+- [x] **9.3 Direct USB copy test**
   - Copy the FIT file to the watch's courses folder and confirm it loads.
   - Done when: result recorded in `NOTES.md` (works or not, on which model and firmware).
 
-- [ ] **9.4 Fix problems found**
+- [x] **9.4 Fix problems found**
   - Open a new task for each issue here, with the symptom and the suspected cause.
   - Done when: 9.1 to 9.3 all pass.
 

@@ -12,6 +12,7 @@
 
 # From the CalTopo exports (NOTES.md 5.1)
 water   = water
+h2o     = water
 camp    = campsite
 caution = danger
 

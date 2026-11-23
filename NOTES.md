@@ -327,6 +327,65 @@ Open items from this phase:
   gaps of a few minutes are possible. Check how the watch draws the course.
 - **Pace is constant.** No slope adjustment. Only `--pace` changes it.
 
+## Phase 9 findings: real-world validation (2026-11-23)
+
+Device: **Garmin Fenix 7X, software 27.18.** Test files:
+`reference/Sonora_Pass_to_Tuolumne_Meadows.gpx` (115.72 km, 5159 points, 30
+course points) and `tests/data/caltopo_sample.gpx` (3.39 km, 4 course points),
+converted with default options. Result as reported by the tester: all Phase 9
+checks passed.
+
+- **9.1 Garmin Connect import:** both courses imported and saved with no errors
+  or warnings. Distance, elevation profile and the course point list looked right.
+- **9.2 Watch test:** Up Ahead showed the course points in the right order, at
+  the right distances, with the expected names and types.
+- **9.3 Direct USB copy:** works. The FIT file copied to the watch's courses
+  folder loads on the Fenix 7X (software 27.18).
+- **9.4:** no problems found, so no follow-up tasks.
+
+Notes from this phase:
+
+- The Sonora file includes course point names truncated to 15 bytes (e.g.
+  "H2O Kennedy Can"); with all tests passing, `COURSE_POINT_NAME_MAX` = 15
+  works on this device. Longer names are still untested.
+- The files contain records with duplicate timestamps (see Phase 6); no
+  problem was reported on import or on the watch.
+- The Sonora waypoints are named "H2O …", which no default rule matched, so they
+  came out generic. Added `h2o = water` to `data/default.map` after this phase.
+
+## 10.1 Sanitizer run
+
+Compiler: gcc 12.2.0 (Debian 12), libasan.so.8 / libubsan.so.1, kernel 7.0.
+
+- **Unit tests** (`make test`): all 9 `tests/test_*.c` binaries (ASan+UBSan,
+  `-fno-sanitize-recover=undefined`) pass with no reports.
+- **Shell / e2e tests** against `./gpx2fit-asan` (`make asan`) with
+  `ASAN_OPTIONS=detect_leaks=1:abort_on_error=1` and
+  `UBSAN_OPTIONS=print_stacktrace=1:halt_on_error=1`: `test_cli.sh`,
+  `test_fit_decode.sh` (skips without FitCSVTool), `test_gpx_cli.sh`,
+  `test_map.sh` (18), `test_time_opts.sh` (41) and `run.sh` (124) all pass.
+  Every binary's stderr (136 runs) was collected and checked: no ASan, UBSan
+  or LeakSanitizer report.
+- **Fixture sweep:** `reference/Sonora_Pass_to_Tuolumne_Meadows.gpx` and every
+  `tests/data/*.gpx` were run with no options, `--max-points 50`,
+  `--pass ordered`, `--quiet`, `--strict`, and all four together (102 runs).
+  Exit codes were as expected (the error fixtures give 1, and `caltopo_sample`
+  gives 1 under `--strict` because it has warnings). No sanitizer reports.
+- **Findings:** none in `src/`, so no code changes.
+- **Repeatable:** `make test-asan` builds `./gpx2fit-asan` and runs the shell
+  and e2e tests against it with the options above. It is separate from
+  `make test`, which is unchanged.
+
+Environment caveat: on this kernel, gcc 12's ASan sometimes crashes at
+startup, before `main`, and prints `AddressSanitizer:DEADLYSIGNAL` in an
+endless loop. The cause is high `vm.mmap_rnd_bits` (fixed in newer
+compilers). It happened in about 15% of runs of an empty program and about
+half of `gpx2fit-asan` runs. It has nothing to do with our code. The fix is
+`sysctl vm.mmap_rnd_bits=28` or `setarch -R make test-asan`, both of which
+need privileges this sandbox lacks. So for this run, each binary call went
+through a wrapper that retried only that startup crash. On a normal machine
+`make test-asan` needs no wrapper.
+
 ## Not done / open items
 
 - I could not download the official FIT SDK zip (`Profile.xlsx`, C headers):

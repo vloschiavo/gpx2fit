@@ -14,7 +14,7 @@ SRC     = $(filter-out $(wildcard src/test_*.c),$(wildcard src/*.c))
 OBJ     = $(SRC:src/%.c=$(BUILD)/%.o)
 DEP     = $(OBJ:.o=.d)
 
-.PHONY: all test clean asan
+.PHONY: all test clean asan test-asan
 
 all: $(TARGET)
 
@@ -65,6 +65,15 @@ build-test:
 test: all $(TEST_BIN)
 	@set -e; for t in $(TEST_BIN); do echo "== $$t"; ./$$t; done
 	@set -e; for s in $(TEST_SH); do echo "== $$s"; bash $$s ./$(TARGET); done
+
+# Shell / end-to-end tests against the ASan+UBSan binary (task 10.1).
+# Any sanitizer report aborts the binary, which the tests see as a failure.
+# Not part of `make test` (the unit tests there already use sanitizers).
+test-asan: asan
+	@set -e; for s in $(TEST_SH); do echo "== $$s (asan)"; \
+	    ASAN_OPTIONS=detect_leaks=1:abort_on_error=1 \
+	    UBSAN_OPTIONS=print_stacktrace=1:halt_on_error=1 \
+	    bash $$s ./$(TARGET)-asan; done
 
 clean:
 	rm -rf $(BUILD) build-asan build-test $(TARGET) $(TARGET)-asan $(GEN_HDR) $(GEN_HDR).tmp
