@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.0" creator="test" xmlns="http://www.topografix.com/GPX/1/0">
+  <name>File Level Name</name>
+  <wpt lat="38.50" lon="-121.50"><name>Camp</name></wpt>
+  <trk>
+    <name>Old Format</name>
+    <trkseg>
+      <trkpt lat="38.50" lon="-121.50"><ele>1.0</ele></trkpt>
+      <trkpt lat="38.51" lon="-121.50"><ele>2.0</ele></trkpt>
+      <trkpt lat="38.52" lon="-121.50"><ele>3.0</ele></trkpt>
+    </trkseg>
+  </trk>
+</gpx>

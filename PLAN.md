@@ -203,47 +203,47 @@ fixed here so the code and tests agree.
 
 Work through these in order. Verify against `reference_course.csv` and the decoder after each step.  Garmin writes undocumented fields (record 121 and 122, course 254, file_creator field 2). We can omit them.
 
-- [ ] **7.1 CRC-16**
+- [x] **7.1 CRC-16**
   - Output: `src/fit_write.c` with the table-driven CRC from the SDK.
   - Done when: a test matches known CRC values (compute them with the SDK or a Python reference).
 
-- [ ] **7.2 Buffered writer**
+- [x] **7.2 Buffered writer**
   - Output: a small in-memory writer with `put_u8/u16/u32`, little-endian, growable buffer, and a function that writes the file once at the end.
   - Done when: unit test checks byte output for known values.
 
-- [ ] **7.3 Header and footer**
+- [x] **7.3 Header and footer**
   - Output: the 14-byte header (with header CRC), back-patching the data size once all records are written, and the trailing file CRC.
   - Done when: a file with no messages has a valid header and CRC according to the SDK decoder.
 
-- [ ] **7.4 Definition message helper**
+- [x] **7.4 Definition message helper**
   - Output: a function that writes a definition message from a table of (field number, size, base type), assigning local message types.
   - Done when: output bytes match the definition record of the reference file for `file_id`.
 
-- [ ] **7.5 `file_id` message**
+- [x] **7.5 `file_id` message**
   - Output: type = course, manufacturer, product, serial (if required), time created.
   - Done when: the SDK decoder reads it correctly. Compare with the reference file.
 
-- [ ] **7.6 `course` message**
+- [x] **7.6 `course` message**
   - Output: sport and name. The name field in the definition message must be sized for `COURSE_NAME_MAX` plus the terminator (91 bytes).
   - Done when: the decoder shows the right name, including a 90-byte name.
 
-- [ ] **7.7 `record` messages**
+- [x] **7.7 `record` messages**
   - Output: timestamp, position_lat, position_long (semicircles), distance, altitude (scaled and offset per 0.4); altitude written as the invalid value when `has_ele` is false.
   - Done when: decoded values match the input within quantization error, and a conversion test checks semicircle math at known points (0, 90, -180 degrees).
 
-- [ ] **7.8 `lap` message**
+- [x] **7.8 `lap` message**
   - Output: start and end positions, total distance, elapsed and timer time, per whatever the reference file includes.
   - Done when: the decoder reports totals matching the summary.
 
-- [ ] **7.9 `course_point` messages**
+- [x] **7.9 `course_point` messages**
   - Output: timestamp, position, distance, type, name.
   - Done when: decoded course points match the snapped list from phase 4.
 
-- [ ] **7.10 Message ordering**
+- [x] **7.10 Message ordering**
   - Output: reorder messages to match the reference file (verify whether course points go before or after records).
   - Done when: the decoder accepts the file with no warnings, and the message order matches `NOTES.md`.
 
-- [ ] **7.11 Encoder tests**
+- [x] **7.11 Encoder tests**
   - Output: `tests/test_fit.c` plus a Bash script that encodes the sample, decodes it with the SDK tool or `fitparse`, and diffs against expected values.
   - Done when: `make test` passes and the decode diff is empty or explained.
 
