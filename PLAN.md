@@ -78,7 +78,7 @@ Prepare `LIB_SRC` so every stage (GPX read, custom map parse, FIT write, warning
 
 ## Phase 14: WebAssembly Build & Node Smoke Tests
 
-- [ ] **14.1 WASM C bridge (`src/wasm_api.c`)**
+- [x] **14.1 WASM C bridge (`src/wasm_api.c`)**
   - Needs: `src/course.h`, `src/gpx.h`, `src/geo.h`, `src/snap.h`, `src/symmap.h`, `src/timing.h`, `src/fit_write.h`, `src/sport.h`[cite: 2, 3, 4]
   - Output: `EMSCRIPTEN_KEEPALIVE` functions:
     - `gpx2fit_convert(...)` accepting GPX XML string, optional custom `.map` string, and options (course name, sport/sub_sport, snap meters, pass mode, pace m/s, start timestamp, max points, strict flag), returning a pointer/length to the encoded `.fit` bytes plus a JSON string containing stats (distance, ascent/descent, point counts, snapped waypoints with lat/lon/km/offset/type, skipped waypoints) and warnings.
