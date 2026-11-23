@@ -1,6 +1,7 @@
 /* gpx2fit: convert a GPX track to a FIT course file.
  * (tasks 1.4 CLI parsing, 2.x GPX reading, 4.x snapping, 5.4 --map and name
- * handling, 6.x synthetic times; the full pipeline is wired in 8.1) */
+ * handling, 6.x synthetic times, 7.x FIT output; the full pipeline is wired
+ * in 8.1) */
 #define _POSIX_C_SOURCE 200809L
 
 #include <errno.h>
@@ -13,6 +14,7 @@
 #include <string.h>
 
 #include "course.h"
+#include "fit_write.h"
 #include "geo.h"
 #include "gpx.h"
 #include "names.h"
@@ -246,7 +248,10 @@ int main(int argc, char **argv)
         return EXIT_USAGE;
     }
 
-    /* Temporary driver until the pipeline is wired up in task 8.1. */
+    /* The pipeline (8.1): read GPX, distances, snap, point types, synthetic
+     * times, write FIT. Each stage reports failure and stops with exit 1; the
+     * output file is only written once every earlier stage has succeeded.
+     * --max-points (8.2) and the final summary (8.3) are still to come. */
     struct course c;
     struct symmap map;
     int trc;
@@ -317,6 +322,23 @@ int main(int argc, char **argv)
         goto out;
     }
     course_assign_cp_times(&c);
+
+    /* Encode and write the FIT course file (7.x). */
+    {
+        struct fit_options fo;
+        int frc;
+
+        fit_options_default(&fo);
+        frc = fit_write_course(&c, &fo, opt.output);
+        if (frc != FIT_OK) {
+            fprintf(stderr, "%s: error: cannot write '%s': %s\n",
+                    argv[0], opt.output, fit_strerror(frc));
+            goto out;
+        }
+    }
+    if (!opt.quiet)
+        printf("Wrote '%s': %zu trackpoints, %zu course points\n",
+               opt.output, c.n_tp, c.n_cp);
 
     rc = EXIT_OK;
 out:
