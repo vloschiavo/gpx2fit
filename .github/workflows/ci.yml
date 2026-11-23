@@ -1,0 +1,29 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libexpat1-dev cppcheck xxd libxml2-utils
+
+      - name: Build
+        run: make
+
+      - name: Unit and shell tests
+        run: make test
+
+      - name: Sanitizer tests
+        run: make test-asan
+
+      - name: Static analysis (cppcheck)
+        run: cppcheck --std=c11 -Isrc --suppress=missingIncludeSystem --enable=warning --error-exitcode=1 src/

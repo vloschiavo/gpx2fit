@@ -1,0 +1,127 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: linux-x86_64
+            os: ubuntu-latest
+            archive: tar.gz
+          - name: linux-arm64
+            os: ubuntu-24.04-arm
+            archive: tar.gz
+          - name: macos-arm64
+            os: macos-latest
+            archive: tar.gz
+          - name: windows-x86_64
+            os: windows-latest
+            archive: zip
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install dependencies (Linux)
+        if: startsWith(matrix.os, 'ubuntu')
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libexpat1-dev xxd
+
+      - name: Install dependencies (macOS)
+        if: startsWith(matrix.os, 'macos')
+        run: brew install expat vim
+
+      - name: Setup MSYS2 (Windows)
+        if: matrix.os == 'windows-latest'
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: UCRT64
+          update: true
+          install: mingw-w64-ucrt-x86_64-gcc mingw-w64-ucrt-x86_64-expat mingw-w64-ucrt-x86_64-make mingw-w64-ucrt-x86_64-vim zip
+
+      - name: Build (Unix)
+        if: runner.os != 'Windows'
+        run: |
+          if [ "${{ matrix.os }}" = "macos-latest" ]; then
+            make CFLAGS="-O2 -g -std=c11 -Wall -Wextra -Wpedantic -I$(brew --prefix expat)/include" LDFLAGS="-L$(brew --prefix expat)/lib"
+          else
+            make
+          fi
+
+      - name: Build (Windows)
+        if: runner.os == 'Windows'
+        shell: msys2 {0}
+        run: mingw32-make CC=gcc
+
+      - name: Package (Unix)
+        if: runner.os != 'Windows'
+        run: |
+          set -euo pipefail
+          stage="package"
+          rm -rf "$stage"
+          mkdir -p "$stage"
+          cp gpx2fit "$stage"/
+          cp README.md LICENSE "$stage"/
+          (cd "$stage" && if [ "$(uname)" = "Darwin" ]; then shasum -a 256 gpx2fit README.md LICENSE > SHA256SUMS.txt; else sha256sum gpx2fit README.md LICENSE > SHA256SUMS.txt; fi)
+          archive="gpx2fit-${{ matrix.name }}.tar.gz"
+          tar -czf "$archive" -C "$stage" .
+          echo "ARCHIVE=$archive" >> "$GITHUB_ENV"
+
+      - name: Package (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $stage = "package"
+          if (Test-Path $stage) { Remove-Item -Recurse -Force $stage }
+          New-Item -ItemType Directory -Path $stage | Out-Null
+          if (Test-Path gpx2fit.exe) { Copy-Item gpx2fit.exe $stage } elseif (Test-Path gpx2fit) { Copy-Item gpx2fit $stage\gpx2fit.exe }
+          Copy-Item README.md, LICENSE $stage
+          Push-Location $stage
+          $lines = @()
+          foreach ($f in @("gpx2fit.exe","README.md","LICENSE")) {
+            $h = (Get-FileHash -Algorithm SHA256 $f).Hash.ToLower()
+            $lines += "$h  $f"
+          }
+          $lines | Set-Content SHA256SUMS.txt
+          Pop-Location
+          $archive = "gpx2fit-${{ matrix.name }}.zip"
+          Compress-Archive -Path "$stage\*" -DestinationPath $archive -Force
+          "ARCHIVE=$archive" | Out-File -FilePath $env:GITHUB_ENV -Append
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: gpx2fit-${{ matrix.name }}
+          path: gpx2fit-${{ matrix.name }}.*
+
+  release:
+    name: Publish release
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - name: Publish to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            artifacts/*.tar.gz
+            artifacts/*.zip

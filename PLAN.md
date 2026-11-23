@@ -43,12 +43,12 @@ Keep local development focused on native x86_64 builds (`make`, `make test`, `ma
   - Output: `LICENSE` (MIT)[cite: 4, 5] and `install` target in `Makefile` honoring `PREFIX ?= /usr/local` and `DESTDIR`[cite: 1, 4].
   - Done when: `make install PREFIX=/tmp/gpx2fit-test` installs the binary cleanly[cite: 4].
 
-- [ ] **12.2 CI test workflow (`.github/workflows/ci.yml`)**
+- [x] **12.2 CI test workflow (`.github/workflows/ci.yml`)**
   - Needs: `Makefile`[cite: 1]
   - Output: GitHub Actions workflow triggered on push and PR running `make test`, `make test-asan`, and `cppcheck`[cite: 1, 4].
   - Done when: workflow passes green on GitHub-hosted `ubuntu-latest`.
 
-- [ ] **12.3 Multi-arch release workflow (`.github/workflows/release.yml`)**
+- [x] **12.3 Multi-arch release workflow (`.github/workflows/release.yml`)**
   - Needs: `Makefile`[cite: 1]
   - Output: workflow triggered on `v*` tags (and `workflow_dispatch`) building native binaries across:
     - `linux-x86_64` (`ubuntu-latest`, `libexpat1-dev`)[cite: 5]
