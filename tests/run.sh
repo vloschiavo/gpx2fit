@@ -187,7 +187,8 @@ run --snap 1000 "$STD" "$TMP/snap.fit"
 expect_rc 0
 expect_out '^Snapped 4 of 4 waypoints \(0 skipped\)$'
 expect_out '^  Old Cabin +5\.56 km  offset +43[0-9]\.[0-9] m$'
-expect_no_err_match 'warning'
+expect_no_err_match 'from the track'
+expect_err "no type for 'Old Cabin'"
 check_fit "$TMP/snap.fit"
 
 # ---- --quiet ------------------------------------------------------------
