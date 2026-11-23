@@ -27,7 +27,7 @@ Each task fits in one small working session. Do the tasks in order unless noted.
   - Output: add `uint8_t sub_sport` to `struct fit_options` (0 = generic by default)[cite: 2, 3] and write it into the `course` message field 7[cite: 2, 3].
   - Done when: `FitCSVTool` / `garmin-fit-sdk` decodes both `sport` and `sub_sport` accurately for all 7 types, and existing golden tests still pass with defaults[cite: 3].
 
-- [ ] **11.3 Add `--sport TYPE` CLI option and update docs/tests**
+- [x] **11.3 Add `--sport TYPE` CLI option and update docs/tests**
   - Needs: `src/main.c`, `src/sport.h`, `README.md`, `tests/test_cli.sh`[cite: 2, 4, 5]
   - Output: add `--sport TYPE` to `getopt_long`, `--help`, `--dump-options`[cite: 2, 4], summary output, and `README.md` options table[cite: 5]. Bad `--sport` values return exit code 2[cite: 5].
   - Done when: `make test` and `make test-asan` pass with new CLI and decode tests for all 7 sport types[cite: 1].

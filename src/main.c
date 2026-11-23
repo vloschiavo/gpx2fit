@@ -20,6 +20,7 @@
 #include "gpx.h"
 #include "names.h"
 #include "snap.h"
+#include "sport.h"
 #include "symmap.h"
 #include "timing.h"
 
@@ -50,6 +51,9 @@ struct options {
     long        track;     /* 1-based <trk> to use; 0 = longest */
     enum snap_mode pass;   /* which pass of the track a waypoint snaps to */
     const char *map_file;  /* user type-map file; NULL = none */
+    const char *sport;     /* raw --sport text; NULL = default (hiking) */
+    uint8_t     sport_id;  /* course.sport, resolved by sport_parse() */
+    uint8_t     sub_sport; /* course.sub_sport, resolved by sport_parse() */
     bool        help;      /* --help given */
     bool        dump;      /* hidden --dump-options, for tests */
 };
@@ -68,6 +72,9 @@ static void usage(FILE *out, const char *prog)
         "                     track visits it more than once: nearest (default),\n"
         "                     ordered, first, last\n"
         "  --name TEXT        course name (default: GPX track name)\n"
+        "  --sport TYPE       activity type: hiking (default), running,\n"
+        "                     trail-running, cycling, road-cycling, gravel, mtb,\n"
+        "                     mountain-biking, other (aliases; case-insensitive)\n"
         "  --pace PACE        synthetic pace, m/s or min/km (e.g. 2.5, 6:40;\n"
         "                     default 5 km/h)\n"
         "  --start TIME       synthetic start time, UTC: YYYY-MM-DD or\n"
@@ -115,11 +122,12 @@ static int parse_long(const char *s, long *out)
  * message to stderr. With --help, returns EXIT_OK and sets o->help. */
 static int parse_options(int argc, char **argv, struct options *o)
 {
-    enum { OPT_SNAP = 256, OPT_NAME, OPT_PACE, OPT_START, OPT_STRICT,
-           OPT_MAX_POINTS, OPT_MAP, OPT_TRACK, OPT_PASS, OPT_DUMP };
+    enum { OPT_SNAP = 256, OPT_NAME, OPT_SPORT, OPT_PACE, OPT_START,
+           OPT_STRICT, OPT_MAX_POINTS, OPT_MAP, OPT_TRACK, OPT_PASS, OPT_DUMP };
     static const struct option longopts[] = {
         { "snap",         required_argument, NULL, OPT_SNAP },
         { "name",         required_argument, NULL, OPT_NAME },
+        { "sport",        required_argument, NULL, OPT_SPORT },
         { "pace",         required_argument, NULL, OPT_PACE },
         { "start",        required_argument, NULL, OPT_START },
         { "quiet",        no_argument,       NULL, 'q' },
@@ -138,6 +146,8 @@ static int parse_options(int argc, char **argv, struct options *o)
     memset(o, 0, sizeof *o);
     o->snap_m = DEFAULT_SNAP_M;
     o->pass = SNAP_NEAREST;
+    o->sport_id = FIT_SPORT_HIKING;
+    o->sub_sport = FIT_SUB_SPORT_GENERIC;
 
     optind = 1; /* allow parse_options to be called more than once */
     while ((c = getopt_long(argc, argv, "qh", longopts, NULL)) != -1) {
@@ -150,6 +160,18 @@ static int parse_options(int argc, char **argv, struct options *o)
             }
             break;
         case OPT_NAME:   o->name = optarg;  break;
+        case OPT_SPORT:
+            /* Resolve now: an unknown activity is a usage error (exit 2)
+             * before any work, like a bad --pace or --start. */
+            if (!sport_parse(optarg, &o->sport_id, &o->sub_sport)) {
+                fprintf(stderr, "%s: invalid --sport value '%s' (need one of "
+                        "hiking, running, trail-running, cycling, "
+                        "road-cycling, gravel, mtb, mountain-biking, "
+                        "other)\n", prog, optarg);
+                return EXIT_USAGE;
+            }
+            o->sport = optarg;
+            break;
         case OPT_PACE:   o->pace = optarg;  break;
         case OPT_START:  o->start = optarg; break;
         case OPT_MAP:    o->map_file = optarg; break;
@@ -207,6 +229,8 @@ static void dump_options(const struct options *o)
     printf("track=%ld\n",     o->track);
     printf("pass=%s\n",      snap_mode_name(o->pass));
     printf("map=%s\n",        o->map_file ? o->map_file : "(none)");
+    printf("sport=%u\n",      (unsigned)o->sport_id);
+    printf("sub_sport=%u\n",  (unsigned)o->sub_sport);
     printf("quiet=%d\n",      o->quiet);
     printf("strict=%d\n",     o->strict);
 }
@@ -390,6 +414,8 @@ int main(int argc, char **argv)
         int frc;
 
         fit_options_default(&fo);
+        fo.sport = opt.sport_id;
+        fo.sub_sport = opt.sub_sport;
         frc = fit_write_course(&c, &fo, opt.output);
         if (frc != FIT_OK) {
             fprintf(stderr, "%s: error: cannot write '%s': %s\n",
@@ -398,9 +424,10 @@ int main(int argc, char **argv)
         }
     }
 
-    /* The summary (8.3): track totals, one line per course point, the
-     * snapped tally, then the output file. Nothing under --quiet. */
+    /* The summary (8.3): chosen activity, track totals, one line per course
+     * point, the snapped tally, then the output file. Nothing under --quiet. */
     if (!opt.quiet) {
+        printf("Activity: %s\n", opt.sport ? opt.sport : "hiking");
         print_track_summary(&c, &es, total_m, n_full);
         snap_print_summary(stdout, &c, &sr);
         printf("Wrote '%s' (%zu course points)\n", opt.output, c.n_cp);

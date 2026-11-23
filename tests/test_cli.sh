@@ -3,6 +3,21 @@
 BIN=${1:-./gpx2fit}
 fail=0
 
+# A tiny GPX for real conversions (two trackpoints, one waypoint on the track).
+TMP=$(mktemp -d) || exit 1
+trap 'rm -rf "$TMP"' EXIT
+GPX="$TMP/sport.gpx"
+cat >"$GPX" <<'EOF'
+<?xml version="1.0"?>
+<gpx version="1.1" creator="test_cli.sh" xmlns="http://www.topografix.com/GPX/1/1">
+  <wpt lat="38.000000" lon="-121.500000"><name>Water</name></wpt>
+  <trk><name>Sport Test</name><trkseg>
+    <trkpt lat="38.000000" lon="-121.500000"><ele>100</ele></trkpt>
+    <trkpt lat="38.001000" lon="-121.500000"><ele>101</ele></trkpt>
+  </trkseg></trk>
+</gpx>
+EOF
+
 # expect_rc DESC EXPECTED_RC ARGS...
 expect_rc() {
     local desc=$1 want=$2; shift 2
@@ -65,5 +80,114 @@ expect_out "-q"                  "quiet=1"         -q in.gpx out.fit
 expect_out "--strict"            "strict=1"        --strict in.gpx out.fit
 expect_out "options after positionals" "snap=40"   in.gpx out.fit --snap 40
 expect_out "--opt=value form"    "snap=7"          --snap=7 in.gpx out.fit
+
+# ---- --sport (task 11.3) --------------------------------------------------
+
+# Every documented name/alias, including case-insensitive spellings, must
+# resolve to the pinned FIT sport/sub_sport numbers in --dump-options.
+expect_sport() {
+    local desc=$1 name=$2 sport=$3 sub=$4
+    expect_out "$desc: sport"     "sport=$sport"   --sport "$name" in.gpx out.fit
+    expect_out "$desc: sub_sport" "sub_sport=$sub" --sport "$name" in.gpx out.fit
+}
+
+if "$BIN" --help 2>&1 | grep -q -- '--sport TYPE'; then
+    echo "ok   - --help documents --sport TYPE"
+else
+    echo "FAIL - --help documents --sport TYPE"; fail=1
+fi
+
+expect_out "default sport"     "sport=17" in.gpx out.fit
+expect_out "default sub_sport" "sub_sport=0" in.gpx out.fit
+
+sport_names=(
+    "hiking:17:0"
+    "running:1:0"
+    "trail-running:1:3" "trail_running:1:3"
+    "cycling:2:0"
+    "road-cycling:2:7" "road_cycling:2:7"
+    "gravel:2:46" "gravel-cycling:2:46" "gravel_cycling:2:46"
+    "mtb:2:8" "mountain-biking:2:8" "mountain_biking:2:8"
+    "other:0:0" "generic:0:0"
+    "HIKING:17:0" "RuNnInG:1:0" "TRAIL-RUNNING:1:3"
+    "CYCLING:2:0" "ROAD-CYCLING:2:7" "GrAvEl:2:46" "MTB:2:8"
+    "OTHER:0:0"
+)
+for spec in "${sport_names[@]}"; do
+    IFS=: read -r name sport sub <<<"$spec"
+    expect_sport "--sport $name" "$name" "$sport" "$sub"
+done
+
+expect_rc "--sport unknown value"      2 --sport walk in.gpx out.fit
+expect_rc "--sport empty value"        2 --sport "" in.gpx out.fit
+expect_rc "missing --sport value"      2 in.gpx out.fit --sport
+
+# A bad sport is a usage error: no work, no output file, clear message.
+rm -f "$TMP/bad-sport.fit"
+"$BIN" --sport walk "$GPX" "$TMP/bad-sport.fit" >"$TMP/out" 2>"$TMP/err"
+rc=$?
+if [ "$rc" -eq 2 ] && [ ! -e "$TMP/bad-sport.fit" ] &&
+        grep -qF "invalid --sport value 'walk'" "$TMP/err"; then
+    echo "ok   - bad --sport fails early with no output file"
+else
+    echo "FAIL - bad --sport (exit $rc, output file: $([ -e "$TMP/bad-sport.fit" ] && echo yes || echo no))"
+    sed 's/^/    /' "$TMP/err"
+    fail=1
+fi
+
+# The stdout summary names the chosen activity, and --quiet hides it.
+if "$BIN" --sport trail-running "$GPX" "$TMP/summary.fit" >"$TMP/out" 2>"$TMP/err" &&
+        grep -qxF 'Activity: trail-running' "$TMP/out"; then
+    echo "ok   - summary shows the chosen activity"
+else
+    echo "FAIL - summary shows the chosen activity"; fail=1
+fi
+if "$BIN" "$GPX" "$TMP/default.fit" >"$TMP/out" 2>"$TMP/err" &&
+        grep -qxF 'Activity: hiking' "$TMP/out"; then
+    echo "ok   - summary shows the default activity"
+else
+    echo "FAIL - summary shows the default activity"; fail=1
+fi
+if "$BIN" --quiet --sport running "$GPX" "$TMP/quiet.fit" >"$TMP/out" 2>"$TMP/err" &&
+        [ ! -s "$TMP/out" ]; then
+    echo "ok   - --quiet hides the activity line"
+else
+    echo "FAIL - --quiet hides the activity line"; fail=1
+fi
+
+# Decode the actual course message bytes of a CLI-produced FIT file. The
+# signature is the course definition written by fit_write.c: local message 1,
+# global 31, fields 4 (sport), 5 (91-byte name) and 7 (sub_sport), then its
+# data message. Full SDK decoding of these same values is in test_fit_decode.sh.
+COURSE_SIG=4100001f0003040100055b0707010001
+decode_course() {
+    local hex prefix off
+    hex=$(od -An -v -tx1 "$1" | tr -d ' \n') || return 1
+    prefix=${hex%%"$COURSE_SIG"*}
+    [ "$prefix" != "$hex" ] || return 1
+    off=${#prefix}
+    printf '%d %d\n' "0x${hex:off+32:2}" "0x${hex:off+216:2}"
+}
+
+decode_sports=(
+    "hiking:17:0" "running:1:0" "trail-running:1:3" "cycling:2:0"
+    "road-cycling:2:7" "gravel:2:46" "mtb:2:8" "other:0:0"
+)
+for spec in "${decode_sports[@]}"; do
+    IFS=: read -r name sport sub <<<"$spec"
+    fit="$TMP/decoded-$name.fit"
+    rm -f "$fit"
+    if ! "$BIN" --quiet --sport "$name" "$GPX" "$fit" >"$TMP/out" 2>"$TMP/err"; then
+        echo "FAIL - --sport $name conversion (exit $?)"; sed 's/^/    /' "$TMP/err"
+        fail=1
+        continue
+    fi
+    got=$(decode_course "$fit") || got="(no course message)"
+    if [ "$got" = "$sport $sub" ]; then
+        echo "ok   - decoded --sport $name: sport=$sport sub_sport=$sub"
+    else
+        echo "FAIL - decoded --sport $name: got '$got', want '$sport $sub'"; fail=1
+    fi
+done
 
 exit $fail

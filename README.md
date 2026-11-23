@@ -66,6 +66,7 @@ five waypoints is deliberately far from the track):
 
 ```
 Read 'caltopo_sample': 114 trackpoints, 5 waypoints
+Activity: hiking
 warning: waypoint 'Caution' is 477 m from the track (limit 250 m); skipped
 warning: no type for 'Start', using generic; add a line to --map
 warning: no type for 'Ranger Station', using generic; add a line to --map
@@ -95,6 +96,7 @@ gpx2fit [options] input.gpx output.fit
 | `--snap METERS` | Maximum distance from a waypoint to the track. Farther waypoints are skipped with a warning. Default `250`. |
 | `--pass MODE` | Which pass of the track a waypoint snaps to when the track visits it more than once: `nearest` (default), `ordered`, `first`, `last`. See [Out-and-back routes](#out-and-back-and-loop-routes). |
 | `--name TEXT` | Course name. Default: the GPX track name, or the file name if the track has none. |
+| `--sport TYPE` | Activity type written to the FIT course (`sport` and `sub_sport`). Default `hiking`. See [Activity type](#activity-type---sport). |
 | `--pace PACE` | Synthetic pace, as m/s or min/km (for example `2.5` or `6:40`). Default 5 km/h. |
 | `--start TIME` | Synthetic start time, UTC: `YYYY-MM-DD` or `YYYY-MM-DDTHH:MM[:SS][Z]` (for example `2025-06-01T07:30Z`). Time zone offsets such as `+02:00` are rejected. Default `2025-01-01T00:00:00Z`. |
 | `--track N` | Use the Nth `<trk>` of the GPX file, counting from 1. Default: the longest. |
@@ -104,13 +106,35 @@ gpx2fit [options] input.gpx output.fit
 | `-q`, `--quiet` | Print only errors. |
 | `-h`, `--help` | Show help and exit. |
 
+### Activity type (`--sport`)
+
+`--sport TYPE` chooses the activity stored in the FIT course's `sport` and
+`sub_sport` fields, which controls how the device categorizes the course.
+Names are case-insensitive, and `-` and `_` are interchangeable, so
+`--sport trail-running` and `--sport TRAIL_Running` are the same type. Leading
+and trailing whitespace is ignored.
+
+| Value | Aliases | FIT `sport` / `sub_sport` |
+| --- | --- | --- |
+| `hiking` (default) | | 17 / 0 |
+| `running` | | 1 / 0 |
+| `trail-running` | `trail_running` | 1 / 3 |
+| `cycling` | | 2 / 0 |
+| `road-cycling` | `road_cycling` | 2 / 7 |
+| `gravel` | `gravel-cycling`, `gravel_cycling` | 2 / 46 |
+| `mtb` | `mountain-biking`, `mountain_biking` | 2 / 8 |
+| `other` | `generic` | 0 / 0 |
+
+An unknown (or empty) value is a usage error: exit 2, a clear error on stderr,
+and no `.fit` file is written. The chosen name is printed in the summary.
+
 ### Exit status
 
 | Code | Meaning |
 | --- | --- |
 | 0 | Success |
 | 1 | Runtime error: unreadable or malformed input, no trackpoints, out of memory, `--strict` failure, output not writable, bad `--map` file |
-| 2 | Bad command line (unknown option, invalid value, wrong number of arguments) |
+| 2 | Bad command line (unknown option, invalid value such as an unknown `--sport`, wrong number of arguments) |
 
 The output file is written only after every earlier stage has succeeded, so a
 failed run does not leave a partial `.fit` behind.
@@ -281,12 +305,14 @@ Printed to stdout (suppressed by `--quiet`):
 
 ```
 Read '<course name>': <N> trackpoints, <M> waypoints
+Activity: <sport type>
 Track: <km> km, ascent <m> m, descent <m> m, <P> points
   <name>   <km> km  offset <m> m          one line per course point
 Snapped <S> of <T> waypoints (<K> skipped)
 Wrote '<output.fit>' (<C> course points)
 ```
 
+- `Activity` is the type given by `--sport` (`hiking` by default).
 - `Track` totals come from the full-resolution track. With `--max-points` the
   point count shows the reduced number and the original, for example
   `1000 points (reduced from 1842)`.
