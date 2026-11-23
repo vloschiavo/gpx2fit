@@ -13,6 +13,7 @@
 
 #include "fit_write.h"
 #include "names.h"
+#include "sport.h"  /* FIT_SPORT_* / FIT_SUB_SPORT_* and sport_parse() */
 #include "symmap.h" /* FIT_CP_* enum values only */
 
 static int fails;
@@ -706,6 +707,72 @@ static void test_fixture(const char *dir)
     fit_buf_free(&b);
 }
 
+/* ---- 11.2: course.sport / course.sub_sport for every activity type ------ */
+
+static void test_sport_types(const char *dir)
+{
+    /* Canonical names from sport.c; the numeric expectations are the FIT
+     * Profile 21.222 enum values and are checked against sport_parse() too. */
+    static const char *const names[] = {
+        "hiking", "running", "trail-running", "cycling", "road-cycling",
+        "gravel", "mtb"
+    };
+    static const uint8_t want_sport[] = {
+        FIT_SPORT_HIKING,  FIT_SPORT_RUNNING, FIT_SPORT_RUNNING,
+        FIT_SPORT_CYCLING, FIT_SPORT_CYCLING, FIT_SPORT_CYCLING,
+        FIT_SPORT_CYCLING
+    };
+    static const uint8_t want_sub[] = {
+        FIT_SUB_SPORT_GENERIC, FIT_SUB_SPORT_GENERIC, FIT_SUB_SPORT_TRAIL,
+        FIT_SUB_SPORT_GENERIC, FIT_SUB_SPORT_ROAD,
+        FIT_SUB_SPORT_GRAVEL_CYCLING, FIT_SUB_SPORT_MOUNTAIN
+    };
+    struct course c;
+    struct fit_buf b, bd;
+    struct fit_options o;
+    struct scan s;
+    struct dec d;
+    char path[512];
+
+    make_fixture(&c, 1);
+
+    /* Defaults: both NULL options and fit_options_default() must still give
+     * hiking/generic, byte for byte (the golden fixture is unchanged). */
+    fit_options_default(&o);
+    CHECK(o.sport == FIT_SPORT_HIKING && o.sub_sport == FIT_SUB_SPORT_GENERIC);
+    fit_buf_init(&b);
+    fit_buf_init(&bd);
+    CHECK(fit_encode_course(&c, NULL, &b) == FIT_OK);
+    CHECK(fit_encode_course(&c, &o, &bd) == FIT_OK);
+    CHECK(bytes_eq(&bd, b.data, b.len));
+    memset(&d, 0, sizeof d);
+    CHECK(scan_fit(b.data, b.len, &s, dec_cb, &d) == 0);
+    CHECK(d.sport == FIT_SPORT_HIKING && d.subsport == FIT_SUB_SPORT_GENERIC);
+    fit_buf_free(&b);
+    fit_buf_free(&bd);
+
+    /* Encode each type, read fields 4 and 7 back with the independent reader,
+     * and save small fixtures for tests/test_fit_decode.sh (FitCSVTool). */
+    for (size_t i = 0; i < sizeof names / sizeof *names; i++) {
+        uint8_t parsed_sport = 0xAA, parsed_sub = 0xAA;
+
+        CHECK(sport_parse(names[i], &parsed_sport, &parsed_sub));
+        CHECK(parsed_sport == want_sport[i] && parsed_sub == want_sub[i]);
+        fit_options_default(&o);
+        o.sport = parsed_sport;
+        o.sub_sport = parsed_sub;
+        fit_buf_init(&b);
+        CHECK(fit_encode_course(&c, &o, &b) == FIT_OK);
+        memset(&d, 0, sizeof d);
+        CHECK(scan_fit(b.data, b.len, &s, dec_cb, &d) == 0);
+        CHECK(d.sport == want_sport[i] && d.subsport == want_sub[i]);
+        snprintf(path, sizeof path, "%s/fit_fixture_sport_%s.fit", dir,
+                 names[i]);
+        CHECK(fit_buf_save(&b, path) == FIT_OK);
+        fit_buf_free(&b);
+    }
+}
+
 static void test_options_and_errors(void)
 {
     struct course c;
@@ -719,12 +786,14 @@ static void test_options_and_errors(void)
     make_fixture(&c, 1);
     fit_options_default(&o);
     o.time_created = 1234567890u;
-    o.sport = 1; /* running */
+    o.sport = FIT_SPORT_RUNNING;
+    o.sub_sport = FIT_SUB_SPORT_TRAIL;
     fit_buf_init(&b);
     CHECK(fit_encode_course(&c, &o, &b) == FIT_OK);
     memset(&d, 0, sizeof d);
     CHECK(scan_fit(b.data, b.len, &s, dec_cb, &d) == 0);
-    CHECK(d.tc == 1234567890u && d.sport == 1);
+    CHECK(d.tc == 1234567890u && d.sport == FIT_SPORT_RUNNING &&
+          d.subsport == FIT_SUB_SPORT_TRAIL);
     fit_buf_free(&b);
 
     /* a name over the limit is cut to 90 bytes; NULL name gets a default */
@@ -778,6 +847,7 @@ int main(void)
     printf("7.4 definition\n");    test_definition();
     printf("7.7 conversions\n");   test_conversions();
     printf("7.5-7.10 fixture\n");  test_fixture(dir);
+    printf("11.2 sport types\n");  test_sport_types(dir);
     printf("options/errors\n");    test_options_and_errors();
 
     if (fails) {

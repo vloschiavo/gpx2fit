@@ -289,6 +289,7 @@ void fit_options_default(struct fit_options *o)
 {
     o->time_created = 0;
     o->sport = FIT_SPORT_HIKING;
+    o->sub_sport = FIT_SUB_SPORT_GENERIC;
 }
 
 void fit_put_file_id(struct fit_buf *b, uint32_t time_created)
@@ -312,7 +313,8 @@ void fit_put_file_id(struct fit_buf *b, uint32_t time_created)
 
 /* ---- 7.6 course --------------------------------------------------------- */
 
-void fit_put_course(struct fit_buf *b, const char *name, uint8_t sport)
+void fit_put_course(struct fit_buf *b, const char *name, uint8_t sport,
+                    uint8_t sub_sport)
 {
     static const struct fit_field_def def[] = {
         { 4, 1, FIT_BASE_ENUM },                              /* sport */
@@ -326,7 +328,7 @@ void fit_put_course(struct fit_buf *b, const char *name, uint8_t sport)
     fit_put_u8(b, sport);
     fit_put_string_field(b, (name && name[0]) ? name : "Course",
                          COURSE_NAME_FIELD);
-    fit_put_u8(b, FIT_SUB_SPORT_GENERIC);
+    fit_put_u8(b, sub_sport);
 }
 
 /* ---- 7.8 lap ------------------------------------------------------------ */
@@ -509,7 +511,7 @@ int fit_encode_course(const struct course *c, const struct fit_options *opt,
 
     fit_begin(out);
     fit_put_file_id(out, o.time_created);
-    fit_put_course(out, c->name, o.sport);
+    fit_put_course(out, c->name, o.sport, o.sub_sport);
     fit_put_lap(out, c);
     fit_put_event(out, true, first_t, FIT_EVENT_TYPE_START);
 

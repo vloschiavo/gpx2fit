@@ -3,9 +3,10 @@
 # Garmin SDK tool (FitCSVTool.jar) and diff the result against expected values.
 #
 # Needs: java and FitCSVTool.jar (tools/FitCSVTool.jar, or set FITCSVTOOL=path;
-# https://github.com/garmin/fit-sdk-tools/releases). Without them the script
-# prints SKIP and exits 0. If python3 has the garmin-fit-sdk package
-# (pip install garmin-fit-sdk) its integrity check runs too.
+# https://github.com/garmin/fit-sdk-tools/releases). Without them the CSV
+# checks are skipped. If python3 has the garmin-fit-sdk package
+# (pip install garmin-fit-sdk) its integrity and sport/sub_sport checks run
+# independently of Java.
 #
 #   bash tests/test_fit_decode.sh [ignored: path of gpx2fit, passed by make]
 #   UPDATE_EXPECTED=1 bash tests/test_fit_decode.sh   # rewrite the golden file
@@ -23,14 +24,15 @@ if [ -z "$jar" ]; then
         if [ -f "$c" ]; then jar=$c; break; fi
     done
 fi
-if ! command -v java >/dev/null 2>&1 || [ -z "$jar" ] || [ ! -f "$jar" ]; then
-    echo "SKIP: java or FitCSVTool.jar not found (set FITCSVTOOL=path)"
-    exit 0
-fi
-
 tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT
 fail=0
+
+have_java=1
+if ! command -v java >/dev/null 2>&1 || [ -z "$jar" ] || [ ! -f "$jar" ]; then
+    echo "SKIP: java or FitCSVTool.jar not found (set FITCSVTOOL=path)"
+    have_java=0
+fi
 
 # decode NAME: FIT -> $tmp/NAME.csv; fail on any tool message about problems.
 decode() {
@@ -62,8 +64,32 @@ normalize() {
     }' "$1"
 }
 
+if [ "$have_java" -eq 1 ]; then
 for f in main noele; do
     decode "$f" || fail=1
+done
+
+# 11.2: one fixture per activity type (written by test_fit.c). Values are the
+# FIT Profile 21.222 course.sport / course.sub_sport enum numbers.
+sport_fixtures=(
+    "hiking 17 0"
+    "running 1 0"
+    "trail-running 1 3"
+    "cycling 2 0"
+    "road-cycling 2 7"
+    "gravel 2 46"
+    "mtb 2 8"
+)
+for spec in "${sport_fixtures[@]}"; do
+    read -r name sport sub <<<"$spec"
+    decode "sport_$name" || { fail=1; continue; }
+    normalize "$tmp/sport_$name.csv" >"$tmp/sport_$name.txt"
+    if ! grep -Eq "^course sport=$sport name=.* sub_sport=$sub\$" \
+            "$tmp/sport_$name.txt"; then
+        echo "FAIL: $name: course sport/sub_sport mismatch in decoded CSV:"
+        grep '^course ' "$tmp/sport_$name.txt" || true
+        fail=1
+    fi
 done
 
 if [ "$fail" -eq 0 ]; then
@@ -86,8 +112,11 @@ if [ "$fail" -eq 0 ]; then
     [ "$(grep -c '^record ' "$tmp/noele.txt")" -eq 11 ] \
         || { echo "FAIL: noele fixture should have 11 records"; fail=1; }
 fi
+fi
 
-# Optional second opinion: header, sizes and both CRCs via the Python SDK.
+# Second opinion via the Python SDK: header/size/CRC integrity for main/noele,
+# plus the exact course.sport / course.sub_sport numbers for all 7 types.
+# Silently skipped when garmin-fit-sdk is not installed.
 if python3 -c 'import garmin_fit_sdk' >/dev/null 2>&1; then
     for f in main noele; do
         python3 - "$out/fit_fixture_$f.fit" <<'EOF' || fail=1
@@ -103,9 +132,67 @@ if errors:
     sys.exit(1)
 EOF
     done
+
+    python3 - "$out" <<'EOF' || fail=1
+import os
+import sys
+from garmin_fit_sdk import Decoder, Profile, Stream
+
+# FIT Profile 21.222 values, pinned independently of the SDK enum names.
+want = {
+    "hiking": (17, 0),
+    "running": (1, 0),
+    "trail-running": (1, 3),
+    "cycling": (2, 0),
+    "road-cycling": (2, 7),
+    "gravel": (2, 46),
+    "mtb": (2, 8),
+}
+sport_num = {name: value for value, name in Profile["types"]["sport"].items()}
+sub_num = {name: value for value, name in Profile["types"]["sub_sport"].items()}
+
+def number(value, table):
+    return value if isinstance(value, int) else table[value]
+
+bad = 0
+for name in sorted(want):
+    path = os.path.join(sys.argv[1], "fit_fixture_sport_%s.fit" % name)
+    if not os.path.isfile(path):
+        print("FAIL: missing", path)
+        bad += 1
+        continue
+    d = Decoder(Stream.from_file(path))
+    if not (d.is_fit() and d.check_integrity()):
+        print("FAIL: Python SDK integrity check failed for", path)
+        bad += 1
+        continue
+    messages, errors = Decoder(Stream.from_file(path)).read()
+    if errors:
+        print("FAIL:", path, errors)
+        bad += 1
+        continue
+    courses = messages.get("course_mesgs", [])
+    if len(courses) != 1:
+        print("FAIL: expected 1 course message in", path, "got", len(courses))
+        bad += 1
+        continue
+    got = (number(courses[0].get("sport"), sport_num),
+           number(courses[0].get("sub_sport"), sub_num))
+    if got != want[name]:
+        print("FAIL: %s: sport/sub_sport %s != %s" % (name, got, want[name]))
+        bad += 1
+    else:
+        print("ok   - Python SDK %s: sport=%d sub_sport=%d" %
+              (name, got[0], got[1]))
+sys.exit(1 if bad else 0)
+EOF
 fi
 
 if [ "$fail" -ne 0 ]; then
     exit 1
 fi
-echo "test_fit_decode: fixtures decode cleanly and match $expected"
+if [ "$have_java" -eq 1 ]; then
+    echo "test_fit_decode: fixtures decode cleanly and match $expected"
+else
+    echo "test_fit_decode: Java/FitCSVTool checks skipped; other checks clean"
+fi

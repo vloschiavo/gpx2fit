@@ -149,16 +149,20 @@ uint16_t fit_altitude_raw(double ele_m, bool has_ele);
 
 /* ---- 7.5 to 7.9 Messages ------------------------------------------------ */
 
+/* Call fit_options_default() before partially populating this struct, so
+ * newly added fields (such as sub_sport) are never left uninitialized. */
 struct fit_options {
     uint32_t time_created; /* file_id.time_created; 0 = first trackpoint time */
     uint8_t  sport;        /* course.sport; FIT_SPORT_HIKING by default */
+    uint8_t  sub_sport;    /* course.sub_sport; FIT_SUB_SPORT_GENERIC by default */
 };
 
 void fit_options_default(struct fit_options *o);
 
 /* Each of these writes the definition message and the data message. */
 void fit_put_file_id(struct fit_buf *b, uint32_t time_created);
-void fit_put_course(struct fit_buf *b, const char *name, uint8_t sport);
+void fit_put_course(struct fit_buf *b, const char *name, uint8_t sport,
+                    uint8_t sub_sport);
 /* Needs n_tp >= 1. */
 void fit_put_lap(struct fit_buf *b, const struct course *c);
 

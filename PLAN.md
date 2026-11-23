@@ -10,7 +10,7 @@ Each task fits in one small working session. Do the tasks in order unless noted.
 
 `struct fit_options` already has a `sport` field (defaulting to hiking = 17)[cite: 2, 3], and the `course` message already writes `sport` and `sub_sport`[cite: 2, 3]. Verify exact FIT SDK `sport` and `sub_sport` enum numbers against `garmin-fit-sdk` (Profile 21.222) before locking constants[cite: 2].
 
-- [ ] **11.1 Sport & sub-sport enum mapping (`src/sport.h`, `src/sport.c`)**
+- [x] **11.1 Sport & sub-sport enum mapping (`src/sport.h`, `src/sport.c`)**
   - Needs: `NOTES.md` (Section 0.4 `course` message)[cite: 2], `src/fit_write.h`[cite: 3]
   - Output: lookup table and parser `sport_parse(const char *str, uint8_t *sport, uint8_t *sub_sport)` supporting case-insensitive names and aliases:
     - `hiking` (default: `sport = 17`, `sub_sport = 0` generic)[cite: 2]
@@ -22,7 +22,7 @@ Each task fits in one small working session. Do the tasks in order unless noted.
     - `other` / `generic` (`sport = 0`, `sub_sport = 0` generic)
   - Done when: unit test covers all 7 activity types, aliases, case-insensitivity, and rejects invalid names.
 
-- [ ] **11.2 Wire `sub_sport` through `fit_options` and `fit_write.c`**
+- [x] **11.2 Wire `sub_sport` through `fit_options` and `fit_write.c`**
   - Needs: `src/fit_write.h`, `src/fit_write.c`, `src/sport.h`[cite: 3]
   - Output: add `uint8_t sub_sport` to `struct fit_options` (0 = generic by default)[cite: 2, 3] and write it into the `course` message field 7[cite: 2, 3].
   - Done when: `FitCSVTool` / `garmin-fit-sdk` decodes both `sport` and `sub_sport` accurately for all 7 types, and existing golden tests still pass with defaults[cite: 3].
