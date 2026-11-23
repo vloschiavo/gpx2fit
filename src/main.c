@@ -337,8 +337,7 @@ int main(int argc, char **argv)
         }
     }
     if (!opt.quiet)
-        printf("Wrote '%s': %zu trackpoints, %zu course points\n",
-               opt.output, c.n_tp, c.n_cp);
+        printf("Wrote '%s' (%zu course points)\n", opt.output, c.n_cp);
 
     rc = EXIT_OK;
 out:
