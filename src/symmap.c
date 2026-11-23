@@ -340,7 +340,8 @@ int symmap_load(struct symmap *m, const char *user_file, symmap_warn_fn warn,
 
 /* ---- applying to a course ------------------------------------------------ */
 
-size_t course_apply_types(struct course *c, const struct symmap *m, bool quiet)
+size_t course_apply_types(struct course *c, const struct symmap *m, bool quiet,
+                          struct diag_list *diag)
 {
     size_t unmatched = 0;
 
@@ -353,11 +354,20 @@ size_t course_apply_types(struct course *c, const struct symmap *m, bool quiet)
 
             if (!symmap_find(m, p->name, &type)) {
                 unmatched++;
+                if (diag)
+                    diag_list_add(diag,
+                                  "warning: no type for '%s', using generic; "
+                                  "add a line to --map\n", p->name);
                 if (!quiet)
                     fprintf(stderr, "warning: no type for '%s', using generic; "
                             "add a line to --map\n", p->name);
             }
             if (len > COURSE_POINT_NAME_MAX) {
+                if (diag)
+                    diag_list_add(diag,
+                                  "warning: course point name '%s' is longer "
+                                  "than %d bytes, truncating\n", p->name,
+                                  COURSE_POINT_NAME_MAX);
                 if (!quiet)
                     fprintf(stderr, "warning: course point name '%s' is longer "
                             "than %d bytes, truncating\n", p->name,

@@ -454,7 +454,7 @@ static void test_apply_types(void)
     CHECK(symmap_load_defaults(&m, NULL, NULL) == SYMMAP_OK);
 
     /* Unmatched named points: "Foo" and "Ranger Station"; NULL is not counted. */
-    CHECK(course_apply_types(&c, &m, true) == 2);
+    CHECK(course_apply_types(&c, &m, true, NULL) == 2);
     for (size_t i = 0; i < n; i++)
         CHECK(c.cp[i].type == want_type[i]);
 
@@ -473,7 +473,7 @@ static void test_apply_types(void)
         free(c.cp[i].name);
     free(c.cp);
     memset(&c, 0, sizeof c);
-    CHECK(course_apply_types(&c, &m, true) == 0);
+    CHECK(course_apply_types(&c, &m, true, NULL) == 0);
     symmap_free(&m);
 }
 

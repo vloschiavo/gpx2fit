@@ -169,14 +169,33 @@ static void fail(struct gpx_state *st, const char *fmt, ...)
 
 static void warn(const struct gpx_state *st, const char *fmt, ...)
 {
-    if (st->opt->quiet)
-        return;
     va_list ap;
-    fputs("gpx2fit: warning: ", stderr);
+    int len;
+    char *buf;
+
     va_start(ap, fmt);
-    vfprintf(stderr, fmt, ap);
+    len = vsnprintf(NULL, 0, fmt, ap);
     va_end(ap);
-    fputc('\n', stderr);
+    if (len < 0)
+        return;
+
+    buf = malloc((size_t)len + 1);
+    if (!buf)
+        return;
+
+    va_start(ap, fmt);
+    vsnprintf(buf, (size_t)len + 1, fmt, ap);
+    va_end(ap);
+
+    if (st->opt && st->opt->diag)
+        diag_list_add(st->opt->diag, "gpx2fit: warning: %s\n", buf);
+
+    if (!(st->opt && st->opt->quiet)) {
+        fputs("gpx2fit: warning: ", stderr);
+        fputs(buf, stderr);
+        fputc('\n', stderr);
+    }
+    free(buf);
 }
 
 static struct gpx_trk *cur_trk(struct gpx_state *st)
@@ -489,6 +508,7 @@ int read_gpx_mem(const char *buf, size_t len, const char *fallback_name,
     else {
         default_opt.track = 0;
         default_opt.quiet = false;
+        default_opt.diag = NULL;
         st.opt = &default_opt;
     }
 

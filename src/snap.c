@@ -540,13 +540,26 @@ int snap_waypoints(struct course *c, const struct snap_options *opt,
         const struct waypoint *wp = &c->wp[w];
 
         if (choice[w] < 0) {
+            double d = snap_nearest_offset(c, wp->lat, wp->lon);
             r.n_skipped++;
-            if (!opt->quiet) {
-                double d = snap_nearest_offset(c, wp->lat, wp->lon);
-                if (d < 0.0)
+            if (d < 0.0) {
+                if (opt->diag)
+                    diag_list_add(opt->diag,
+                                  "warning: waypoint '%s' skipped: "
+                                  "the track has no points\n",
+                                  display_name(wp->name));
+                if (!opt->quiet)
                     fprintf(stderr, "warning: waypoint '%s' skipped: "
-                            "the track has no points\n", display_name(wp->name));
-                else
+                            "the track has no points\n",
+                            display_name(wp->name));
+            } else {
+                if (opt->diag)
+                    diag_list_add(opt->diag,
+                                  "warning: waypoint '%s' is %.0f m from the "
+                                  "track (limit %.0f m); skipped\n",
+                                  display_name(wp->name), d,
+                                  opt->threshold_m);
+                if (!opt->quiet)
                     fprintf(stderr, "warning: waypoint '%s' is %.0f m from the "
                             "track (limit %.0f m); skipped\n",
                             display_name(wp->name), d, opt->threshold_m);
@@ -558,10 +571,18 @@ int snap_waypoints(struct course *c, const struct snap_options *opt,
             /* A fallback waypoint always gets its nearest pass, so the
              * warning only carries information when the track passes it more
              * than once, i.e. when ordering could have picked another pass. */
-            if (!opt->quiet && all[w].n > 1)
-                fprintf(stderr, "warning: waypoint '%s' is out of GPX order "
-                        "along the track; using its nearest of %zu passes\n",
-                        display_name(wp->name), all[w].n);
+            if (all[w].n > 1) {
+                if (opt->diag)
+                    diag_list_add(opt->diag,
+                                  "warning: waypoint '%s' is out of GPX order "
+                                  "along the track; using its nearest of %zu "
+                                  "passes\n",
+                                  display_name(wp->name), all[w].n);
+                if (!opt->quiet)
+                    fprintf(stderr, "warning: waypoint '%s' is out of GPX order "
+                            "along the track; using its nearest of %zu passes\n",
+                            display_name(wp->name), all[w].n);
+            }
         }
         if (add_course_point(c, wp, &all[w].v[choice[w]]) != 0)
             goto done;

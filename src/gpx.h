@@ -12,10 +12,12 @@
 #include <stddef.h>
 
 #include "course.h"
+#include "diag.h"
 
 struct gpx_options {
-    long track;  /* 1-based <trk> index to use; 0 = pick the longest */
-    bool quiet;  /* suppress warnings on stderr */
+    long track;            /* 1-based <trk> index to use; 0 = pick the longest */
+    bool quiet;            /* suppress warnings on stderr */
+    struct diag_list *diag; /* optional collector for warnings; NULL = none */
 };
 
 /* Read `path` into `c`, which must be freshly course_init()ed.

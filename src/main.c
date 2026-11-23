@@ -346,7 +346,7 @@ int main(int argc, char **argv)
 
     course_compute_distances(&c);
     {
-        struct snap_options so = { opt.pass, opt.snap_m, opt.quiet, opt.strict };
+        struct snap_options so = { opt.pass, opt.snap_m, opt.quiet, opt.strict, NULL };
         int src = snap_waypoints(&c, &so, &sr);
 
         if (src == SNAP_NOMEM) {
@@ -365,7 +365,7 @@ int main(int argc, char **argv)
     }
 
     /* Point types from names, then name truncation (5.4, 5.5). */
-    course_apply_types(&c, &map, opt.quiet);
+    course_apply_types(&c, &map, opt.quiet, NULL);
 
     /* Synthetic times for the track, then for the course points (6.1, 6.2).
      * Before any --max-points decimation (8.2), which must not change them. */

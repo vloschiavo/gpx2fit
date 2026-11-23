@@ -23,6 +23,7 @@
 #include <stdint.h>
 
 #include "course.h"
+#include "diag.h"
 
 /* FIT course_point type enum (Profile 21.222, confirmed in NOTES.md 5.1).
  * The parser accepts every name in the profile (see symmap.c); these are the
@@ -105,6 +106,7 @@ int symmap_load(struct symmap *m, const char *user_file, symmap_warn_fn warn,
  * Unless quiet, prints to stderr a warning for each named point that matches
  * no rule and for each truncated name. Unnamed points get generic silently.
  * Returns the number of named points that matched no rule. */
-size_t course_apply_types(struct course *c, const struct symmap *m, bool quiet);
+size_t course_apply_types(struct course *c, const struct symmap *m, bool quiet,
+                         struct diag_list *diag);
 
 #endif /* SYMMAP_H */

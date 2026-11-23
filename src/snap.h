@@ -12,6 +12,7 @@
 #include <stdio.h>
 
 #include "course.h"
+#include "diag.h"
 #include "geo.h"
 
 /*
@@ -110,6 +111,7 @@ struct snap_options {
     double         threshold_m; /* --snap */
     bool           quiet;       /* no warnings on stderr */
     bool           strict;      /* nonzero result if any waypoint is skipped */
+    struct diag_list *diag;     /* optional collector for warnings; NULL = none */
 };
 
 struct snap_report {
