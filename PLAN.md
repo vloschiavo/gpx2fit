@@ -291,14 +291,14 @@ Work through these in order. Verify against `reference_course.csv` and the decod
 
 ## Phase 10: Hardening and release
 
-- [ ] **10.1 Sanitizer run**
+- [x] **10.1 Sanitizer run**
   - Done when: the full test suite is clean under ASan and UBSan.
 
-- [ ] **10.2 Fuzz the GPX reader**
+- [x] **10.2 Fuzz the GPX reader**
   - Output: a libFuzzer or AFL++ harness around `read_gpx()`.
   - Done when: a run of at least a few minutes finds no crashes or leaks, or each finding is fixed.
 
-- [ ] **10.3 Static analysis**
+- [x] **10.3 Static analysis**
   - Done when: `cppcheck` or `clang-tidy` output is reviewed and issues are fixed or explained.
 
 - [ ] **10.4 README**
@@ -313,6 +313,7 @@ Work through these in order. Verify against `reference_course.csv` and the decod
 
 ## Later (optional)
 
+- [ ] Support for other Garmin course point types beyond the mapped set.
 - [ ] Rust port using the C test fixtures and decoded reference output as the spec.
 - [ ] Turn-by-turn cue generation from track geometry.
-- [ ] Support for other Garmin course point types beyond the mapped set.
+

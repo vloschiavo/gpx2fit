@@ -66,6 +66,7 @@ gpx2fit
 gpx2fit-asan
 build-test/
 build-asan/
+build-fuzz/
 
 # garmin java tester
 tests/tools/

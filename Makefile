@@ -75,7 +75,47 @@ test-asan: asan
 	    UBSAN_OPTIONS=print_stacktrace=1:halt_on_error=1 \
 	    bash $$s ./$(TARGET)-asan; done
 
+
+# Fuzzing the GPX reader (task 10.2). Not part of `make test`.
+# `make fuzz` builds tests/fuzz/fuzz_gpx.c with the gcc-only mutation driver
+# tests/fuzz/fuzz_driver.c (ASan + UBSan, any report aborts) and runs it for
+# FUZZ_SECONDS, seeded from tests/data/*.gpx. A crashing input is saved to
+# $(FUZZ_OUT)/crash-<n>.gpx; replay it with ./build-fuzz/fuzz_gpx FILE.
+# `make fuzz-libfuzzer` is the same harness under clang's libFuzzer.
+FUZZ_SECONDS ?= 300
+FUZZ_SEED    ?= $(shell date +%s)
+FUZZ_OUT     ?= build-fuzz/out
+FUZZ_CC      ?= clang
+FUZZ_SRC     = tests/fuzz/fuzz_gpx.c
+FUZZ_DEPS    = $(FUZZ_SRC) $(LIB_SRC) $(wildcard src/*.h) $(GEN_HDR)
+
+.PHONY: fuzz fuzz-libfuzzer
+
+build-fuzz:
+	mkdir -p $@
+
+build-fuzz/fuzz_gpx: tests/fuzz/fuzz_driver.c $(FUZZ_DEPS) | build-fuzz
+	$(CC) -O1 -g -std=c11 -Wall -Wextra -Wpedantic $(SAN_FLAGS) -Isrc \
+	    -o $@ tests/fuzz/fuzz_driver.c $(FUZZ_SRC) $(LIB_SRC) $(LDLIBS)
+
+fuzz: build-fuzz/fuzz_gpx
+	ASAN_OPTIONS=detect_leaks=1:abort_on_error=1 \
+	UBSAN_OPTIONS=print_stacktrace=1:halt_on_error=1:abort_on_error=1 \
+	./build-fuzz/fuzz_gpx -t $(FUZZ_SECONDS) -s $(FUZZ_SEED) \
+	    -o $(FUZZ_OUT) tests/data
+
+build-fuzz/fuzz_gpx_libfuzzer: $(FUZZ_DEPS) | build-fuzz
+	$(FUZZ_CC) -O1 -g -std=c11 -fsanitize=fuzzer,address,undefined \
+	    -fno-sanitize-recover=undefined -fno-omit-frame-pointer -Isrc \
+	    -o $@ $(FUZZ_SRC) $(LIB_SRC) $(LDLIBS)
+
+fuzz-libfuzzer: build-fuzz/fuzz_gpx_libfuzzer
+	mkdir -p build-fuzz/corpus $(FUZZ_OUT)
+	cp tests/data/*.gpx build-fuzz/corpus/
+	./build-fuzz/fuzz_gpx_libfuzzer -max_total_time=$(FUZZ_SECONDS) \
+	    -artifact_prefix=$(FUZZ_OUT)/ build-fuzz/corpus
+
 clean:
-	rm -rf $(BUILD) build-asan build-test $(TARGET) $(TARGET)-asan $(GEN_HDR) $(GEN_HDR).tmp
+	rm -rf $(BUILD) build-asan build-test build-fuzz $(TARGET) $(TARGET)-asan $(GEN_HDR) $(GEN_HDR).tmp
 
 -include $(DEP)

@@ -15,16 +15,40 @@ entries and map icons for water, camps, hazards, and so on).
 
 ## Build
 
-Requires a C11 compiler, `make`, and the expat development headers.
+Prerequisites:
+
+- a C11 compiler (gcc or clang) and `make`
+- the expat development headers and library (`libexpat1-dev`)
+- `xxd`, used at build time to embed `data/default.map` into the binary
 
 ```sh
-# Debian / Ubuntu
-sudo apt install build-essential libexpat1-dev
+# Debian / Ubuntu (on older releases xxd is in the vim-common package)
+sudo apt install build-essential libexpat1-dev xxd
+```
 
+Then, from the source directory:
+
+```sh
 make            # build ./gpx2fit
-make test       # unit tests
-make asan       # build with AddressSanitizer
+make test       # unit tests (built with ASan+UBSan) plus shell/end-to-end tests
+make asan       # separate ASan+UBSan build -> ./gpx2fit-asan
+make test-asan  # shell/end-to-end tests against ./gpx2fit-asan
 make clean
+```
+
+`make test` needs a compiler with AddressSanitizer and UBSan support (any
+recent gcc or clang).
+
+### Install
+
+There is no install step yet. `gpx2fit` is a single self-contained binary
+(the default type rules are built in), so copy it to a directory on your
+`PATH`:
+
+```sh
+mkdir -p ~/.local/bin
+cp gpx2fit ~/.local/bin/
+gpx2fit --help
 ```
 
 ## Quick start
@@ -33,22 +57,32 @@ make clean
 ./gpx2fit route.gpx route.fit
 ```
 
-Typical output:
+For example, with the CalTopo export that ships in the test data (one of its
+five waypoints is deliberately far from the track):
+
+```sh
+./gpx2fit tests/data/caltopo_sample.gpx route.fit
+```
 
 ```
-Read 'Lost Coast Day 2': 1842 trackpoints, 5 waypoints
-warning: waypoint 'Old Cabin' is 400 m from the track (limit 250 m); skipped
-Track: 14.32 km, ascent 512 m, descent 498 m, 1842 points
-  Water 1                    3.10 km  offset   4.2 m
-  Camp                       7.85 km  offset  11.0 m
-  Caution                    9.40 km  offset   2.7 m
+Read 'caltopo_sample': 114 trackpoints, 5 waypoints
+warning: waypoint 'Caution' is 477 m from the track (limit 250 m); skipped
+warning: no type for 'Start', using generic; add a line to --map
+warning: no type for 'Ranger Station', using generic; add a line to --map
+Track: 3.39 km, ascent 44 m, descent 49 m, 114 points
+  Start                       0.00 km  offset   0.2 m
+  Camp                        0.99 km  offset  14.0 m
+  Water                       1.56 km  offset   5.4 m
+  Ranger Station              3.39 km  offset   3.1 m
 Snapped 4 of 5 waypoints (1 skipped)
 Wrote 'route.fit' (4 course points)
 ```
 
-Warnings go to stderr; everything else goes to stdout. The summary is printed
-after the file has been written, so a run that fails shows only its error
-(plus, for a `--strict` failure, the list of snapped waypoints).
+Warnings go to stderr; everything else goes to stdout. The `Read` line is
+printed as soon as the GPX file has been read. The rest of the summary is
+printed only after the file has been written, so a run that fails at a later
+stage shows the `Read` line and its error (plus, for a `--strict` waypoint
+failure, the list of snapped waypoints).
 
 ## Usage
 
@@ -62,11 +96,11 @@ gpx2fit [options] input.gpx output.fit
 | `--pass MODE` | Which pass of the track a waypoint snaps to when the track visits it more than once: `nearest` (default), `ordered`, `first`, `last`. See [Out-and-back routes](#out-and-back-and-loop-routes). |
 | `--name TEXT` | Course name. Default: the GPX track name, or the file name if the track has none. |
 | `--pace PACE` | Synthetic pace, as m/s or min/km (for example `2.5` or `6:40`). Default 5 km/h. |
-| `--start TIME` | Synthetic start time, UTC: `YYYY-MM-DD` or `YYYY-MM-DDTHH:MM:SSZ`. Default `2025-01-01T00:00:00Z`. |
-| `--track N` | Use the Nth `<trk>` of the GPX file. Default: the longest. |
+| `--start TIME` | Synthetic start time, UTC: `YYYY-MM-DD` or `YYYY-MM-DDTHH:MM[:SS][Z]` (for example `2025-06-01T07:30Z`). Time zone offsets such as `+02:00` are rejected. Default `2025-01-01T00:00:00Z`. |
+| `--track N` | Use the Nth `<trk>` of the GPX file, counting from 1. Default: the longest. |
 | `--max-points N` | Reduce the track to at most N points (N >= 2). Always keeps the first point, the last point, and the point nearest each course point. See [Reducing the track](#reducing-the-track---max-points). |
 | `--map FILE` | Waypoint name-to-type rules, tried before the built-in defaults. |
-| `--strict` | Treat warnings as errors: a skipped waypoint, or a `--max-points` too small to hold the required points, fails the run. |
+| `--strict` | Make two warnings fatal: a waypoint skipped for being too far from the track, and a `--max-points` too small to hold the required points. Other warnings (no type for a name, truncated names, several tracks or segments) stay warnings. |
 | `-q`, `--quiet` | Print only errors. |
 | `-h`, `--help` | Show help and exit. |
 
@@ -83,11 +117,15 @@ failed run does not leave a partial `.fit` behind.
 
 ## CalTopo workflow
 
-1. Draw your route as a single line (track) in CalTopo.
+1. Draw your route as a single line (track) in CalTopo. If the export
+   contains several tracks, the longest is used (see `--track`).
 2. Add markers for the things you want on the watch, and **name them with a
    keyword the type map recognizes**: "Water", "Camp", "Caution". Numbers and
-   extra words are fine ("Water 2", "Upper camp").
-3. Export as GPX and run `gpx2fit`.
+   extra words are fine ("Water 2", "Upper camp"). Markers must be within
+   `--snap` meters (default 250) of the line, or they are skipped.
+3. Export as GPX and run `gpx2fit route.gpx route.fit`. Names that match no
+   rule (such as "Start") still become course points, with the generic icon
+   and a warning.
 4. Send the `.fit` to your device through Garmin Connect, or copy it to the
    device's courses folder over USB.
 
@@ -110,8 +148,20 @@ keyword = type
   waypoint name.
 - The **first** matching rule in file order wins. Put specific keywords above
   general ones.
-- `type` is a FIT course point type name such as `water`, `danger`,
-  `campsite`, or `generic`.
+- `type` is a FIT course point type name (case-insensitive) such as `water`,
+  `danger`, `campsite`, or `generic`. The accepted names are the FIT
+  `course_point` values: `generic`, `summit`, `valley`, `water`, `food`,
+  `danger`, `left`, `right`, `straight`, `first_aid`, `fourth_category`,
+  `third_category`, `second_category`, `first_category`, `hors_category`,
+  `sprint`, `left_fork`, `right_fork`, `middle_fork`, `slight_left`,
+  `sharp_left`, `slight_right`, `sharp_right`, `u_turn`, `segment_start`,
+  `segment_end`, `campsite`, `aid_station`, `rest_area`, `general_distance`,
+  `service`, `energy_gel`, `sports_drink`, `mile_marker`, `checkpoint`,
+  `shelter`, `meeting_spot`, `overlook`, `toilet`, `shower`, `gear`,
+  `sharp_curve`, `steep_incline`, `tunnel`, `bridge`, `obstacle`, `crossing`,
+  `store`, `transition`, `navaid`, `transport`, `alert`, `info`. Which of
+  these get a distinct icon depends on the device.
+- Matching uses the full waypoint name, before any truncation.
 - A name that matches nothing becomes `generic`, and a warning is printed
   (unless `--quiet`):
   `no type for 'Foo', using generic; add a line to --map`.
@@ -121,14 +171,28 @@ keyword = type
 ### Built-in defaults
 
 The defaults live in [`data/default.map`](data/default.map) and are embedded
-in the binary at build time, so there is no runtime file lookup. They include
-at least:
+in the binary at build time, so there is no runtime file lookup. To change
+them, edit that file and rebuild. The rules are, in order:
 
 ```
-water   = water
-camp    = campsite
-caution = danger
+water     = water
+h2o       = water
+camp      = campsite
+caution   = danger
+hazard    = danger
+danger    = danger
+first aid = first_aid
+summit    = summit
+overlook  = overlook
+shelter   = shelter
+toilet    = toilet
+food      = food
 ```
+
+"Start" and "Ranger Station" deliberately have no rule, so they become
+`generic` with a warning. Because matching is by substring, "camp" also
+matches "Campbell Creek" and "water" also matches "Waterfall"; override such
+cases in your `--map` file.
 
 ### Your own rules (`--map`)
 
@@ -145,14 +209,15 @@ summit    = summit
 ./gpx2fit --map my.map route.gpx route.fit
 ```
 
-A missing or unreadable map file is an error (exit 1) and is detected before
-any other work is done.
+A missing or unreadable map file, one larger than 1 MiB, or one containing a
+NUL byte is an error (exit 1), detected before any other work is done. Bad
+lines inside a readable file are only warnings (see above).
 
 ## How it works
 
 1. **Read** the GPX file. All `<trkseg>` of the chosen track are concatenated.
-   With several `<trk>` elements the longest is used, or the one given by
-   `--track N`, and a warning is printed. Elevation is kept only for points
+   With several `<trk>` elements the one given by `--track N` is used;
+   without `--track` the longest is used and a warning is printed. Elevation is kept only for points
    that have an `<ele>` element.
 2. **Distances.** Cumulative distance along the track is computed with the
    haversine formula (spherical Earth, mean radius).
@@ -205,8 +270,9 @@ survive while straight stretches lose points.
 
 - Course names longer than 90 bytes are truncated (with a warning). The true
   device maximum is unknown; 90 bytes is a length known to work.
-- Course point names are truncated to the FIT `course_point.name` field
-  length, never splitting a UTF-8 character.
+- Course point names longer than 15 bytes are truncated (with a warning),
+  never splitting a UTF-8 character. 15 bytes is known to work on a Fenix 7X;
+  longer names are untested.
 
 ## Output format
 
@@ -241,9 +307,21 @@ Wrote '<output.fit>' (<C> course points)
 
 ## Tested devices
 
-Not yet recorded. Real-device validation (Garmin Connect import, watch
-navigation, USB copy) is tracked in `PLAN.md` phase 9. Please report the
-device model and firmware if you try it.
+| Device | Firmware | Result |
+| --- | --- | --- |
+| Garmin Fenix 7X | 27.18 | Works |
+
+Tested with a 115.72 km course (5159 points, 30 course points) and the 3.39 km
+`tests/data/caltopo_sample.gpx`, converted with default options:
+
+- Garmin Connect import: both courses imported with no errors or warnings;
+  distance, elevation profile and course point list looked right.
+- On the watch: Up Ahead showed the course points in the right order, at the
+  right distances, with the expected names and types.
+- Direct USB copy of the `.fit` into the watch's courses folder also works.
+
+Other devices have not been tested. Please report the device model and
+firmware if you try one.
 
 ## License
 

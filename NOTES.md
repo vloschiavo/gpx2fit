@@ -386,6 +386,54 @@ need privileges this sandbox lacks. So for this run, each binary call went
 through a wrapper that retried only that startup crash. On a normal machine
 `make test-asan` needs no wrapper.
 
+## 10.2 GPX reader fuzzing (2026-11-23)
+
+- **Harness:** `tests/fuzz/fuzz_gpx.c` is a standard libFuzzer entry point
+  (`LLVMFuzzerTestOneInput`). It writes the input to one reused temp file,
+  calls `read_gpx()` (quiet) twice, once with `track = 0` and once with track
+  1..4 picked by the first input byte. On success it runs
+  `course_compute_distances()`, then always calls `course_free()`.
+- **Tool:** this sandbox has only gcc 12: no clang, so no libFuzzer, and no
+  AFL++. There is no sudo either, so neither can be installed. So I wrote
+  `tests/fuzz/fuzz_driver.c`, a gcc-only driver for the same harness. It
+  replays files and directories, then runs a time-bounded mutation loop with
+  a seeded PRNG and no coverage feedback. The mutations are bit and byte
+  flips, inserts, deletes, duplications, splices, truncation, and injected
+  GPX/XML tokens (elements, attributes, entities, DOCTYPE/entity expansion,
+  CDATA, huge numbers, NaN/inf, invalid UTF-8, NUL bytes, deep nesting, long
+  names, thousands of points or segments). It also builds whole GPX documents
+  from a small grammar. A random sample of mutants is kept as new seeds. The
+  seeds are `tests/data/*`. Seeds larger than `-m` (default 1 MiB) are
+  replayed but, with a warning, not mutated.
+- **Saving crashing inputs:** on an ASan error, a fatal signal or a 10 s
+  per-input timeout, the current input is saved to `OUTDIR/crash-<n>.gpx`.
+  UBSan inputs are saved only when `UBSAN_OPTIONS` includes
+  `abort_on_error=1`, as `make fuzz` sets it. Without it, gcc's UBSan runtime
+  exits with status 1, raises no SIGABRT, and saves nothing. I checked
+  saving with throwaway buggy harnesses: an ASan heap overflow, and a signed
+  overflow with and without that option. LeakSanitizer checks only at
+  process exit, unlike libFuzzer, which checks after each input. So a leak
+  fails the run (exit 1), but the input that caused it is not saved. To find
+  it, replay the corpus.
+- **How to run:** `make fuzz FUZZ_SECONDS=300` (ASan + UBSan,
+  `-fno-sanitize-recover`, `detect_leaks=1`). Crash files go to
+  `build-fuzz/out/`. Replay one with `./build-fuzz/fuzz_gpx FILE`.
+  `make fuzz-libfuzzer` (needs clang) builds the same harness with
+  `-fsanitize=fuzzer,address,undefined` and runs it. That target could not be
+  run here. Fuzzing is not part of `make test`.
+- **Run:** 4 parallel instances (seeds 11, 22, 33, 44), 330 s each, with
+  `ASAN_OPTIONS=detect_leaks=1:abort_on_error=1`. That made **2,552,832
+  executions** in total, about 1,800 to 2,000 per second per instance, so
+  about 5.1 million `read_gpx()` calls. All four exited 0: no ASan, UBSan or
+  LeakSanitizer report and no timeouts. I confirmed that LSan really reports
+  in this sandbox, using a harness that leaks on purpose.
+- **Findings:** none in `src/`, so no code changes. The only bug was in the
+  driver itself (`memcpy(NULL, …, 0)` on an empty buffer, caught by UBSan).
+  It is fixed.
+- The gcc ASan startup crash from 10.1 (high `vm.mmap_rnd_bits`) also hits
+  the fuzz binary sometimes. For these runs, a wrapper retried only that
+  startup crash.
+
 ## Not done / open items
 
 - I could not download the official FIT SDK zip (`Profile.xlsx`, C headers):
