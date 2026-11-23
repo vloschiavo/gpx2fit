@@ -251,7 +251,7 @@ Work through these in order. Verify against `reference_course.csv` and the decod
 
 ## Phase 8: Integration
 
-- [ ] **8.1 Wire the pipeline in `main.c`**
+- [x] **8.1 Wire the pipeline in `main.c`**
   - Output: read GPX, distances, snap, map types (using the `--map` rules layered over the embedded defaults), times, write FIT, print summary. Each stage returns an error code.
   - Done when: `gpx2fit caltopo_sample.gpx out.fit` produces a file that decodes cleanly.
 
