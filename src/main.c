@@ -1,7 +1,7 @@
 /* gpx2fit: convert a GPX track to a FIT course file.
  * (tasks 1.4 CLI parsing, 2.x GPX reading, 4.x snapping, 5.4 --map and name
- * handling, 6.x synthetic times, 7.x FIT output; the full pipeline is wired
- * in 8.1) */
+ * handling, 6.x synthetic times, 7.x FIT output, 8.1 pipeline, 8.2
+ * --max-points, 8.3 summary) */
 #define _POSIX_C_SOURCE 200809L
 
 #include <errno.h>
@@ -14,6 +14,7 @@
 #include <string.h>
 
 #include "course.h"
+#include "decimate.h"
 #include "fit_write.h"
 #include "geo.h"
 #include "gpx.h"
@@ -30,6 +31,10 @@ enum {
 };
 
 #define DEFAULT_SNAP_M 250.0
+
+/* Elevation changes smaller than this are treated as noise in the summary's
+ * ascent and descent (see course_elevation_stats). */
+#define ELE_THRESHOLD_M 1.0
 
 /* Parsed command line. String members point into argv (not owned). */
 struct options {
@@ -215,6 +220,24 @@ static void map_warn(const char *source, int line, const char *msg, void *ctx)
         fprintf(stderr, "warning: %s:%d: %s\n", source, line, msg);
 }
 
+/* The track line of the summary (8.3). total_m is the full course length,
+ * es comes from the full-resolution track, n_full is the point count before
+ * any --max-points reduction. */
+static void print_track_summary(const struct course *c,
+                                const struct ele_stats *es,
+                                double total_m, size_t n_full)
+{
+    printf("Track: %.2f km, ", total_m / 1000.0);
+    if (es->valid)
+        printf("ascent %.0f m, descent %.0f m, ", es->ascent, es->descent);
+    else
+        printf("no elevation data, ");
+    printf("%zu points", c->n_tp);
+    if (c->n_tp != n_full)
+        printf(" (reduced from %zu)", n_full);
+    printf("\n");
+}
+
 int main(int argc, char **argv)
 {
     struct options opt;
@@ -251,9 +274,14 @@ int main(int argc, char **argv)
     /* The pipeline (8.1): read GPX, distances, snap, point types, synthetic
      * times, write FIT. Each stage reports failure and stops with exit 1; the
      * output file is only written once every earlier stage has succeeded.
-     * --max-points (8.2) and the final summary (8.3) are still to come. */
+     * Normal output (the summary) is printed after the file is written, so
+     * that it is never shown for a run that then fails. */
     struct course c;
     struct symmap map;
+    struct snap_report sr;
+    struct ele_stats es;
+    size_t n_full;
+    double total_m;
     int trc;
     struct gpx_options go = { .track = opt.track, .quiet = opt.quiet };
     char err[256];
@@ -295,16 +323,17 @@ int main(int argc, char **argv)
     course_compute_distances(&c);
     {
         struct snap_options so = { opt.pass, opt.snap_m, opt.quiet, opt.strict };
-        struct snap_report sr;
         int src = snap_waypoints(&c, &so, &sr);
 
         if (src == SNAP_NOMEM) {
             fprintf(stderr, "%s: error: out of memory\n", argv[0]);
             goto out;
         }
-        if (!opt.quiet)
-            snap_print_summary(stdout, &c, &sr);
         if (src == SNAP_STRICT) {
+            /* The run fails, so the normal summary will not be printed;
+             * show which waypoints were snapped and which were skipped. */
+            if (!opt.quiet)
+                snap_print_summary(stdout, &c, &sr);
             fprintf(stderr, "%s: error: --strict: %zu waypoint(s) farther than "
                     "%g m from the track\n", argv[0], sr.n_skipped, opt.snap_m);
             goto out;
@@ -323,6 +352,38 @@ int main(int argc, char **argv)
     }
     course_assign_cp_times(&c);
 
+    /* Summary figures come from the full-resolution track, so take them
+     * before --max-points changes it (8.2, 8.3). */
+    n_full = c.n_tp;
+    total_m = c.n_tp ? c.tp[c.n_tp - 1].dist : 0.0;
+    course_elevation_stats(&c, ELE_THRESHOLD_M, &es);
+
+    /* --max-points (8.2). Course points refer to the track by distance and
+     * the surviving points keep their distances and times, so nothing else
+     * needs updating. */
+    if (opt.max_points > 0) {
+        struct decimate_report dr;
+
+        if (course_decimate(&c, (size_t)opt.max_points, &dr) != 0) {
+            fprintf(stderr, "%s: error: out of memory\n", argv[0]);
+            goto out;
+        }
+        if (dr.exceeded) {
+            if (opt.strict) {
+                fprintf(stderr, "%s: error: --strict: --max-points %ld is "
+                        "less than the %zu points that must be kept (first, "
+                        "last, and one per course point)\n",
+                        argv[0], opt.max_points, dr.n_required);
+                goto out;
+            }
+            if (!opt.quiet)
+                fprintf(stderr, "warning: --max-points %ld is less than the "
+                        "%zu points that must be kept (first, last, and one "
+                        "per course point); keeping %zu\n",
+                        opt.max_points, dr.n_required, dr.n_after);
+        }
+    }
+
     /* Encode and write the FIT course file (7.x). */
     {
         struct fit_options fo;
@@ -336,8 +397,14 @@ int main(int argc, char **argv)
             goto out;
         }
     }
-    if (!opt.quiet)
+
+    /* The summary (8.3): track totals, one line per course point, the
+     * snapped tally, then the output file. Nothing under --quiet. */
+    if (!opt.quiet) {
+        print_track_summary(&c, &es, total_m, n_full);
+        snap_print_summary(stdout, &c, &sr);
         printf("Wrote '%s' (%zu course points)\n", opt.output, c.n_cp);
+    }
 
     rc = EXIT_OK;
 out:

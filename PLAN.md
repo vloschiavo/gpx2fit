@@ -255,11 +255,11 @@ Work through these in order. Verify against `reference_course.csv` and the decod
   - Output: read GPX, distances, snap, map types (using the `--map` rules layered over the embedded defaults), times, write FIT, print summary. Each stage returns an error code.
   - Done when: `gpx2fit caltopo_sample.gpx out.fit` produces a file that decodes cleanly.
 
-- [ ] **8.2 `--max-points` decimation**
+- [x] **8.2 `--max-points` decimation**
   - Output: Douglas-Peucker (or uniform) reduction that always keeps the first point, the last point, and the points nearest each course point.
   - Done when: a dense fixture reduces to N points and course point distances stay within 1 m of the full-resolution values.
 
-- [ ] **8.3 Summary and `--quiet`**
+- [x] **8.3 Summary and `--quiet`**
   - Output: total distance, ascent and descent, point count, course point list. Silence everything except errors under `--quiet`.
   - Done when: output matches the format in the README draft.
 

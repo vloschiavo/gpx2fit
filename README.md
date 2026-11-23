@@ -38,6 +38,7 @@ Typical output:
 ```
 Read 'Lost Coast Day 2': 1842 trackpoints, 5 waypoints
 warning: waypoint 'Old Cabin' is 400 m from the track (limit 250 m); skipped
+Track: 14.32 km, ascent 512 m, descent 498 m, 1842 points
   Water 1                    3.10 km  offset   4.2 m
   Camp                       7.85 km  offset  11.0 m
   Caution                    9.40 km  offset   2.7 m
@@ -45,7 +46,9 @@ Snapped 4 of 5 waypoints (1 skipped)
 Wrote 'route.fit' (4 course points)
 ```
 
-Warnings go to stderr; everything else goes to stdout.
+Warnings go to stderr; everything else goes to stdout. The summary is printed
+after the file has been written, so a run that fails shows only its error
+(plus, for a `--strict` failure, the list of snapped waypoints).
 
 ## Usage
 
@@ -61,9 +64,9 @@ gpx2fit [options] input.gpx output.fit
 | `--pace PACE` | Synthetic pace, as m/s or min/km (for example `2.5` or `6:40`). Default 5 km/h. |
 | `--start TIME` | Synthetic start time, UTC: `YYYY-MM-DD` or `YYYY-MM-DDTHH:MM:SSZ`. Default `2025-01-01T00:00:00Z`. |
 | `--track N` | Use the Nth `<trk>` of the GPX file. Default: the longest. |
-| `--max-points N` | Reduce the track to at most N points (N >= 2). |
+| `--max-points N` | Reduce the track to at most N points (N >= 2). Always keeps the first point, the last point, and the point nearest each course point. See [Reducing the track](#reducing-the-track---max-points). |
 | `--map FILE` | Waypoint name-to-type rules, tried before the built-in defaults. |
-| `--strict` | Treat warnings as errors (currently: any skipped waypoint fails the run). |
+| `--strict` | Treat warnings as errors: a skipped waypoint, or a `--max-points` too small to hold the required points, fails the run. |
 | `-q`, `--quiet` | Print only errors. |
 | `-h`, `--help` | Show help and exit. |
 
@@ -163,7 +166,8 @@ any other work is done.
    timestamps, but FIT courses need them, so times are generated from the
    start time and pace. Course point times are interpolated from their
    distance along the course.
-6. **Write** the FIT course file.
+6. **Reduce** the track if `--max-points` was given.
+7. **Write** the FIT course file, then print the summary.
 
 ### Out-and-back and loop routes
 
@@ -176,6 +180,26 @@ that revisits a junction), `--pass` decides which pass to use:
 | `ordered` | Choose passes so that distance along the course never decreases in GPX waypoint order. Useful when you list outbound waypoints first, then return waypoints. A waypoint that cannot keep order falls back to its nearest pass, with a warning if it had several passes. |
 | `first` | The first pass. |
 | `last` | The last pass. |
+
+### Reducing the track (`--max-points`)
+
+Dense tracks make large files. `--max-points N` thins the track to N points
+using Douglas-Peucker: it repeatedly keeps the dropped point that lies
+farthest from the line between its kept neighbors, so corners and bends
+survive while straight stretches lose points.
+
+- The first point, the last point, and, for each course point, the trackpoint
+  nearest to it along the course are always kept.
+- Surviving points are not changed. Their distances and times keep their
+  full-resolution values, so total distance and course point distances and
+  times are the same with or without `--max-points`.
+- The total, ascent and descent in the summary are computed from the
+  full-resolution track.
+- The shape is judged on position only; elevation detail between kept points
+  is lost, so a reduced track can show a smoother elevation profile.
+- If the required points alone number more than N, all of them are kept and a
+  warning is printed (an error under `--strict`). A track that already has N or
+  fewer points is left as is.
 
 ### Limits and truncation
 
@@ -190,12 +214,19 @@ Printed to stdout (suppressed by `--quiet`):
 
 ```
 Read '<course name>': <N> trackpoints, <M> waypoints
+Track: <km> km, ascent <m> m, descent <m> m, <P> points
   <name>   <km> km  offset <m> m          one line per course point
 Snapped <S> of <T> waypoints (<K> skipped)
-Wrote '<output.fit>' (<P> course points)
+Wrote '<output.fit>' (<C> course points)
 ```
 
-`offset` is how far the original waypoint was from the track, in meters.
+- `Track` totals come from the full-resolution track. With `--max-points` the
+  point count shows the reduced number and the original, for example
+  `1000 points (reduced from 1842)`.
+- Ascent and descent ignore elevation changes under 1 m (noise). A track with
+  no elevation data prints `no elevation data` instead.
+- `offset` is how far the original waypoint was from the track, in meters.
+- `--quiet` removes all of this; only errors are printed.
 
 ## Limitations
 
@@ -206,8 +237,7 @@ Wrote '<output.fit>' (<P> course points)
   which is far below GPS noise for course purposes.
 - Not intended for tracks near the poles.
 - Garmin-internal undocumented FIT fields are not written.
-- `--max-points` and the extended summary (total distance, ascent and descent)
-  are still being implemented; see the project plan.
+- `--max-points` judges shape by position only, not elevation.
 
 ## Tested devices
 
