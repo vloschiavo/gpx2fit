@@ -15,6 +15,7 @@
 
 #include "course.h"
 #include "decimate.h"
+#include "diag.h"
 #include "fit_write.h"
 #include "geo.h"
 #include "gpx.h"
@@ -47,6 +48,7 @@ struct options {
     const char *start;     /* raw --start text, parsed in task 6.1; NULL = default */
     bool        quiet;     /* suppress everything except errors */
     bool        strict;    /* treat warnings as errors */
+    struct diag_list *diag; /* optional collector for warnings; NULL = none */
     long        max_points; /* decimation target; 0 = no limit */
     long        track;     /* 1-based <trk> to use; 0 = longest */
     enum snap_mode pass;   /* which pass of the track a waypoint snaps to */
@@ -240,6 +242,8 @@ static void map_warn(const char *source, int line, const char *msg, void *ctx)
 {
     const struct options *o = ctx;
 
+    if (o->diag)
+        diag_list_add(o->diag, "warning: %s:%d: %s\n", source, line, msg);
     if (!o->quiet)
         fprintf(stderr, "warning: %s:%d: %s\n", source, line, msg);
 }
@@ -307,7 +311,10 @@ int main(int argc, char **argv)
     size_t n_full;
     double total_m;
     int trc;
-    struct gpx_options go = { .track = opt.track, .quiet = opt.quiet };
+    struct diag_list diag;
+    diag_list_init(&diag);
+    opt.diag = &diag;
+    struct gpx_options go = { .track = opt.track, .quiet = opt.quiet, .diag = opt.diag };
     char err[256];
 
     course_init(&c);
@@ -335,6 +342,10 @@ int main(int argc, char **argv)
         c.name = n;
     }
     if (c.name && strlen(c.name) > COURSE_NAME_MAX) {
+        if (opt.diag)
+            diag_list_add(opt.diag,
+                          "warning: course name is longer than %d bytes, "
+                          "truncating\n", COURSE_NAME_MAX);
         if (!opt.quiet)
             fprintf(stderr, "warning: course name is longer than %d bytes, "
                     "truncating\n", COURSE_NAME_MAX);
@@ -346,7 +357,7 @@ int main(int argc, char **argv)
 
     course_compute_distances(&c);
     {
-        struct snap_options so = { opt.pass, opt.snap_m, opt.quiet, opt.strict, NULL };
+        struct snap_options so = { opt.pass, opt.snap_m, opt.quiet, opt.strict, opt.diag };
         int src = snap_waypoints(&c, &so, &sr);
 
         if (src == SNAP_NOMEM) {
@@ -365,7 +376,7 @@ int main(int argc, char **argv)
     }
 
     /* Point types from names, then name truncation (5.4, 5.5). */
-    course_apply_types(&c, &map, opt.quiet, NULL);
+    course_apply_types(&c, &map, opt.quiet, opt.diag);
 
     /* Synthetic times for the track, then for the course points (6.1, 6.2).
      * Before any --max-points decimation (8.2), which must not change them. */
@@ -400,6 +411,12 @@ int main(int argc, char **argv)
                         argv[0], opt.max_points, dr.n_required);
                 goto out;
             }
+            if (opt.diag)
+                diag_list_add(opt.diag,
+                              "warning: --max-points %ld is less than the "
+                              "%zu points that must be kept (first, last, and "
+                              "one per course point); keeping %zu\n",
+                              opt.max_points, dr.n_required, dr.n_after);
             if (!opt.quiet)
                 fprintf(stderr, "warning: --max-points %ld is less than the "
                         "%zu points that must be kept (first, last, and one "
@@ -437,5 +454,6 @@ int main(int argc, char **argv)
 out:
     symmap_free(&map);
     course_free(&c);
+    diag_list_free(&diag);
     return rc;
 }
