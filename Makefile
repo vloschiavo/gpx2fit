@@ -46,10 +46,12 @@ asan:
 
 # Tests: every tests/test_*.c is built against all of src/ except main.c,
 # with ASan + UBSan (any report aborts the test), then run.
+# Then every tests/test_*.sh and the end-to-end tests/run.sh run against the
+# built binary.
 LIB_SRC   = $(filter-out src/main.c,$(SRC))
 TEST_SRC  = $(wildcard tests/test_*.c)
 TEST_BIN  = $(TEST_SRC:tests/%.c=build-test/%)
-TEST_SH   = $(wildcard tests/test_*.sh)
+TEST_SH   = $(wildcard tests/test_*.sh) tests/run.sh
 SAN_FLAGS = -fsanitize=address,undefined -fno-sanitize-recover=undefined \
             -fno-omit-frame-pointer
 

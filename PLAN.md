@@ -263,7 +263,7 @@ Work through these in order. Verify against `reference_course.csv` and the decod
   - Output: total distance, ascent and descent, point count, course point list. Silence everything except errors under `--quiet`.
   - Done when: output matches the format in the README draft.
 
-- [ ] **8.4 End-to-end Bash test**
+- [x] **8.4 End-to-end Bash test**
   - Output: `tests/run.sh` that runs every fixture through the binary and checks exit codes and the summary text.
   - Done when: `make test` runs unit and end-to-end tests together.
 
