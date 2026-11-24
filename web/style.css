@@ -422,6 +422,185 @@ select:focus-visible {
   white-space: pre-line;
 }
 
+.route-details {
+  margin-top: 1.25rem;
+  text-align: left;
+}
+
+.route-details h3 {
+  margin: 0;
+  font-size: 0.95rem;
+}
+
+.map-help,
+.map-fallback {
+  margin: 0.55rem 0 0;
+  color: var(--muted);
+  font-size: 0.73rem;
+  line-height: 1.45;
+}
+
+.map-fallback {
+  padding: 1rem;
+  border: 1px solid var(--border);
+  border-radius: 0.65rem;
+  background: #fafbf9;
+  text-align: center;
+}
+
+.route-map {
+  position: relative;
+  z-index: 0;
+  height: 22rem;
+  margin-top: 0.8rem;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 0.75rem;
+  background: #e9eee8;
+}
+
+.route-map .leaflet-control-attribution {
+  font-size: 0.62rem;
+}
+
+.waypoint-marker {
+  display: grid;
+  border: 0;
+  background: transparent;
+  place-items: center;
+}
+
+.waypoint-pin {
+  display: grid;
+  width: 1.75rem;
+  height: 1.75rem;
+  border: 2px solid #fff;
+  border-radius: 50%;
+  place-items: center;
+  color: #fff;
+  background: var(--marker-color);
+  box-shadow: 0 1px 5px rgb(20 35 25 / 45%);
+  font-size: 0.9rem;
+  font-weight: 850;
+  line-height: 1;
+}
+
+.waypoint-pin.is-skipped {
+  border: 2px dashed var(--marker-color);
+  color: var(--marker-color);
+  background: #fff;
+}
+
+.waypoint-popup strong,
+.waypoint-popup span {
+  display: block;
+}
+
+.waypoint-popup span {
+  margin-top: 0.25rem;
+  line-height: 1.4;
+}
+
+.waypoint-popup .skipped-popup-note {
+  color: #8a5b16;
+}
+
+.waypoint-table-wrap {
+  margin-top: 1rem;
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: 0.65rem;
+}
+
+.waypoint-table {
+  width: 100%;
+  min-width: 37rem;
+  border-collapse: collapse;
+  font-size: 0.76rem;
+}
+
+.waypoint-table caption {
+  caption-side: bottom;
+  padding: 0.6rem 0.75rem;
+  color: var(--muted);
+  font-size: 0.68rem;
+  line-height: 1.4;
+  text-align: left;
+}
+
+.waypoint-table th,
+.waypoint-table td {
+  padding: 0.65rem 0.7rem;
+  border-bottom: 1px solid #e7ebe6;
+  text-align: left;
+  vertical-align: middle;
+}
+
+.waypoint-table thead th {
+  color: var(--muted);
+  background: #f7f9f6;
+  font-size: 0.68rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.waypoint-table tbody th {
+  max-width: 12rem;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.waypoint-table tbody tr:last-child > * {
+  border-bottom: 0;
+}
+
+.waypoint-table tbody tr[data-status="skipped"] {
+  background: #fffaf0;
+}
+
+.waypoint-table .numeric-cell {
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.waypoint-status {
+  display: inline-block;
+  padding: 0.2rem 0.42rem;
+  border-radius: 999px;
+  font-size: 0.65rem;
+  font-weight: 700;
+}
+
+.waypoint-status.is-snapped {
+  color: var(--accent-dark);
+  background: #e4eee6;
+}
+
+.waypoint-status.is-skipped {
+  color: #7b5317;
+  background: #ffedc2;
+}
+
+.table-type-icon {
+  display: inline-grid;
+  width: 1.35rem;
+  height: 1.35rem;
+  margin-right: 0.4rem;
+  border-radius: 50%;
+  place-items: center;
+  color: #fff;
+  background: var(--type-color);
+  font-size: 0.68rem;
+  font-weight: 800;
+  vertical-align: middle;
+}
+
+.empty-waypoints {
+  color: var(--muted);
+  text-align: center !important;
+}
+
 .download-button {
   width: 100%;
   margin-top: 1.2rem;
@@ -523,6 +702,10 @@ footer {
   .stats {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     row-gap: 1rem;
+  }
+
+  .route-map {
+    height: 18rem;
   }
 }
 

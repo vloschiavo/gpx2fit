@@ -77,6 +77,29 @@ static void wasm_map_warn(const char*source,int line,const char*msg,void*ctx){
     if(d) diag_list_add(d,"warning: %s:%d: %s\n",source,line,msg);
 }
 
+/* Nearest track position for displaying a skipped waypoint in the web UI. */
+static int nearest_track_candidate(const struct course*c,const struct waypoint*w,
+                                   struct snap_candidate*out){
+    if(!c->n_tp) return -1;
+    if(c->n_tp==1){
+        out->seg=0; out->t=0.0; out->dist=c->tp[0].dist;
+        out->lat=c->tp[0].lat; out->lon=c->tp[0].lon;
+        out->offset=haversine_m(w->lat,w->lon,c->tp[0].lat,c->tp[0].lon);
+        return 0;
+    }
+    out->offset=-1.0;
+    for(size_t i=0;i+1<c->n_tp;i++){
+        struct seg_proj p=project_to_segment(w->lat,w->lon,
+            c->tp[i].lat,c->tp[i].lon,c->tp[i+1].lat,c->tp[i+1].lon);
+        if(out->offset<0.0||p.dist_m<out->offset){
+            out->seg=i; out->t=p.t;
+            out->dist=c->tp[i].dist+p.t*(c->tp[i+1].dist-c->tp[i].dist);
+            out->offset=p.dist_m; out->lat=p.lat; out->lon=p.lon;
+        }
+    }
+    return out->offset<0.0?-1:0;
+}
+
 EMSCRIPTEN_KEEPALIVE struct gpx2fit_result *gpx2fit_convert(
     const char*gpx_xml,const char*map_text,const char*course_name,
     uint8_t sport,uint8_t sub_sport,double snap_m,const char*pass_mode,
@@ -85,6 +108,7 @@ EMSCRIPTEN_KEEPALIVE struct gpx2fit_result *gpx2fit_convert(
     struct gpx2fit_result *res=calloc(1,sizeof*res);
     if(!res) return NULL;
     struct course c; struct symmap map; struct snap_report sr; struct ele_stats es;
+    struct trackpoint *tp_full=NULL;
     size_t n_full=0; double total_m=0.0; int trc=0;
     struct gpx_options go; struct diag_list diag; struct jbuf jb;
     char err[256]; char errmsg[256];
@@ -139,7 +163,17 @@ EMSCRIPTEN_KEEPALIVE struct gpx2fit_result *gpx2fit_convert(
         if(trc!=TIMING_OK){ snprintf(errmsg,sizeof errmsg,"%s",timing_strerror(trc)); ok=0; }
     }
     if(ok) course_assign_cp_times(&c);
-    if(ok){ n_full=c.n_tp; total_m=c.n_tp?c.tp[c.n_tp-1].dist:0.0; course_elevation_stats(&c,1.0,&es); }
+    if(ok){
+        n_full=c.n_tp; total_m=c.n_tp?c.tp[c.n_tp-1].dist:0.0;
+        course_elevation_stats(&c,1.0,&es);
+        /* Preview metadata must use the original GPX/snap geometry even when
+         * the FIT track is subsequently decimated in place. */
+        if(n_full){
+            tp_full=malloc(n_full*sizeof*tp_full);
+            if(!tp_full){ snprintf(errmsg,sizeof errmsg,"out of memory"); ok=0; }
+            else memcpy(tp_full,c.tp,n_full*sizeof*tp_full);
+        }
+    }
     if(ok&&max_points>0){
         struct decimate_report dr;
         if(course_decimate(&c,(size_t)max_points,&dr)!=0){ snprintf(errmsg,sizeof errmsg,"out of memory"); ok=0; }
@@ -176,6 +210,14 @@ EMSCRIPTEN_KEEPALIVE struct gpx2fit_result *gpx2fit_convert(
     jbuf_puts(&jb,",");
     jbuf_printf(&jb,"\"sport\":%u,",sport);
     jbuf_printf(&jb,"\"sub_sport\":%u,",sub_sport);
+    jbuf_puts(&jb,"\"track_points_list\":[");
+    if(ok){
+        for(size_t i=0;i<n_full;i++){
+            if(i) jbuf_puts(&jb,",");
+            jbuf_printf(&jb,"{\"lat\":%.10g,\"lon\":%.10g}",tp_full[i].lat,tp_full[i].lon);
+        }
+    }
+    jbuf_puts(&jb,"],");
     jbuf_puts(&jb,"\"course_points_list\":[");
     if(ok){
         for(size_t i=0;i<c.n_cp;i++){
@@ -211,6 +253,27 @@ EMSCRIPTEN_KEEPALIVE struct gpx2fit_result *gpx2fit_convert(
         }
     }
     jbuf_puts(&jb,"],");
+    jbuf_puts(&jb,"\"skipped_waypoints_list\":[");
+    if(ok){
+        struct course full_track=c;
+        int first=1;
+        full_track.tp=tp_full; full_track.n_tp=n_full;
+        for(size_t i=0;i<c.n_wp;i++){
+            struct snap_candidate nearest;
+            if(nearest_track_candidate(&full_track,&c.wp[i],&nearest)!=0||nearest.offset<=snap_m)
+                continue;
+            if(!first) jbuf_puts(&jb,",");
+            first=0;
+            jbuf_puts(&jb,"{");
+            jbuf_puts(&jb,"\"name\":"); jbuf_json_string(&jb,c.wp[i].name);
+            jbuf_printf(&jb,",\"lat\":%.10g",c.wp[i].lat);
+            jbuf_printf(&jb,",\"lon\":%.10g",c.wp[i].lon);
+            jbuf_printf(&jb,",\"km\":%.6g",nearest.dist/1000.0);
+            jbuf_printf(&jb,",\"offset_m\":%.6g",nearest.offset);
+            jbuf_printf(&jb,",\"type\":%u}",symmap_lookup(&map,c.wp[i].name));
+        }
+    }
+    jbuf_puts(&jb,"],");
     jbuf_puts(&jb,"\"warnings\":[");
     for(size_t i=0;i<diag.n;i++){ if(i) jbuf_puts(&jb,","); jbuf_json_string(&jb,diag.items[i]); }
     jbuf_puts(&jb,"]}");
@@ -221,8 +284,9 @@ EMSCRIPTEN_KEEPALIVE struct gpx2fit_result *gpx2fit_convert(
     jbuf_free(&jb);
     diag_list_free(&diag);
     symmap_free(&map);
+    free(tp_full);
     course_free(&c);
-    (void)n_full; (void)trc; (void)err;
+    (void)trc; (void)err;
     return res;
 }
 

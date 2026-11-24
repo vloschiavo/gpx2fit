@@ -15,7 +15,7 @@ Zero-backend static app (hostable on GitHub Pages / Cloudflare Pages) where GPX 
   - Output: drag-and-drop `.gpx` picker + "Load sample CalTopo route" button (`caltopo_sample.gpx`)[cite: 2, 5], primary controls (Course Name, Activity Type dropdown for all 7 sports, Pace input supporting `min/km` and `km/h`, Snap distance slider/input), and one-click `.fit` download button.
   - Done when: dropping a GPX file converts and
 
-- [ ] **15.2 Interactive route map & waypoint table**
+- [x] **15.2 Interactive route map & waypoint table**
   - Needs: `web/app.js`
   - Output: Leaflet (or MapLibre) map displaying the GPX polyline, snapped course point markers (color/icon-coded by FIT type), and skipped waypoints (e.g., `Caution` at 477 m[cite: 2, 5]) with a live table showing distance (km), offset (m), and assigned icon type.
   - Done when: adjusting `--snap` or `--pass` updates the map markers and skipped-waypoint warnings in real time[cite: 5].

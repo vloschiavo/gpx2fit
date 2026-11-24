@@ -17,6 +17,87 @@ const ARGUMENT_TYPES = Object.freeze([
 ]);
 const DEFAULT_START_FIT = 1104624000; // 2025-01-01T00:00:00Z, as in the CLI.
 const CONVERT_DELAY_MS = 180;
+const PASS_MODES = new Set(['nearest', 'ordered', 'first', 'last']);
+const FIT_POINT_TYPES = Object.freeze({
+  0: Object.freeze({ label: 'Generic', icon: '•', color: '#52645a' }),
+  1: Object.freeze({ label: 'Summit', icon: '▲', color: '#74508c' }),
+  2: Object.freeze({ label: 'Valley', icon: '▼', color: '#3867a8' }),
+  3: Object.freeze({ label: 'Water', icon: '≈', color: '#1677a6' }),
+  4: Object.freeze({ label: 'Food', icon: 'F', color: '#a85b18' }),
+  5: Object.freeze({ label: 'Danger', icon: '!', color: '#b02a37' }),
+  9: Object.freeze({ label: 'First aid', icon: '+', color: '#b83b63' }),
+  27: Object.freeze({ label: 'Campsite', icon: 'C', color: '#765333' }),
+  28: Object.freeze({ label: 'Aid station', icon: 'A', color: '#0b7c72' }),
+  29: Object.freeze({ label: 'Rest area', icon: 'R', color: '#657321' }),
+  35: Object.freeze({ label: 'Checkpoint', icon: '✓', color: '#70469c' }),
+  36: Object.freeze({ label: 'Shelter', icon: 'S', color: '#795b42' }),
+  37: Object.freeze({ label: 'Meeting spot', icon: 'M', color: '#395ca8' }),
+  38: Object.freeze({ label: 'Overlook', icon: 'O', color: '#805b92' }),
+  39: Object.freeze({ label: 'Toilet', icon: 'T', color: '#546e7a' }),
+  40: Object.freeze({ label: 'Shower', icon: 'H', color: '#00838f' }),
+});
+
+function fitPointType(value) {
+  const type = Number(value);
+  return FIT_POINT_TYPES[type] || {
+    label: Number.isInteger(type) ? `FIT type ${type}` : 'Unknown FIT type',
+    icon: '•',
+    color: '#52645a',
+  };
+}
+
+function pointCoordinates(point) {
+  const lat = Number(point?.lat);
+  const lon = Number(point?.lon);
+  if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+  return [lat, lon];
+}
+
+function longitudeDelta(lon, referenceLon) {
+  return ((lon - referenceLon + 540) % 360) - 180;
+}
+
+function unwrapTrackCoordinates(rawTrack) {
+  const track = [];
+  for (let i = 0; i < rawTrack.length; i++) {
+    const [lat, lon] = rawTrack[i];
+    const unwrappedLon = i === 0
+      ? lon
+      : track[i - 1][1] + longitudeDelta(lon, rawTrack[i - 1][1]);
+    track.push([lat, unwrappedLon]);
+  }
+  return track;
+}
+
+function coordinatesInTrackFrame(point, rawTrack, track) {
+  const coordinates = pointCoordinates(point);
+  if (!coordinates || !track.length) return coordinates;
+
+  let nearest = 0;
+  let nearestDistance = Infinity;
+  for (let i = 0; i < rawTrack.length; i++) {
+    const latDelta = rawTrack[i][0] - coordinates[0];
+    const lonDelta = longitudeDelta(rawTrack[i][1], coordinates[1]);
+    const distance = latDelta * latDelta + lonDelta * lonDelta;
+    if (distance < nearestDistance) {
+      nearest = i;
+      nearestDistance = distance;
+    }
+  }
+  coordinates[1] = track[nearest][1]
+    + longitudeDelta(coordinates[1], rawTrack[nearest][1]);
+  return coordinates;
+}
+
+function formatKilometers(value) {
+  const distance = Number(value);
+  return Number.isFinite(distance) ? distance.toFixed(3) : '—';
+}
+
+function formatOffset(value) {
+  const offset = Number(value);
+  return Number.isFinite(offset) ? String(Math.round(offset)) : '—';
+}
 
 /** Convert a user-entered pace to the meters/second expected by the C API. */
 export function paceToMetersPerSecond(value, unit) {
@@ -84,6 +165,7 @@ export function initApp({
   win = window,
   moduleFactory = createModule,
   fetchImpl = fetch,
+  leaflet = win.L,
 } = {}) {
   const app = requiredElement(doc, 'app');
   const form = requiredElement(doc, 'conversion-controls');
@@ -95,17 +177,22 @@ export function initApp({
   const activitySelect = requiredElement(doc, 'activity-type');
   const paceInput = requiredElement(doc, 'pace');
   const paceUnitSelect = requiredElement(doc, 'pace-unit');
+  const passModeSelect = requiredElement(doc, 'pass-mode');
   const snapInput = requiredElement(doc, 'snap-distance');
   const snapSlider = requiredElement(doc, 'snap-slider');
   const status = requiredElement(doc, 'status');
   const errorMessage = requiredElement(doc, 'error-message');
   const results = requiredElement(doc, 'results');
   const warnings = requiredElement(doc, 'warnings');
+  const warningStatus = requiredElement(doc, 'warning-status');
   const downloadLink = requiredElement(doc, 'download-fit');
   const statDistance = requiredElement(doc, 'stat-distance');
   const statTrackPoints = requiredElement(doc, 'stat-track-points');
   const statCoursePoints = requiredElement(doc, 'stat-course-points');
   const statWaypoints = requiredElement(doc, 'stat-waypoints');
+  const mapElement = requiredElement(doc, 'route-map');
+  const mapFallback = requiredElement(doc, 'map-fallback');
+  const waypointTableBody = requiredElement(doc, 'waypoint-table-body');
 
   let source = null;
   let requestVersion = 0;
@@ -113,6 +200,9 @@ export function initApp({
   let modulePromise = null;
   let downloadUrl = null;
   let dragDepth = 0;
+  let routeMap = null;
+  let routeLayers = null;
+  let mappedSource = null;
 
   function clearConvertTimer() {
     if (convertTimer !== null) {
@@ -137,6 +227,7 @@ export function initApp({
     results.hidden = true;
     warnings.hidden = true;
     warnings.textContent = '';
+    warningStatus.textContent = '';
   }
 
   function setStatus(message, state = 'idle') {
@@ -176,6 +267,8 @@ export function initApp({
     const snap = Number(snapText);
     if (!snapText || !Number.isFinite(snap) || !Number.isInteger(snap) || snap < 0 || snap > 1000)
       throw new Error('Snap distance must be a whole number from 0 to 1000 meters.');
+    if (!PASS_MODES.has(passModeSelect.value))
+      throw new Error('Choose a valid pass selection.');
 
     return {
       courseName: courseNameInput.value.trim(),
@@ -183,6 +276,7 @@ export function initApp({
       subSport: activity.subSport,
       pace: paceToMetersPerSecond(paceInput.value, paceUnitSelect.value),
       snap,
+      passMode: passModeSelect.value,
     };
   }
 
@@ -198,7 +292,7 @@ export function initApp({
         options.sport,
         options.subSport,
         options.snap,
-        'nearest',
+        options.passMode,
         options.pace,
         DEFAULT_START_FIT,
         0,
@@ -226,6 +320,156 @@ export function initApp({
     }
   }
 
+  function renderWaypointTable(metadata) {
+    const snapped = Array.isArray(metadata.course_points_list) ? metadata.course_points_list : [];
+    const skipped = Array.isArray(metadata.skipped_waypoints_list) ? metadata.skipped_waypoints_list : [];
+    const points = [
+      ...snapped.map((point) => ({ point, skipped: false })),
+      ...skipped.map((point) => ({ point, skipped: true })),
+    ].sort((a, b) => Number(a.point.km) - Number(b.point.km));
+
+    waypointTableBody.replaceChildren();
+    if (!points.length) {
+      const row = doc.createElement('tr');
+      const cell = doc.createElement('td');
+      cell.colSpan = 5;
+      cell.className = 'empty-waypoints';
+      cell.textContent = 'No waypoints in this GPX route.';
+      row.append(cell);
+      waypointTableBody.append(row);
+      return;
+    }
+
+    for (const { point, skipped: isSkipped } of points) {
+      const type = fitPointType(point.type);
+      const row = doc.createElement('tr');
+      row.dataset.status = isSkipped ? 'skipped' : 'snapped';
+
+      const name = doc.createElement('th');
+      name.scope = 'row';
+      name.textContent = point.name || '(unnamed)';
+      row.append(name);
+
+      const state = doc.createElement('td');
+      const badge = doc.createElement('span');
+      badge.className = `waypoint-status ${isSkipped ? 'is-skipped' : 'is-snapped'}`;
+      badge.textContent = isSkipped ? 'Skipped' : 'Snapped';
+      state.append(badge);
+      row.append(state);
+
+      const distance = doc.createElement('td');
+      distance.className = 'numeric-cell';
+      distance.textContent = formatKilometers(point.km);
+      row.append(distance);
+
+      const offset = doc.createElement('td');
+      offset.className = 'numeric-cell';
+      offset.textContent = formatOffset(point.offset_m);
+      row.append(offset);
+
+      const iconType = doc.createElement('td');
+      const typeIcon = doc.createElement('span');
+      typeIcon.className = 'table-type-icon';
+      typeIcon.style.setProperty('--type-color', type.color);
+      typeIcon.setAttribute('aria-hidden', 'true');
+      typeIcon.textContent = type.icon;
+      iconType.append(typeIcon, doc.createTextNode(type.label));
+      row.append(iconType);
+      waypointTableBody.append(row);
+    }
+  }
+
+  function waypointPopup(point, isSkipped) {
+    const type = fitPointType(point.type);
+    const popup = doc.createElement('div');
+    popup.className = 'waypoint-popup';
+    const name = doc.createElement('strong');
+    name.textContent = point.name || '(unnamed)';
+    const details = doc.createElement('span');
+    details.textContent = `${type.label} · ${formatKilometers(point.km)} km · ${formatOffset(point.offset_m)} m offset`;
+    popup.append(name, details);
+    if (isSkipped) {
+      const note = doc.createElement('span');
+      note.className = 'skipped-popup-note';
+      note.textContent = 'Skipped from the FIT course. Increase Snap distance to include it.';
+      popup.append(note);
+    }
+    return popup;
+  }
+
+  function renderRouteMap(metadata, loadedSource) {
+    if (!leaflet) {
+      mapElement.hidden = true;
+      mapFallback.hidden = false;
+      return;
+    }
+
+    try {
+      mapElement.hidden = false;
+      mapFallback.hidden = true;
+      if (!routeMap) {
+        routeMap = leaflet.map(mapElement, { scrollWheelZoom: false });
+        leaflet.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          maxZoom: 19,
+          attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+        }).addTo(routeMap);
+        routeLayers = leaflet.layerGroup().addTo(routeMap);
+      }
+      routeLayers.clearLayers();
+      routeMap.invalidateSize({ pan: false });
+
+      const rawTrack = (Array.isArray(metadata.track_points_list) ? metadata.track_points_list : [])
+        .map(pointCoordinates)
+        .filter(Boolean);
+      const track = unwrapTrackCoordinates(rawTrack);
+      const snapped = Array.isArray(metadata.course_points_list) ? metadata.course_points_list : [];
+      const skipped = Array.isArray(metadata.skipped_waypoints_list) ? metadata.skipped_waypoints_list : [];
+      const bounds = leaflet.latLngBounds([]);
+
+      if (track.length > 1) {
+        const line = leaflet.polyline(track, {
+          color: '#205c43',
+          weight: 4,
+          opacity: 0.85,
+        }).addTo(routeLayers);
+        bounds.extend(line.getBounds());
+      }
+
+      const addMarker = (point, isSkipped) => {
+        const coordinates = coordinatesInTrackFrame(point, rawTrack, track);
+        if (!coordinates) return;
+        const type = fitPointType(point.type);
+        const name = point.name || '(unnamed)';
+        const icon = leaflet.divIcon({
+          className: 'waypoint-marker',
+          html: `<span class="waypoint-pin${isSkipped ? ' is-skipped' : ''}" style="--marker-color:${type.color}" aria-hidden="true">${type.icon}</span>`,
+          iconSize: [30, 30],
+          iconAnchor: [15, 15],
+          popupAnchor: [0, -13],
+        });
+        const marker = leaflet.marker(coordinates, {
+          icon,
+          keyboard: true,
+          riseOnHover: true,
+          title: `${name} — ${type.label}${isSkipped ? ' (skipped)' : ''}`,
+          alt: `${name}, ${type.label}${isSkipped ? ', skipped' : ''}`,
+        }).addTo(routeLayers);
+        marker.bindPopup(waypointPopup(point, isSkipped));
+        bounds.extend(coordinates);
+      };
+      snapped.forEach((point) => addMarker(point, false));
+      skipped.forEach((point) => addMarker(point, true));
+
+      if (mappedSource !== loadedSource && bounds.isValid()) {
+        routeMap.fitBounds(bounds, { padding: [20, 20], maxZoom: 16, animate: false });
+      }
+      mappedSource = loadedSource;
+    } catch {
+      mapElement.hidden = true;
+      mapFallback.hidden = false;
+    }
+  }
+
   function showResults(output, options, loadedSource) {
     const { metadata } = output;
     statDistance.textContent = `${(metadata.distance_m / 1000).toFixed(2)} km`;
@@ -238,7 +482,10 @@ export function initApp({
       : '';
     warnings.textContent = warningText;
     warnings.hidden = !warningText;
+    warningStatus.textContent = warningText;
     results.hidden = false;
+    renderWaypointTable(metadata);
+    renderRouteMap(metadata, loadedSource);
 
     const blob = new Blob([output.fit], { type: 'application/octet-stream' });
     downloadUrl = win.URL.createObjectURL(blob);
@@ -395,6 +642,7 @@ export function initApp({
   paceInput.addEventListener('change', () => requestConversion({ immediate: true }));
   paceUnitSelect.addEventListener('change', () => requestConversion({ immediate: true }));
   activitySelect.addEventListener('change', () => requestConversion({ immediate: true }));
+  passModeSelect.addEventListener('change', () => requestConversion({ immediate: true }));
 
   snapSlider.addEventListener('input', () => {
     snapInput.value = snapSlider.value;

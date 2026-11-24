@@ -14,12 +14,12 @@ const argumentTypes = [
   'number', 'number', 'number', 'number',
 ];
 
-function convert(gpxXml) {
+function convert(gpxXml, { snap = 250, pass = 'nearest', maxPoints = 0, strict = 0 } = {}) {
   const result = wasm.ccall(
     'gpx2fit_convert',
     'number',
     argumentTypes,
-    [gpxXml, null, null, 17, 0, 250, 'nearest', 5 / 3.6, 1104624000, 0, 0],
+    [gpxXml, null, null, 17, 0, snap, pass, 5 / 3.6, 1104624000, maxPoints, strict],
   );
   assert.notEqual(result, 0, 'gpx2fit_convert returned a null result pointer');
 
@@ -97,7 +97,42 @@ assert.deepEqual(
   ],
 );
 assert.deepEqual(converted.metadata.skipped_waypoints, ['Caution']);
+assert.equal(converted.metadata.track_points_list.length, 114);
+assert.ok(converted.metadata.track_points_list.every((point) =>
+  Number.isFinite(point.lat) && Number.isFinite(point.lon)));
+assert.ok(Math.abs(converted.metadata.track_points_list[0].lat - 38.74343547315443) < 1e-7);
+assert.ok(Math.abs(converted.metadata.track_points_list[0].lon - (-121.1515714546992)) < 1e-7);
+assert.equal(converted.metadata.skipped_waypoints_list.length, 1);
+const [caution] = converted.metadata.skipped_waypoints_list;
+assert.equal(caution.name, 'Caution');
+assert.equal(caution.type, 5);
+assert.equal(Math.round(caution.offset_m), 477);
+assert.ok(Math.abs(caution.lat - 38.76396271808355) < 1e-7);
+assert.ok(Math.abs(caution.lon - (-121.15371662664155)) < 1e-7);
+assert.ok(caution.km > 0 && caution.km < converted.metadata.distance_m / 1000);
 assert.ok(Array.isArray(converted.metadata.warnings));
+
+/* Decimation changes the FIT track, not the original GPX/snap preview. */
+const vShapeGpx = `<?xml version="1.0"?><gpx xmlns="http://www.topografix.com/GPX/1/1" version="1.1">
+  <wpt lat="0" lon="0.01"><name>Camp</name></wpt>
+  <trk><trkseg>
+    <trkpt lat="0" lon="0"></trkpt>
+    <trkpt lat="0.01" lon="0.01"></trkpt>
+    <trkpt lat="0" lon="0.02"></trkpt>
+  </trkseg></trk>
+</gpx>`;
+const vShapeFull = convert(vShapeGpx);
+const vShapeDecimated = convert(vShapeGpx, { maxPoints: 2 });
+assert.equal(vShapeDecimated.rc, 0);
+assert.equal(vShapeDecimated.metadata.track_points, 2);
+assert.equal(vShapeDecimated.metadata.track_points_list.length, 3);
+assert.equal(vShapeDecimated.metadata.waypoints_skipped, 1);
+assert.equal(vShapeDecimated.metadata.skipped_waypoints_list.length, 1);
+assert.equal(Math.round(vShapeDecimated.metadata.skipped_waypoints_list[0].offset_m), 786);
+assert.match(vShapeDecimated.metadata.warnings.join('\n'), /786 m.*skipped/);
+assert.deepEqual(vShapeDecimated.metadata.track_points_list, vShapeFull.metadata.track_points_list);
+assert.deepEqual(vShapeDecimated.metadata.course_points_list, vShapeFull.metadata.course_points_list);
+assert.deepEqual(vShapeDecimated.metadata.skipped_waypoints_list, vShapeFull.metadata.skipped_waypoints_list);
 
 const fit = converted.fit;
 assert.ok(fit.length > 16, 'FIT output is too short or has no data');

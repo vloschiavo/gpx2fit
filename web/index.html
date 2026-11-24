@@ -5,6 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="Convert a GPX route to a Garmin FIT course entirely in your browser.">
   <title>gpx2fit — GPX to Garmin FIT</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css"
+        integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="anonymous">
   <link rel="stylesheet" href="./style.css">
 </head>
 <body>
@@ -74,6 +76,17 @@
       </div>
 
       <div class="field full-width">
+        <label for="pass-mode">Pass selection</label>
+        <select id="pass-mode" name="pass-mode">
+          <option value="nearest" selected>Nearest pass</option>
+          <option value="ordered">Ordered by GPX waypoints</option>
+          <option value="first">First pass</option>
+          <option value="last">Last pass</option>
+        </select>
+        <p class="field-help">Choose which visit to use when the route passes a waypoint more than once.</p>
+      </div>
+
+      <div class="field full-width">
         <label for="snap-distance">Snap distance</label>
         <div class="snap-control">
           <input id="snap-slider" type="range" min="0" max="1000" step="1" value="250" aria-label="Snap distance slider">
@@ -90,6 +103,7 @@
       <h2 id="output-heading" class="sr-only">Conversion output</h2>
       <p class="status" id="status" role="status" aria-live="polite" data-state="idle">Choose or drop a GPX file to get started.</p>
       <p class="error-message" id="error-message" role="alert" hidden></p>
+      <p class="sr-only" id="warning-status" role="status" aria-live="polite" aria-atomic="true"></p>
 
       <div class="results" id="results" hidden>
         <dl class="stats">
@@ -111,6 +125,32 @@
           </div>
         </dl>
         <p class="warnings" id="warnings" hidden></p>
+
+        <section class="route-details" aria-labelledby="route-map-heading">
+          <div class="section-heading">
+            <h3 id="route-map-heading">Route map &amp; waypoints</h3>
+            <span>Live course preview</span>
+          </div>
+          <p class="map-help" id="map-help">Select a marker for details. Dashed markers are skipped waypoints.</p>
+          <div class="route-map" id="route-map" role="region" aria-label="Route map" aria-describedby="map-help"></div>
+          <p class="map-fallback" id="map-fallback" hidden>The map could not be loaded. The waypoint table and FIT download are still available.</p>
+
+          <div class="waypoint-table-wrap" role="region" aria-label="Waypoint details" tabindex="0">
+            <table class="waypoint-table">
+              <caption>Waypoints in route order, with their nearest position along the track.</caption>
+              <thead>
+                <tr>
+                  <th scope="col">Waypoint</th>
+                  <th scope="col">Status</th>
+                  <th scope="col">Distance (km)</th>
+                  <th scope="col">Offset (m)</th>
+                  <th scope="col">Icon type</th>
+                </tr>
+              </thead>
+              <tbody id="waypoint-table-body"></tbody>
+            </table>
+          </div>
+        </section>
       </div>
 
       <a class="button primary download-button" id="download-fit" hidden>Download .fit course</a>
@@ -122,6 +162,8 @@
     </footer>
   </main>
 
+  <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"
+          integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin="anonymous"></script>
   <script type="module" src="./app.js"></script>
 </body>
 </html>
