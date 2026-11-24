@@ -56,7 +56,7 @@ Zero-backend static app (hostable on GitHub Pages / Cloudflare Pages) where GPX 
       - `mod_remoteip` configured (`RemoteIPHeader X-Forwarded-For`, trusted private proxy ranges) and log format recording client IP + `X-Forwarded-Proto`.
   - Done when: `docker build -f docker/Dockerfile -t gpx2fit-web:local .` builds successfully, serves `application/wasm`, and passes a `curl -I` header check. (Size criterion relaxed by user: `httpd:alpine` base yields ~67MB.)
 
-- [ ] **16.3 Multi-arch Docker Hub CI workflow (`.github/workflows/docker.yml`)**
+- [x] **16.3 Multi-arch Docker Hub CI workflow (`.github/workflows/docker.yml`)**
   - Needs: `docker/Dockerfile`
   - Output: GitHub Actions workflow using `docker/setup-qemu-action` and `docker/setup-buildx-action` to build and push `linux/amd64` and `linux/arm64` images to `docker.io/vloschiavo/gpx2fit` on `v*` tags and `main` (using `DOCKERHUB_USERNAME` and `DOCKERHUB_TOKEN` repository secrets).
   - Done when: multi-arch manifest on Docker Hub lists both `linux/amd64` and `linux/arm64` and pulls/runs cleanly.
