@@ -43,6 +43,22 @@ jobs:
             type=semver,pattern={{major}}.{{minor}}
             type=sha,format=short
 
+      - name: Prepare web build metadata
+        id: web-build
+        shell: bash
+        env:
+          COMMIT_SHA: ${{ github.sha }}
+          COMMIT_TIMESTAMP: ${{ github.event.head_commit.timestamp || github.event.repository.updated_at }}
+        run: |
+          set -euo pipefail
+          build_time=$(date -u -d "$COMMIT_TIMESTAMP" +%Y%m%dT%H%M%SZ)
+          build_id="${COMMIT_SHA:0:12}-$build_time"
+          {
+            echo "sha=$COMMIT_SHA"
+            echo "build_time=$build_time"
+            echo "build_id=$build_id"
+          } >> "$GITHUB_OUTPUT"
+
       - name: Build and push
         uses: docker/build-push-action@v6
         with:
@@ -53,7 +69,8 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           build-args: |
-            WEB_SHA=${{ github.sha }}
-            WEB_BUILD_TIME=${{ github.event.head_commit.timestamp || github.event.repository.updated_at }}
+            WEB_BUILD_ID=${{ steps.web-build.outputs.build_id }}
+            WEB_SHA=${{ steps.web-build.outputs.sha }}
+            WEB_BUILD_TIME=${{ steps.web-build.outputs.build_time }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
