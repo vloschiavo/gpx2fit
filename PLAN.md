@@ -9,7 +9,7 @@ Each task fits in one small working session. Do the tasks in order unless noted.
 
 ---
 
-- [ ] **16.5 Fix Docker Hub tag set: `latest` + per-arch `amd64`/`arm64` tags**
+- [x] **16.5 Fix Docker Hub tag set: `latest` + per-arch `amd64`/`arm64` tags**
   - Needs: `.github/workflows/docker.yml` (16.3), `README.md` (16.4)
   - Scope: `.github/workflows/docker.yml` and `README.md` only. Do not modify `docker/Dockerfile` or check off this item in `PLAN.md` until a live workflow run passes.
   - Changes:
