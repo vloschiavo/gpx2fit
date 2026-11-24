@@ -61,7 +61,7 @@ Zero-backend static app (hostable on GitHub Pages / Cloudflare Pages) where GPX 
   - Output: GitHub Actions workflow using `docker/setup-qemu-action` and `docker/setup-buildx-action` to build and push `linux/amd64` and `linux/arm64` images to `docker.io/vloschiavo/gpx2fit` on `v*` tags and `main` (using `DOCKERHUB_USERNAME` and `DOCKERHUB_TOKEN` repository secrets).
   - Done when: multi-arch manifest on Docker Hub lists both `linux/amd64` and `linux/arm64` and pulls/runs cleanly.
 
-- [ ] **16.4 Document self-hosting & HAProxy SSL offload in `README.md`**
+- [x] **16.4 Document self-hosting & HAProxy SSL offload in `README.md`**
   - Needs: `README.md`, `docker/Dockerfile`, `docker/httpd-gpx2fit.conf`
   - Output: `README.md` section covering:
     - Running the `vloschiavo/gpx2fit` `httpd:alpine` container (`docker run` / `docker-compose.yml` snippet)

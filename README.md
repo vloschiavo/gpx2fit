@@ -350,6 +350,121 @@ Tested with a 115.72 km course (5159 points, 30 course points) and the 3.39 km
 Other devices have not been tested. Please report the device model and
 firmware if you try one.
 
+## Web app (GitHub Pages)
+
+A browser version is hosted at https://vloschiavo.github.io/gpx2fit/. It is the
+same C converter compiled to WebAssembly with Emscripten: you load a GPX file,
+the browser writes the FIT, and no track data is uploaded. All GPX processing
+happens client-side, so hosting the app only requires serving static files.
+The sections below cover running that same bundle yourself.
+
+## Self-hosting
+
+### Docker
+
+The published image is `vloschiavo/gpx2fit`, built multi-arch for
+`linux/amd64` and `linux/arm64`. The `main` tag tracks the main branch; `v*`
+release tags (for example `v1.2.3`) pin a released version. The runtime is
+`httpd:alpine` and serves only the static `web/` bundle on container port 80 —
+there is no server-side GPX processing in the container.
+
+```sh
+docker run -d --name gpx2fit -p 8080:80 vloschiavo/gpx2fit:main
+```
+
+The app is then at http://localhost:8080/. The same thing as
+`docker-compose.yml`:
+
+```yaml
+services:
+  gpx2fit:
+    image: vloschiavo/gpx2fit:main
+    container_name: gpx2fit
+    restart: unless-stopped
+    ports:
+      - "8080:80"
+```
+
+To build the image from a checkout instead of pulling the hosted one:
+
+```sh
+docker build -f docker/Dockerfile -t gpx2fit-web:local .
+```
+
+The image's `docker/httpd-gpx2fit.conf` sets the headers the web app needs:
+`AddType application/wasm .wasm` so the browser can load the module,
+`X-Content-Type-Options: nosniff`, `no-cache, must-revalidate` for
+`index.html`, `sw.js` and `version.json` (so the update check notices new
+deployments immediately), and `public, max-age=3600` for `.wasm`, `.js` and
+`.css`. If you serve `web/` with a different web server, reproduce those
+rules.
+
+### HAProxy SSL offload
+
+To serve the app over HTTPS, terminate TLS at HAProxy and forward plain HTTP
+to the container. HAProxy passes on the real client address and the original
+scheme so the container's logging shows the browser's IP, not the proxy's.
+A complete `/etc/haproxy/haproxy.cfg` (the certificate file is a PEM with the
+certificate chain and private key concatenated):
+
+```haproxy
+global
+    log /dev/log local0
+    maxconn 4096
+    user haproxy
+    group haproxy
+    daemon
+
+defaults
+    log     global
+    mode    http
+    option  httplog
+    option  dontlognull
+    retries 3
+    timeout connect 5s
+    timeout client  30s
+    timeout server  30s
+
+frontend gpx2fit_front
+    bind *:80
+    bind *:443 ssl crt /etc/haproxy/certs/gpx2fit.pem
+    http-request redirect scheme https unless { ssl_fc }
+
+    # TLS ends here, so tell the app the browser's request was HTTPS.
+    http-request set-header X-Forwarded-Proto https if { ssl_fc }
+
+    default_backend gpx2fit_back
+
+backend gpx2fit_back
+    balance roundrobin
+    option forwardfor
+    option httpchk GET /
+    http-check expect status 200
+    server gpx2fit1 gpx2fit:80 check inter 5s fall 3 rise 2
+```
+
+`option forwardfor` adds `X-Forwarded-For` with the client IP seen by HAProxy,
+and `http-request set-header ... if { ssl_fc }` adds
+`X-Forwarded-Proto: https` on the TLS listener. In this example `gpx2fit:80`
+is the container name on a Docker network shared with HAProxy (as in the
+compose example above); if HAProxy runs on the host and the container was
+started with `-p 8080:80`, use `127.0.0.1:8080` instead. The health check
+expects `GET /` to return HTTP 200.
+
+The image enables `mod_remoteip` and trusts `X-Forwarded-For` **only from
+private proxy addresses** — see the `RemoteIPInternalProxy` lines in
+`docker/httpd-gpx2fit.conf` (loopback, `10.0.0.0/8`, `172.16.0.0/12`,
+`192.168.0.0/16`, and the IPv6 ULA/link-local ranges). Keep HAProxy on one of
+those ranges, typically on the same Docker network as the app; a direct
+connection from a public IP is ignored (with a published port, Apache sees the
+private bridge gateway instead, so the header is still trusted). Its access
+log, written to stdout/stderr, records the resolved client IP (`%a`) and the
+scheme as `proto=%{X-Forwarded-Proto}i`, so `docker logs gpx2fit` shows both:
+
+```
+203.0.113.42 - - [24/Nov/2026:12:00:00 +0000] "GET / HTTP/1.1" 200 1234 "-" "Mozilla/5.0 ..." proto=https
+```
+
 ## License
 
 MIT (see `LICENSE`).
