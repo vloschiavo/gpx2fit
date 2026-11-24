@@ -74,9 +74,11 @@ WASM_SRC   = $(filter-out src/main.c,$(SRC))
 # Expat is not bundled with every Emscripten release. Use its standard setting
 # when available and an equivalent pinned local port otherwise.
 WASM_EXPAT = $(if $(shell $(EMCC) --show-ports 2>/dev/null | grep -i expat),-sUSE_EXPAT=1,--use-port=tools/expat_port.py)
+# ccall copies 'string' arguments to the wasm stack, which overflows on large
+# GPX files. malloc/free are exported so the app can pass heap-allocated pointers.
 WASM_FLAGS = -O2 -sWASM=1 $(WASM_EXPAT) -sALLOW_MEMORY_GROWTH=1 \
              -sMODULARIZE=1 -sEXPORT_ES6=1 \
-             -sEXPORTED_FUNCTIONS='["_gpx2fit_convert","_gpx2fit_result_data","_gpx2fit_result_len","_gpx2fit_result_json","_gpx2fit_result_rc","_gpx2fit_free"]' \
+             -sEXPORTED_FUNCTIONS='["_malloc","_free","_gpx2fit_convert","_gpx2fit_result_data","_gpx2fit_result_len","_gpx2fit_result_json","_gpx2fit_result_rc","_gpx2fit_free"]' \
              -sEXPORTED_RUNTIME_METHODS='["ccall","UTF8ToString","HEAPU8"]'
 
 wasm: $(WASM_SRC) $(wildcard src/*.h) $(GEN_HDR) tools/expat_port.py | $(WASM_DIR)

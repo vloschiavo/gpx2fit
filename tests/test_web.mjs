@@ -5,6 +5,10 @@ import { initApp } from '../web/app.js';
 
 const wasm = await createModule();
 const sampleGpx = await readFile(new URL('./data/caltopo_sample.gpx', import.meta.url), 'utf8');
+const largeGpx = await readFile(
+  new URL('../reference/Sonora_Pass_to_Tuolumne_Meadows.gpx', import.meta.url),
+  'utf8',
+);
 const indexHtml = await readFile(new URL('../web/index.html', import.meta.url), 'utf8');
 
 class FakeElement {
@@ -198,6 +202,14 @@ assert.equal(sample.rowNamed('Caution').dataset.status, 'snapped');
 assert.doesNotMatch(sample.markerNamed('Caution').options.icon.html, /is-skipped/);
 assert.doesNotMatch(sample.elements.warnings.textContent, /Caution|skipped/);
 assert.equal(sample.elements['warning-status'].textContent, sample.elements.warnings.textContent);
+
+/* Large GPX files must fit in the wasm heap, not ccall's 64 KB string stack. */
+const largeRoute = createHarness(largeGpx);
+await largeRoute.loadSample();
+assert.equal(largeRoute.elements.status.dataset.state, 'success');
+assert.equal(largeRoute.elements['stat-track-points'].textContent, '5159');
+assert.equal(largeRoute.elements['stat-course-points'].textContent, '30');
+assert.equal(largeRoute.rows().length, 30);
 
 /* A deferred input clears stale warnings, then announces the current result. */
 const snapInput = sample.elements['snap-distance'];

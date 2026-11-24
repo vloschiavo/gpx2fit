@@ -8,34 +8,53 @@ const gpx = await readFile(
   'utf8',
 );
 
-const argumentTypes = [
-  'string', 'string', 'string',
-  'number', 'number', 'number', 'string',
-  'number', 'number', 'number', 'number',
-];
+const argumentTypes = Array(11).fill('number');
+const utf8Encoder = new TextEncoder();
+
+function heapString(value) {
+  const bytes = utf8Encoder.encode(value == null ? '' : String(value));
+  const pointer = wasm._malloc(bytes.length + 1);
+  assert.notEqual(pointer, 0, 'could not allocate wasm string');
+  wasm.HEAPU8.set(bytes, pointer);
+  wasm.HEAPU8[pointer + bytes.length] = 0;
+  return pointer;
+}
 
 function convert(gpxXml, { snap = 250, pass = 'nearest', maxPoints = 0, strict = 0 } = {}) {
-  const result = wasm.ccall(
-    'gpx2fit_convert',
-    'number',
-    argumentTypes,
-    [gpxXml, null, null, 17, 0, snap, pass, 5 / 3.6, 1104624000, maxPoints, strict],
-  );
-  assert.notEqual(result, 0, 'gpx2fit_convert returned a null result pointer');
-
+  const pointers = [
+    heapString(gpxXml),
+    heapString(null),
+    heapString(null),
+    heapString(pass),
+  ];
   try {
-    const rc = wasm._gpx2fit_result_rc(result);
-    const jsonPointer = wasm._gpx2fit_result_json(result);
-    assert.notEqual(jsonPointer, 0, 'result has no JSON metadata');
-    const metadata = JSON.parse(wasm.UTF8ToString(jsonPointer));
-    const length = wasm._gpx2fit_result_len(result);
-    const dataPointer = wasm._gpx2fit_result_data(result);
-    if (length > 0)
-      assert.notEqual(dataPointer, 0, 'nonempty FIT result has a null data pointer');
-    const fit = wasm.HEAPU8.slice(dataPointer, dataPointer + length);
-    return { rc, metadata, fit };
+    const result = wasm.ccall(
+      'gpx2fit_convert',
+      'number',
+      argumentTypes,
+      [
+        pointers[0], pointers[1], pointers[2],
+        17, 0, snap, pointers[3], 5 / 3.6, 1104624000, maxPoints, strict,
+      ],
+    );
+    assert.notEqual(result, 0, 'gpx2fit_convert returned a null result pointer');
+
+    try {
+      const rc = wasm._gpx2fit_result_rc(result);
+      const jsonPointer = wasm._gpx2fit_result_json(result);
+      assert.notEqual(jsonPointer, 0, 'result has no JSON metadata');
+      const metadata = JSON.parse(wasm.UTF8ToString(jsonPointer));
+      const length = wasm._gpx2fit_result_len(result);
+      const dataPointer = wasm._gpx2fit_result_data(result);
+      if (length > 0)
+        assert.notEqual(dataPointer, 0, 'nonempty FIT result has a null data pointer');
+      const fit = wasm.HEAPU8.slice(dataPointer, dataPointer + length);
+      return { rc, metadata, fit };
+    } finally {
+      wasm._gpx2fit_free(result);
+    }
   } finally {
-    wasm._gpx2fit_free(result);
+    for (const pointer of pointers) wasm._free(pointer);
   }
 }
 
@@ -153,6 +172,20 @@ assert.equal(
   'incorrect whole-file FIT CRC',
 );
 
+/* A multi-hundred-KB GPX used to overflow ccall's 64 KB string stack. */
+const largeGpx = await readFile(
+  new URL('../reference/Sonora_Pass_to_Tuolumne_Meadows.gpx', import.meta.url),
+  'utf8',
+);
+assert.ok(largeGpx.length > 100_000);
+const large = convert(largeGpx);
+assert.equal(large.rc, 0);
+assert.equal(large.metadata.ok, true);
+assert.equal(large.metadata.track_points, 5159);
+assert.equal(large.metadata.course_points, 30);
+assert.ok(Math.abs(large.metadata.distance_m - 115716) < 1);
+assert.ok(large.fit.length > 90_000);
+
 const failed = convert('');
 assert.equal(failed.rc, 1);
 assert.equal(failed.metadata.ok, false);
@@ -161,4 +194,4 @@ assert.equal(failed.fit.length, 0);
 assert.equal(failed.metadata.distance_m, 0);
 assert.equal(failed.metadata.track_points, 0);
 
-console.log('test_wasm.mjs: FIT header, CRCs, JSON metadata, and error handling passed');
+console.log('test_wasm.mjs: FIT header, CRCs, JSON metadata, large GPX, and error handling passed');

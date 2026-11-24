@@ -10,11 +10,20 @@ const ACTIVITIES = Object.freeze({
   other: Object.freeze({ sport: 0, subSport: 0 }),
 });
 
-const ARGUMENT_TYPES = Object.freeze([
-  'string', 'string', 'string',
-  'number', 'number', 'number', 'string',
-  'number', 'number', 'number', 'number',
-]);
+// Strings are passed as heap pointers: ccall copies 'string' arguments onto
+// the wasm stack, which is only 64 KB by default and overflows on large GPX.
+const ARGUMENT_TYPES = Object.freeze(Array(11).fill('number'));
+const utf8Encoder = new TextEncoder();
+
+function wasmString(wasm, value) {
+  const bytes = utf8Encoder.encode(value == null ? '' : String(value));
+  const pointer = wasm._malloc(bytes.length + 1);
+  if (!pointer) throw new Error('The converter could not allocate input memory.');
+  wasm.HEAPU8.set(bytes, pointer);
+  wasm.HEAPU8[pointer + bytes.length] = 0;
+  return pointer;
+}
+
 const DEFAULT_START_FIT = 1104624000; // 2025-01-01T00:00:00Z, as in the CLI.
 const FIT_EPOCH_UNIX = 631065600; // 1989-12-31T00:00:00Z.
 const FIT_DATE_MIN = 0x10000000;
@@ -622,42 +631,52 @@ export function initApp({
   }
 
   function convert(wasm, gpxXml, options) {
-    const result = wasm.ccall(
-      'gpx2fit_convert',
-      'number',
-      [...ARGUMENT_TYPES],
-      [
-        gpxXml,
-        options.mapText || null,
-        options.courseName || null,
-        options.sport,
-        options.subSport,
-        options.snap,
-        options.passMode,
-        options.pace,
-        options.startFit,
-        options.maxPoints,
-        options.strict,
-      ],
-    );
-    if (!result) throw new Error('The converter could not allocate a result.');
-
+    const pointers = [];
     try {
-      const jsonPointer = wasm._gpx2fit_result_json(result);
-      if (!jsonPointer) throw new Error('The converter returned no metadata.');
-      const metadata = JSON.parse(wasm.UTF8ToString(jsonPointer));
-      const rc = wasm._gpx2fit_result_rc(result);
-      if (rc !== 0 || !metadata.ok)
-        throw new Error(metadata.error || 'The GPX route could not be converted.');
+      pointers.push(wasmString(wasm, gpxXml));
+      pointers.push(wasmString(wasm, options.mapText || ''));
+      pointers.push(wasmString(wasm, options.courseName || ''));
+      pointers.push(wasmString(wasm, options.passMode));
 
-      const length = Number(wasm._gpx2fit_result_len(result));
-      const dataPointer = wasm._gpx2fit_result_data(result);
-      if (!Number.isSafeInteger(length) || length <= 0 || !dataPointer)
-        throw new Error('The converter returned an empty FIT course.');
-      const fit = wasm.HEAPU8.slice(dataPointer, dataPointer + length);
-      return { fit, metadata };
+      const result = wasm.ccall(
+        'gpx2fit_convert',
+        'number',
+        [...ARGUMENT_TYPES],
+        [
+          pointers[0],
+          pointers[1],
+          pointers[2],
+          options.sport,
+          options.subSport,
+          options.snap,
+          pointers[3],
+          options.pace,
+          options.startFit,
+          options.maxPoints,
+          options.strict,
+        ],
+      );
+      if (!result) throw new Error('The converter could not allocate a result.');
+
+      try {
+        const jsonPointer = wasm._gpx2fit_result_json(result);
+        if (!jsonPointer) throw new Error('The converter returned no metadata.');
+        const metadata = JSON.parse(wasm.UTF8ToString(jsonPointer));
+        const rc = wasm._gpx2fit_result_rc(result);
+        if (rc !== 0 || !metadata.ok)
+          throw new Error(metadata.error || 'The GPX route could not be converted.');
+
+        const length = Number(wasm._gpx2fit_result_len(result));
+        const dataPointer = wasm._gpx2fit_result_data(result);
+        if (!Number.isSafeInteger(length) || length <= 0 || !dataPointer)
+          throw new Error('The converter returned an empty FIT course.');
+        const fit = wasm.HEAPU8.slice(dataPointer, dataPointer + length);
+        return { fit, metadata };
+      } finally {
+        wasm._gpx2fit_free(result);
+      }
     } finally {
-      wasm._gpx2fit_free(result);
+      for (const pointer of pointers) wasm._free(pointer);
     }
   }
 
