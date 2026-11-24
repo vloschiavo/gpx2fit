@@ -15,6 +15,7 @@ const VERSION_URL = './version.json';
 const APP_SHELL = [
   './',
   './index.html',
+  './favicon.svg',
   './app.js',
   './style.css',
   './caltopo_sample.gpx',

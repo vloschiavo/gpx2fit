@@ -34,7 +34,7 @@
 ---
 
 ### T2: Add Web/WASM Favicon (`web/favicon.svg`)
-- [ ] **Wire `web/favicon.svg` into the web app and service worker cache**
+- [x] **Wire `web/favicon.svg` into the web app and service worker cache**
   - **Scope:**
     - Read: `web/index.html`, `web/sw.js` (if present), `docker/httpd-gpx2fit.conf`, `Makefile`.
     - Modify: `web/index.html`, `web/sw.js` (if caching static assets), and build/deploy file lists if explicit.
