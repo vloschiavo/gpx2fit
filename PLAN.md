@@ -85,7 +85,7 @@ Prepare `LIB_SRC` so every stage (GPX read, custom map parse, FIT write, warning
     - `gpx2fit_free(void *ptr)` to release allocated output buffers.
   - Done when: compiles cleanly under `emcc -Wall -Wextra -Wpedantic`.
 
-- [ ] **14.2 `make wasm` target & Node.js verification test**
+- [x] **14.2 `make wasm` target & Node.js verification test**
   - Needs: `Makefile`, `src/wasm_api.c`, `tests/data/caltopo_sample.gpx`[cite: 1, 2]
   - Output: `make wasm` target building `web/dist/gpx2fit.js` + `web/dist/gpx2fit.wasm` via `emcc` (`-O2 -sWASM=1 -sUSE_EXPAT=1 -sALLOW_MEMORY_GROWTH=1 -sMODULARIZE=1 -sEXPORT_ES6=1`), plus `tests/test_wasm.mjs` executed via `node` converting `caltopo_sample.gpx` and verifying the `.fit` header, CRC, and JSON metadata[cite: 2].
   - Done when: `make wasm && node tests/test_wasm.mjs` passes and is added to `.github/workflows/ci.yml`.

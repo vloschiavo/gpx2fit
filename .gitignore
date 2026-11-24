@@ -70,3 +70,7 @@ build-fuzz/
 
 # garmin java tester
 tests/tools/
+
+# Generated WebAssembly bundle and local-port Python bytecode
+web/dist/
+__pycache__/

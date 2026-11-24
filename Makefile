@@ -16,7 +16,7 @@ DEP     = $(OBJ:.o=.d)
 
 PREFIX ?= /usr/local
 
-.PHONY: all test clean asan test-asan install
+.PHONY: all test clean asan test-asan install wasm
 
 all: $(TARGET)
 
@@ -62,6 +62,27 @@ build-test/%: tests/%.c $(LIB_SRC) $(wildcard src/*.h) $(GEN_HDR) | build-test
 	    -o $@ $< $(LIB_SRC) $(LDLIBS)
 
 build-test:
+	mkdir -p $@
+
+# WebAssembly library for the browser bridge. Keep the native CLI entry point
+# out of this build; wasm_api.c supplies the exported interface instead.
+EMCC       ?= emcc
+WASM_DIR   = web/dist
+WASM_JS    = $(WASM_DIR)/gpx2fit.js
+WASM_WASM  = $(WASM_DIR)/gpx2fit.wasm
+WASM_SRC   = $(filter-out src/main.c,$(SRC))
+# Expat is not bundled with every Emscripten release. Use its standard setting
+# when available and an equivalent pinned local port otherwise.
+WASM_EXPAT = $(if $(shell $(EMCC) --show-ports 2>/dev/null | grep -i expat),-sUSE_EXPAT=1,--use-port=tools/expat_port.py)
+WASM_FLAGS = -O2 -sWASM=1 $(WASM_EXPAT) -sALLOW_MEMORY_GROWTH=1 \
+             -sMODULARIZE=1 -sEXPORT_ES6=1 \
+             -sEXPORTED_FUNCTIONS='["_gpx2fit_convert","_gpx2fit_result_data","_gpx2fit_result_len","_gpx2fit_result_json","_gpx2fit_result_rc","_gpx2fit_free"]' \
+             -sEXPORTED_RUNTIME_METHODS='["ccall","UTF8ToString","HEAPU8"]'
+
+wasm: $(WASM_SRC) $(wildcard src/*.h) $(GEN_HDR) tools/expat_port.py | $(WASM_DIR)
+	$(EMCC) -std=c11 $(WASM_FLAGS) -o $(WASM_JS) $(WASM_SRC)
+
+$(WASM_DIR):
 	mkdir -p $@
 
 test: all $(TEST_BIN)
@@ -123,5 +144,6 @@ install: $(TARGET)
 
 clean:
 	rm -rf $(BUILD) build-asan build-test build-fuzz $(TARGET) $(TARGET)-asan $(GEN_HDR) $(GEN_HDR).tmp
+	rm -f $(WASM_JS) $(WASM_WASM)
 
 -include $(DEP)

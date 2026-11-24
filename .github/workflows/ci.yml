@@ -27,3 +27,16 @@ jobs:
 
       - name: Static analysis (cppcheck)
         run: cppcheck --std=c11 -Isrc --suppress=missingIncludeSystem --enable=warning --error-exitcode=1 src/
+
+      - name: Set up Emscripten
+        uses: mymindstorm/setup-emsdk@v14
+        with:
+          version: 7.0.1
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: WebAssembly build and tests
+        run: make wasm && node tests/test_wasm.mjs
