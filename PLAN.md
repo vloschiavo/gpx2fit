@@ -16,7 +16,7 @@
 ## Tasks
 
 ### T1: Change Default Activity Type to `Trail Running`
-- [ ] **Change default `--sport` from `hiking` to `trail-running` across CLI, C library defaults, WASM UI, and docs**
+- [x] **Change default `--sport` from `hiking` to `trail-running` across CLI, C library defaults, WASM UI, and docs**
   - **Scope:**
     - Read: `course.h`, `main.c`, `web/index.html`, `web/app.js`, `README.md`, and `tests/` files referencing default sport (`hiking` / `17`).
     - Modify: Core options initialization (`main.c` / `course.h`), `web/index.html` (default `<select>` option), `README.md`, and affected test assertions.

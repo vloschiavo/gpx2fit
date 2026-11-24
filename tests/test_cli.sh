@@ -96,9 +96,14 @@ if "$BIN" --help 2>&1 | grep -q -- '--sport TYPE'; then
 else
     echo "FAIL - --help documents --sport TYPE"; fail=1
 fi
+if "$BIN" --help 2>&1 | grep -qF 'trail-running (default)'; then
+    echo "ok   - --help documents the default sport"
+else
+    echo "FAIL - --help documents the default sport"; fail=1
+fi
 
-expect_out "default sport"     "sport=17" in.gpx out.fit
-expect_out "default sub_sport" "sub_sport=0" in.gpx out.fit
+expect_out "default sport"     "sport=1" in.gpx out.fit
+expect_out "default sub_sport" "sub_sport=3" in.gpx out.fit
 
 sport_names=(
     "hiking:17:0"
@@ -143,7 +148,7 @@ else
     echo "FAIL - summary shows the chosen activity"; fail=1
 fi
 if "$BIN" "$GPX" "$TMP/default.fit" >"$TMP/out" 2>"$TMP/err" &&
-        grep -qxF 'Activity: hiking' "$TMP/out"; then
+        grep -qxF 'Activity: trail-running' "$TMP/out"; then
     echo "ok   - summary shows the default activity"
 else
     echo "FAIL - summary shows the default activity"; fail=1
@@ -189,5 +194,20 @@ for spec in "${decode_sports[@]}"; do
         echo "FAIL - decoded --sport $name: got '$got', want '$sport $sub'"; fail=1
     fi
 done
+
+# With no --sport the course message must carry trail-running (1 / 3) too.
+fit="$TMP/decoded-default.fit"
+rm -f "$fit"
+if ! "$BIN" --quiet "$GPX" "$fit" >"$TMP/out" 2>"$TMP/err"; then
+    echo "FAIL - default sport conversion (exit $?)"; sed 's/^/    /' "$TMP/err"
+    fail=1
+else
+    got=$(decode_course "$fit") || got="(no course message)"
+    if [ "$got" = "1 3" ]; then
+        echo "ok   - decoded default sport: sport=1 sub_sport=3"
+    else
+        echo "FAIL - decoded default sport: got '$got', want '1 3'"; fail=1
+    fi
+fi
 
 exit $fail

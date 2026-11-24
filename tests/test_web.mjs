@@ -63,7 +63,7 @@ function createHarness(gpx, { moduleFactory = async () => wasm } = {}) {
     'map-fallback', 'waypoint-table-body',
   ];
   const elements = Object.fromEntries(ids.map((id) => [id, new FakeElement('div', id)]));
-  elements['activity-type'].value = 'hiking';
+  elements['activity-type'].value = 'trail-running';
   elements.pace.value = '12:00';
   elements['pace-unit'].value = 'min/km';
   elements['pass-mode'].value = 'nearest';
@@ -188,6 +188,30 @@ assert.match(
   /<p class="sr-only" id="warning-status" role="status" aria-live="polite" aria-atomic="true"><\/p>/,
   'persistent atomic warning live region',
 );
+
+/* Trail Running is the default activity in the web UI. */
+assert.match(
+  indexHtml,
+  /<option value="trail-running" selected>Trail Running<\/option>/,
+  'Trail Running is selected by default',
+);
+assert.doesNotMatch(
+  indexHtml,
+  /<option value="hiking" selected>/,
+  'Hiking is not selected by default',
+);
+
+/* The default selector value must reach WASM as sport=1 / sub_sport=3. */
+const sportCalls = [];
+const recordingWasm = Object.create(wasm);
+recordingWasm.ccall = (...args) => {
+  if (args[0] === 'gpx2fit_convert')
+    sportCalls.push({ sport: args[3][3], subSport: args[3][4] });
+  return wasm.ccall(...args);
+};
+const defaultSport = createHarness(sampleGpx, { moduleFactory: async () => recordingWasm });
+await defaultSport.loadSample();
+assert.deepEqual(sportCalls, [{ sport: 1, subSport: 3 }]);
 
 /* Snap changes refresh Caution's marker, table status, and both warning outputs. */
 const sample = createHarness(sampleGpx);

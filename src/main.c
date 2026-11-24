@@ -53,7 +53,7 @@ struct options {
     long        track;     /* 1-based <trk> to use; 0 = longest */
     enum snap_mode pass;   /* which pass of the track a waypoint snaps to */
     const char *map_file;  /* user type-map file; NULL = none */
-    const char *sport;     /* raw --sport text; NULL = default (hiking) */
+    const char *sport;     /* raw --sport text; NULL = default (trail-running) */
     uint8_t     sport_id;  /* course.sport, resolved by sport_parse() */
     uint8_t     sub_sport; /* course.sub_sport, resolved by sport_parse() */
     bool        help;      /* --help given */
@@ -74,8 +74,8 @@ static void usage(FILE *out, const char *prog)
         "                     track visits it more than once: nearest (default),\n"
         "                     ordered, first, last\n"
         "  --name TEXT        course name (default: GPX track name)\n"
-        "  --sport TYPE       activity type: hiking (default), running,\n"
-        "                     trail-running, cycling, road-cycling, gravel, mtb,\n"
+        "  --sport TYPE       activity type: trail-running (default), hiking,\n"
+        "                     running, cycling, road-cycling, gravel, mtb,\n"
         "                     mountain-biking, other (aliases; case-insensitive)\n"
         "  --pace PACE        synthetic pace, m/s or min/km (e.g. 2.5, 6:40;\n"
         "                     default 5 km/h)\n"
@@ -148,8 +148,8 @@ static int parse_options(int argc, char **argv, struct options *o)
     memset(o, 0, sizeof *o);
     o->snap_m = DEFAULT_SNAP_M;
     o->pass = SNAP_NEAREST;
-    o->sport_id = FIT_SPORT_HIKING;
-    o->sub_sport = FIT_SUB_SPORT_GENERIC;
+    o->sport_id = FIT_SPORT_RUNNING;
+    o->sub_sport = FIT_SUB_SPORT_TRAIL;
 
     optind = 1; /* allow parse_options to be called more than once */
     while ((c = getopt_long(argc, argv, "qh", longopts, NULL)) != -1) {
@@ -444,7 +444,7 @@ int main(int argc, char **argv)
     /* The summary (8.3): chosen activity, track totals, one line per course
      * point, the snapped tally, then the output file. Nothing under --quiet. */
     if (!opt.quiet) {
-        printf("Activity: %s\n", opt.sport ? opt.sport : "hiking");
+        printf("Activity: %s\n", opt.sport ? opt.sport : "trail-running");
         print_track_summary(&c, &es, total_m, n_full);
         snap_print_summary(stdout, &c, &sr);
         printf("Wrote '%s' (%zu course points)\n", opt.output, c.n_cp);

@@ -66,7 +66,7 @@ five waypoints is deliberately far from the track):
 
 ```
 Read 'caltopo_sample': 114 trackpoints, 5 waypoints
-Activity: hiking
+Activity: trail-running
 warning: waypoint 'Caution' is 477 m from the track (limit 250 m); skipped
 warning: no type for 'Start', using generic; add a line to --map
 warning: no type for 'Ranger Station', using generic; add a line to --map
@@ -96,7 +96,7 @@ gpx2fit [options] input.gpx output.fit
 | `--snap METERS` | Maximum distance from a waypoint to the track. Farther waypoints are skipped with a warning. Default `250`. |
 | `--pass MODE` | Which pass of the track a waypoint snaps to when the track visits it more than once: `nearest` (default), `ordered`, `first`, `last`. See [Out-and-back routes](#out-and-back-and-loop-routes). |
 | `--name TEXT` | Course name. Default: the GPX track name, or the file name if the track has none. |
-| `--sport TYPE` | Activity type written to the FIT course (`sport` and `sub_sport`). Default `hiking`. See [Activity type](#activity-type---sport). |
+| `--sport TYPE` | Activity type written to the FIT course (`sport` and `sub_sport`). Default `trail-running`. See [Activity type](#activity-type---sport). |
 | `--pace PACE` | Synthetic pace, as m/s or min/km (for example `2.5` or `6:40`). Default 5 km/h. |
 | `--start TIME` | Synthetic start time, UTC: `YYYY-MM-DD` or `YYYY-MM-DDTHH:MM[:SS][Z]` (for example `2025-06-01T07:30Z`). Time zone offsets such as `+02:00` are rejected. Default `2025-01-01T00:00:00Z`. |
 | `--track N` | Use the Nth `<trk>` of the GPX file, counting from 1. Default: the longest. |
@@ -116,9 +116,9 @@ and trailing whitespace is ignored.
 
 | Value | Aliases | FIT `sport` / `sub_sport` |
 | --- | --- | --- |
-| `hiking` (default) | | 17 / 0 |
+| `trail-running` (default) | `trail_running` | 1 / 3 |
+| `hiking` | | 17 / 0 |
 | `running` | | 1 / 0 |
-| `trail-running` | `trail_running` | 1 / 3 |
 | `cycling` | | 2 / 0 |
 | `road-cycling` | `road_cycling` | 2 / 7 |
 | `gravel` | `gravel-cycling`, `gravel_cycling` | 2 / 46 |
@@ -312,7 +312,7 @@ Snapped <S> of <T> waypoints (<K> skipped)
 Wrote '<output.fit>' (<C> course points)
 ```
 
-- `Activity` is the type given by `--sport` (`hiking` by default).
+- `Activity` is the type given by `--sport` (`trail-running` by default).
 - `Track` totals come from the full-resolution track. With `--max-points` the
   point count shows the reduced number and the original, for example
   `1000 points (reduced from 1842)`.
