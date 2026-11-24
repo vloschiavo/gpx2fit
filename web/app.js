@@ -22,6 +22,9 @@ const FIT_TIME_MAX = 0xfffffffe;
 const MAX_WASM_LONG = 0x7fffffff;
 const CONVERT_DELAY_MS = 180;
 const PASS_MODES = new Set(['nearest', 'ordered', 'first', 'last']);
+export const UPDATE_MESSAGE = 'A new version of gpx2fit is available.';
+const VERSION_CHECK_INTERVAL_MS = 15 * 1000;
+const UPDATE_STORAGE_KEY = 'gpx2fit-acknowledged-build';
 const FIT_POINT_TYPES = Object.freeze({
   0: Object.freeze({ label: 'Generic', icon: '•', color: '#52645a' }),
   1: Object.freeze({ label: 'Summit', icon: '▲', color: '#74508c' }),
@@ -218,6 +221,246 @@ function requiredElement(doc, id) {
 
 function optionalElement(doc, id) {
   return doc.getElementById(id);
+}
+
+function acknowledgedBuild(win) {
+  try {
+    return win.sessionStorage?.getItem(UPDATE_STORAGE_KEY) || '';
+  } catch {
+    return '';
+  }
+}
+
+function acknowledgeBuild(win, buildId) {
+  try {
+    win.sessionStorage?.setItem(UPDATE_STORAGE_KEY, buildId);
+  } catch {
+    // Session storage can be disabled; the banner simply reappears on reload.
+  }
+}
+
+/**
+ * Detect a newly deployed build and offer a clean reload. The page-side check
+ * works even without a Service Worker; when one controls the page it also asks
+ * the worker to check version.json and watches for a waiting worker.
+ * Returns a cleanup function (useful for tests).
+ */
+export function initUpdateDetector({
+  doc = document,
+  win = window,
+  fetchImpl = win.fetch ? win.fetch.bind(win) : fetch,
+  intervalMs = VERSION_CHECK_INTERVAL_MS,
+} = {}) {
+  const banner = optionalElement(doc, 'update-banner');
+  const reloadButton = optionalElement(doc, 'update-reload');
+  const dismissButton = optionalElement(doc, 'update-dismiss');
+  const buildMeta = optionalElement(doc, 'gpx2fit-build');
+  if (!banner || !reloadButton) return () => {};
+
+  const runningBuild = String(
+    buildMeta?.getAttribute?.('content') ?? buildMeta?.content ?? '',
+  ).trim();
+  const serviceWorker = win.navigator?.serviceWorker;
+  const hadController = Boolean(serviceWorker?.controller);
+  const workerIdentities = new WeakMap();
+  let nextWorkerIdentity = 0;
+  let registration = null;
+  let knownRemoteBuild = '';
+  let detectedBuild = '';
+  let reloadStarted = false;
+  let reloaded = false;
+  let disposed = false;
+  let updateFoundHandler = null;
+
+  /**
+   * Prefer the deployed build id from version.json (or a worker's VERSION_INFO
+   * message). Worker objects get distinct fallback ids so a dismissed prompt
+   * cannot suppress a later, different waiting worker when version.json is
+   * unavailable.
+   */
+  function workerIdentity(worker) {
+    if (knownRemoteBuild) return knownRemoteBuild;
+    if (!worker || typeof worker !== 'object') return 'service worker';
+    if (!workerIdentities.has(worker))
+      workerIdentities.set(worker, `service worker ${++nextWorkerIdentity}`);
+    return workerIdentities.get(worker);
+  }
+
+  function showUpdate(buildId) {
+    if (disposed || reloadStarted) return;
+    if (buildId) {
+      if (acknowledgedBuild(win) === buildId) return;
+      detectedBuild = buildId;
+    }
+    const message = optionalElement(doc, 'update-message');
+    if (message) message.textContent = UPDATE_MESSAGE;
+    banner.hidden = false;
+  }
+
+  async function checkVersion() {
+    if (disposed || reloadStarted) return '';
+    if (serviceWorker) {
+      serviceWorker.controller?.postMessage?.({ type: 'CHECK_VERSION' });
+      // Ask the worker to compare its build id too; a new sw.js becomes a
+      // waiting worker and triggers the updatefound signal below.
+      serviceWorker.ready
+        .then((reg) => reg.update?.()?.catch?.(() => {}))
+        .catch?.(() => {});
+    }
+    try {
+      const response = await fetchImpl('./version.json', { cache: 'no-store' });
+      if (!response || !response.ok) return '';
+      const info = await response.json();
+      const remoteBuild = info && (info.build_id || info.build);
+      if (typeof remoteBuild !== 'string' || !remoteBuild) return '';
+      knownRemoteBuild = remoteBuild;
+      if (runningBuild && remoteBuild === runningBuild) {
+        if (detectedBuild === remoteBuild) {
+          detectedBuild = '';
+          banner.hidden = true;
+        }
+        return remoteBuild;
+      }
+      showUpdate(remoteBuild);
+      return remoteBuild;
+    } catch {
+      // Offline or a host without version.json: Service Worker signals still work.
+      return '';
+    }
+  }
+
+  async function showWorkerUpdate(worker) {
+    if (disposed || reloadStarted) return;
+    // Refresh first: a waiting worker's scriptURL is not a build id.
+    const remoteBuild = await checkVersion();
+    showUpdate(remoteBuild || workerIdentity(worker));
+  }
+
+  async function activateAndReload() {
+    if (reloadStarted) return;
+    reloadStarted = true;
+    if (detectedBuild) acknowledgeBuild(win, detectedBuild);
+
+    if (serviceWorker) {
+      if (registration?.waiting) {
+        const controllerChanged = new Promise((resolve) => {
+          serviceWorker.addEventListener?.('controllerchange', resolve, { once: true });
+        });
+        const timeout = new Promise((resolve) => {
+          const schedule = typeof win.setTimeout === 'function'
+            ? win.setTimeout.bind(win)
+            : setTimeout;
+          schedule(resolve, 2000);
+        });
+        registration.waiting.postMessage?.({ type: 'SKIP_WAITING' });
+        await Promise.race([controllerChanged, timeout]);
+      } else {
+        try {
+          registration = registration || await serviceWorker.ready;
+          await registration?.update?.();
+        } catch {
+          // Activation without a worker is still a normal page reload.
+        }
+      }
+    }
+
+    if (!reloaded) {
+      reloaded = true;
+      win.location.reload();
+    }
+  }
+
+  function onReloadClick() {
+    void activateAndReload();
+  }
+
+  function onDismissClick() {
+    if (detectedBuild) acknowledgeBuild(win, detectedBuild);
+    banner.hidden = true;
+  }
+
+  reloadButton.addEventListener('click', onReloadClick);
+  dismissButton?.addEventListener('click', onDismissClick);
+
+  function onControllerChange() {
+    if (reloadStarted) {
+      if (!reloaded) {
+        reloaded = true;
+        win.location.reload();
+      }
+    } else if (hadController || detectedBuild || registration?.waiting) {
+      void showWorkerUpdate(registration?.active || serviceWorker.controller);
+    }
+  }
+
+  function onVersionMessage(event) {
+    const buildId = event?.data?.build_id;
+    if (typeof buildId === 'string' && buildId) {
+      knownRemoteBuild = buildId;
+      if (buildId !== runningBuild) showUpdate(buildId);
+    }
+  }
+
+  if (serviceWorker) {
+    if (typeof serviceWorker.register === 'function') {
+      try {
+        serviceWorker.register('./sw.js')?.catch?.(() => {});
+      } catch {
+        // file:// or an unsupported context: the page still works without a SW.
+      }
+    }
+
+    serviceWorker.ready.then((registrationFromBrowser) => {
+      if (disposed) return;
+      registration = registrationFromBrowser;
+      if (registration.waiting && (hadController || detectedBuild))
+        void showWorkerUpdate(registration.waiting);
+      updateFoundHandler = () => {
+        const installing = registration.installing;
+        if (!installing) return;
+        installing.addEventListener?.('statechange', () => {
+          if (installing.state === 'installed' && (hadController || registration.waiting))
+            void showWorkerUpdate(installing);
+        });
+      };
+      registration.addEventListener?.('updatefound', updateFoundHandler);
+    }).catch?.(() => {});
+
+    serviceWorker.addEventListener?.('controllerchange', onControllerChange);
+    serviceWorker.addEventListener?.('message', onVersionMessage);
+  }
+
+  function onVisible() {
+    if (!doc.hidden) void checkVersion();
+  }
+
+  doc.addEventListener?.('visibilitychange', onVisible);
+  win.addEventListener?.('focus', onVisible);
+  win.addEventListener?.('pageshow', onVisible);
+  const scheduleInterval = (fn, ms) => (typeof win.setInterval === 'function'
+    ? win.setInterval.call(win, fn, ms)
+    : setInterval(fn, ms));
+  const cancelInterval = (id) => {
+    if (typeof win.clearInterval === 'function') win.clearInterval.call(win, id);
+    else clearInterval(id);
+  };
+  const timer = scheduleInterval(() => { void checkVersion(); }, intervalMs);
+
+  void checkVersion(); // Page load.
+
+  return () => {
+    disposed = true;
+    cancelInterval(timer);
+    doc.removeEventListener?.('visibilitychange', onVisible);
+    win.removeEventListener?.('focus', onVisible);
+    win.removeEventListener?.('pageshow', onVisible);
+    reloadButton.removeEventListener?.('click', onReloadClick);
+    dismissButton?.removeEventListener?.('click', onDismissClick);
+    serviceWorker?.removeEventListener?.('controllerchange', onControllerChange);
+    serviceWorker?.removeEventListener?.('message', onVersionMessage);
+    if (registration && updateFoundHandler)
+      registration.removeEventListener?.('updatefound', updateFoundHandler);
+  };
 }
 
 /**
@@ -786,5 +1029,8 @@ export function initApp({
   });
 }
 
-if (typeof window !== 'undefined' && typeof document !== 'undefined')
+if (typeof window !== 'undefined' && typeof document !== 'undefined') {
+  // Start update detection first so a stale cached UI can still offer a reload.
+  initUpdateDetector();
   initApp();
+}

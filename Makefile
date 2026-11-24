@@ -16,7 +16,7 @@ DEP     = $(OBJ:.o=.d)
 
 PREFIX ?= /usr/local
 
-.PHONY: all test clean asan test-asan install wasm
+.PHONY: all test clean asan test-asan install wasm web-version
 
 all: $(TARGET)
 
@@ -84,6 +84,41 @@ wasm: $(WASM_SRC) $(wildcard src/*.h) $(GEN_HDR) tools/expat_port.py | $(WASM_DI
 
 $(WASM_DIR):
 	mkdir -p $@
+
+# Web build stamping (task 15.4). Explicit target: `make`, `make test`,
+# `make wasm` and `make clean` never rewrite the tracked web files. Run
+# `make web-version` before deploying the bundle (e.g. in the Pages workflow),
+# after `make wasm`. The same build id goes into web/version.json, web/sw.js
+# (both BUILD_ID and CACHE_NAME) and the meta tag in web/index.html.
+# Override WEB_BUILD_ID / WEB_SHA / WEB_BUILD_TIME for reproducible builds.
+# Use simple (immediately expanded) variables: $(shell ...) must run exactly
+# once, otherwise a build that crosses a second boundary can stamp three
+# different ids into the three artifacts. `?=` alone is recursive.
+ifeq ($(origin WEB_SHA),undefined)
+WEB_SHA := $(shell git rev-parse --short=12 HEAD 2>/dev/null || printf unknown)
+endif
+ifeq ($(origin WEB_BUILD_TIME),undefined)
+WEB_BUILD_TIME := $(shell date -u +%Y%m%dT%H%M%SZ)
+endif
+ifeq ($(origin WEB_BUILD_ID),undefined)
+WEB_BUILD_ID := $(WEB_SHA)-$(WEB_BUILD_TIME)
+endif
+
+web-version:
+	@case '$(WEB_BUILD_ID)' in \
+	  ''|*[!A-Za-z0-9._-]*) echo "web-version: invalid WEB_BUILD_ID '$(WEB_BUILD_ID)'" >&2; exit 1;; \
+	esac
+	@printf '{\n  "build_id": "%s",\n  "sha": "%s",\n  "built_at": "%s"\n}\n' \
+	    '$(WEB_BUILD_ID)' '$(WEB_SHA)' '$(WEB_BUILD_TIME)' > web/version.json.tmp
+	@mv web/version.json.tmp web/version.json
+	@sed -e "s|^\(const BUILD_ID = \)'[^']*';|\1'$(WEB_BUILD_ID)';|" \
+	     -e "s|^\(const CACHE_NAME = '\)gpx2fit-[^']*';|\1gpx2fit-$(WEB_BUILD_ID)';|" \
+	     web/sw.js > web/sw.js.tmp
+	@mv web/sw.js.tmp web/sw.js
+	@sed -e 's|\(<meta id="gpx2fit-build" name="gpx2fit-build" content="\)[^"]*\("\)|\1$(WEB_BUILD_ID)\2|' \
+	     web/index.html > web/index.html.tmp
+	@mv web/index.html.tmp web/index.html
+	@echo "Stamped web build $(WEB_BUILD_ID) (sha $(WEB_SHA), built_at $(WEB_BUILD_TIME))"
 
 test: all $(TEST_BIN)
 	@set -e; for t in $(TEST_BIN); do echo "== $$t"; ./$$t; done

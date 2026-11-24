@@ -28,7 +28,7 @@ Zero-backend static app (hostable on GitHub Pages / Cloudflare Pages) where GPX 
   - Output: collapsible "Advanced" drawer for `--pass` (`nearest`, `ordered`, `first`, `last`), `--max-points`, `--start` UTC date/time, `--strict`, and custom `--map` rule editor (`keyword = type`)[cite: 5]; plus post-download instructions for Garmin Connect (*Training & Planning → Courses → Import*) and USB (`GARMIN/NewFiles`)[cite: 5].
   - Done when: custom map rules and advanced flags work end-to-end.
 
-- [ ] **15.4 Service Worker + `version.json` update detector & reload modal (`web/sw.js`, `web/version.json`)**
+- [x] **15.4 Service Worker + `version.json` update detector & reload modal (`web/sw.js`, `web/version.json`)**
   - Needs: `web/index.html`, `web/app.js`, `Makefile`
   - Output:
     - Build step stamps `web/version.json` (git SHA / build timestamp) and injects the cache version into `web/sw.js`.
