@@ -1,5 +1,8 @@
 # gpx2fit: v2 Task Breakdown (Activity Types, Multi-Arch Releases & Web/WASM)
 
+## Tools
+You can find the FITCSVTool.jar in tests/tools/
+
 Scope: **Add Garmin activity/sport selection, automate cross-platform binary releases via GitHub Actions, and compile the core C library to WebAssembly for a client-side web app.**
 
 Each task fits in one small working session. Do the tasks in order unless noted. Keep `course.h` and the task's own files in context, and little else.
@@ -69,4 +72,3 @@ Zero-backend static app (hostable on GitHub Pages / Cloudflare Pages) where GPX 
 
 - [ ] Support the same waypoint in both directions on out and back courses
 - [ ] Turn-by-turn cue generation from track geometry.
-
