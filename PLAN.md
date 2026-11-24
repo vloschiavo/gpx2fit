@@ -68,6 +68,24 @@ Zero-backend static app (hostable on GitHub Pages / Cloudflare Pages) where GPX 
     - Complete HAProxy frontend/backend snippet for SSL termination forwarding `X-Forwarded-For` (`option forwardfor`) and `X-Forwarded-Proto https` (`http-request set-header X-Forwarded-Proto https if { ssl_fc }`).
   - Done when: `README.md` clearly documents CLI, GitHub Pages, Docker self-hosting, and HAProxy configuration.
   
+- [ ] **16.5 Fix Docker Hub tag set: `latest` + per-arch `amd64`/`arm64` tags**
+   - Needs: `.github/workflows/docker.yml` (16.3), `README.md` (16.4)
+   - Problem: the workflow currently publishes only `main`, `sha-<short>`, `v*` and semver tags on a single multi-arch index. `docker/metadata-action` has no `latest` rule, and `docker/build-push-action` builds both platforms into one manifest list, so `docker buildx imagetools inspect docker.io/vloschiavo/gpx2fit:arm64` returns "not found".
+   - Scope: `.github/workflows/docker.yml` and `README.md` only; no `docker/Dockerfile` changes. Leave this task unchecked until a real workflow run is verified.
+   - Output:
+     - Add `type=raw,value=latest,enable={{is_default_branch}}` to the metadata `tags:` list so `latest` tracks `main`. Open decision: if `latest` should follow releases only, gate it on `v*` tag pushes instead.
+     - Optionally add `type=raw,value=main,enable={{is_default_branch}}` so `workflow_dispatch` runs also produce `main`.
+     - Add two extra `docker/build-push-action` steps (or a small matrix job) with the same context, `docker/Dockerfile`, `WEB_*` build args, labels and GHA cache: one with `platforms: linux/amd64` tagged `docker.io/vloschiavo/gpx2fit:amd64`, one with `platforms: linux/arm64` tagged `:arm64`.
+     - The single-arch steps must use only their own tag — never `steps.meta.outputs.tags` — so they cannot overwrite the multi-arch `latest`/`main` manifests.
+     - Optional: on `v*` pushes, add pinned arch aliases such as `v1.2.3-amd64` / `v1.2.3-arm64`.
+     - Add a post-push CI verification step (recommended) that runs `docker buildx imagetools inspect` on `latest`, `amd64` and `arm64` and fails if the expected platform sets are missing.
+     - Update the Docker section of `README.md` (~lines 361-386) to document `latest`, `main`, `v*`/semver, `sha-*`, and the two single-arch tags, including an `imagetools inspect` example.
+   - Done when:
+     - `docker buildx imagetools inspect docker.io/vloschiavo/gpx2fit:latest` lists both `linux/amd64` and `linux/arm64`.
+     - `:arm64` and `:amd64` resolve to single-platform images that pull and run cleanly.
+     - Existing `main`, `sha-*` and `v*` tags are still produced, and failed builds still leave no partial tags.
+     - `README.md` documents the tag set.
+
 ## Later (optional)
 
 - [ ] Support the same waypoint in both directions on out and back courses
