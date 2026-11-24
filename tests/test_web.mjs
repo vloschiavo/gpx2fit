@@ -53,7 +53,7 @@ function createHarness(gpx, { moduleFactory = async () => wasm } = {}) {
   const ids = [
     'app', 'conversion-controls', 'dropzone', 'gpx-file', 'load-sample',
     'source-name', 'course-name', 'activity-type', 'pace', 'pace-unit',
-    'pass-mode', 'snap-distance', 'snap-slider', 'status', 'error-message',
+    'pass-mode', 'snap-distance', 'snap-slider', 'map-rules', 'status', 'error-message',
     'results', 'warnings', 'warning-status', 'download-fit', 'stat-distance',
     'stat-track-points', 'stat-course-points', 'stat-waypoints', 'route-map',
     'map-fallback', 'waypoint-table-body',
@@ -225,6 +225,30 @@ await outBack.converted();
 assert.notEqual(rowDistance(outBack.rowNamed('Camp')), nearestDistance);
 assert.notEqual(outBack.markerNamed('Camp').coordinates[0], nearestCoordinates[0]);
 
+/* Invalid map lines are skipped with warnings; valid rules on either side still apply. */
+const customMap = createHarness(sampleGpx);
+await customMap.loadSample();
+customMap.elements['map-rules'].value = [
+  'water = food',
+  'not a rule',
+  'camp = shelter',
+  'waterfall = mystery',
+].join('\n');
+customMap.elements['map-rules'].dispatch('change');
+await customMap.converted();
+assert.equal(customMap.elements.status.dataset.state, 'success');
+assert.equal(customMap.rowNamed('Water').children[4].children[1].textContent, 'Food');
+assert.equal(customMap.rowNamed('Camp').children[4].children[1].textContent, 'Shelter');
+assert.match(
+  customMap.elements.warnings.textContent,
+  /custom\.map:2: malformed line, expected 'keyword = type'/,
+);
+assert.match(customMap.elements.warnings.textContent, /custom\.map:4: unknown type 'mystery'/);
+assert.equal(
+  customMap.elements['warning-status'].textContent,
+  customMap.elements.warnings.textContent,
+);
+
 /* The dateline is a short jump, and every overlay uses the same unwrapped frame. */
 const antimeridianGpx = `<?xml version="1.0"?><gpx xmlns="http://www.topografix.com/GPX/1/1" version="1.1">
   <wpt lat="0.001" lon="-179.95"><name>Camp</name></wpt>
@@ -274,4 +298,4 @@ assert.deepEqual(
 assert.equal(deferred.rowNamed('Caution').dataset.status, 'snapped');
 assert.doesNotMatch(deferred.elements['warning-status'].textContent, /Caution|skipped/);
 
-console.log('test_web.mjs: live map/table/warnings, antimeridian, and stale conversion checks passed');
+console.log('test_web.mjs: live map/table/warnings, custom maps, antimeridian, and stale conversion checks passed');

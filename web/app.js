@@ -16,6 +16,10 @@ const ARGUMENT_TYPES = Object.freeze([
   'number', 'number', 'number', 'number',
 ]);
 const DEFAULT_START_FIT = 1104624000; // 2025-01-01T00:00:00Z, as in the CLI.
+const FIT_EPOCH_UNIX = 631065600; // 1989-12-31T00:00:00Z.
+const FIT_DATE_MIN = 0x10000000;
+const FIT_TIME_MAX = 0xfffffffe;
+const MAX_WASM_LONG = 0x7fffffff;
 const CONVERT_DELAY_MS = 180;
 const PASS_MODES = new Set(['nearest', 'ordered', 'first', 'last']);
 const FIT_POINT_TYPES = Object.freeze({
@@ -134,6 +138,62 @@ export function paceToMetersPerSecond(value, unit) {
   return metersPerSecond;
 }
 
+/** Convert a UTC start date/time to the seconds-since-FIT-epoch value used by C. */
+export function startToFitTime(value) {
+  const text = String(value ?? '').trim();
+  if (!text) return DEFAULT_START_FIT;
+
+  if (/[+-]\d{2}:\d{2}$/.test(text)) {
+    throw new Error('Start time must be UTC; time zone offsets are not supported.');
+  }
+
+  const match = /^(\d{4})-(\d{2})-(\d{2})(?:T(\d{2}):(\d{2})(?::(\d{2}))?Z?)?$/.exec(text);
+  if (!match) {
+    throw new Error('Start time must use YYYY-MM-DD or YYYY-MM-DDTHH:MM[:SS][Z] (UTC).');
+  }
+
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const hour = Number(match[4] || 0);
+  const minute = Number(match[5] || 0);
+  const second = Number(match[6] || 0);
+  const leapYear = year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0);
+  const daysInMonth = [31, leapYear ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+
+  if (month < 1 || month > 12 || day < 1 || day > daysInMonth[month - 1])
+    throw new Error('Start time is not a valid calendar date.');
+  if (hour > 23 || minute > 59 || second > 59)
+    throw new Error('Start time is not a valid UTC time of day.');
+
+  // Date.UTC treats years 0 through 99 specially. They are outside FIT's date
+  // range anyway, so reject them before doing the calendar conversion.
+  if (year < 100) {
+    throw new Error('Start time is too early; FIT dates begin at 1998-07-03T21:24:16Z.');
+  }
+
+  const unixSeconds = Date.UTC(year, month - 1, day, hour, minute, second) / 1000;
+  const fitTime = unixSeconds - FIT_EPOCH_UNIX;
+  if (!Number.isSafeInteger(fitTime) || fitTime < FIT_DATE_MIN) {
+    throw new Error('Start time is too early; FIT dates begin at 1998-07-03T21:24:16Z.');
+  }
+  if (fitTime > FIT_TIME_MAX) {
+    throw new Error('Start time is too late; FIT dates end at 2126-02-06T06:28:14Z.');
+  }
+  return fitTime;
+}
+
+/** Enforce fatal custom-map constraints; individual rule lines are parsed by C. */
+export function validateMapRules(value) {
+  const text = String(value ?? '');
+  if (text.includes('\0')) throw new Error('Custom map rules cannot contain a NUL character.');
+  const byteLength = typeof TextEncoder === 'function'
+    ? new TextEncoder().encode(text).length
+    : text.length;
+  if (byteLength > 1024 * 1024) throw new Error('Custom map rules cannot exceed 1 MiB.');
+  return text;
+}
+
 /** Make a safe, readable download name without inserting text into the DOM. */
 export function fitFileName(courseName, sourceName) {
   const sourceBase = String(sourceName || 'course').replace(/\.gpx$/i, '');
@@ -154,6 +214,10 @@ function requiredElement(doc, id) {
   const element = doc.getElementById(id);
   if (!element) throw new Error(`Missing required interface element: ${id}`);
   return element;
+}
+
+function optionalElement(doc, id) {
+  return doc.getElementById(id);
 }
 
 /**
@@ -180,12 +244,17 @@ export function initApp({
   const passModeSelect = requiredElement(doc, 'pass-mode');
   const snapInput = requiredElement(doc, 'snap-distance');
   const snapSlider = requiredElement(doc, 'snap-slider');
+  const maxPointsInput = optionalElement(doc, 'max-points');
+  const startTimeInput = optionalElement(doc, 'start-time');
+  const strictModeCheckbox = optionalElement(doc, 'strict-mode');
+  const mapRulesInput = optionalElement(doc, 'map-rules');
   const status = requiredElement(doc, 'status');
   const errorMessage = requiredElement(doc, 'error-message');
   const results = requiredElement(doc, 'results');
   const warnings = requiredElement(doc, 'warnings');
   const warningStatus = requiredElement(doc, 'warning-status');
   const downloadLink = requiredElement(doc, 'download-fit');
+  const transferInstructions = optionalElement(doc, 'transfer-instructions');
   const statDistance = requiredElement(doc, 'stat-distance');
   const statTrackPoints = requiredElement(doc, 'stat-track-points');
   const statCoursePoints = requiredElement(doc, 'stat-course-points');
@@ -224,6 +293,7 @@ export function initApp({
   function invalidateOutput() {
     clearConvertTimer();
     clearDownload();
+    if (transferInstructions) transferInstructions.hidden = true;
     results.hidden = true;
     warnings.hidden = true;
     warnings.textContent = '';
@@ -270,6 +340,30 @@ export function initApp({
     if (!PASS_MODES.has(passModeSelect.value))
       throw new Error('Choose a valid pass selection.');
 
+    let maxPoints = 0;
+    if (maxPointsInput) {
+      if (maxPointsInput.validity?.badInput) {
+        throw new Error('Maximum track points must be a whole number of at least 2.');
+      }
+      const maxPointsText = String(maxPointsInput.value || '').trim();
+      if (maxPointsText) {
+        const value = Number(maxPointsText);
+        if (!/^\d+$/.test(maxPointsText) || !Number.isSafeInteger(value) || value < 2) {
+          throw new Error('Maximum track points must be a whole number of at least 2.');
+        }
+        if (value > MAX_WASM_LONG) {
+          throw new Error('Maximum track points is too large.');
+        }
+        maxPoints = value;
+      }
+    }
+
+    const startFit = startTimeInput
+      ? startToFitTime(startTimeInput.value)
+      : DEFAULT_START_FIT;
+    const strict = strictModeCheckbox?.checked ? 1 : 0;
+    const mapText = mapRulesInput ? validateMapRules(mapRulesInput.value) : '';
+
     return {
       courseName: courseNameInput.value.trim(),
       sport: activity.sport,
@@ -277,6 +371,10 @@ export function initApp({
       pace: paceToMetersPerSecond(paceInput.value, paceUnitSelect.value),
       snap,
       passMode: passModeSelect.value,
+      mapText,
+      startFit,
+      maxPoints,
+      strict,
     };
   }
 
@@ -287,16 +385,16 @@ export function initApp({
       [...ARGUMENT_TYPES],
       [
         gpxXml,
-        null,
+        options.mapText || null,
         options.courseName || null,
         options.sport,
         options.subSport,
         options.snap,
         options.passMode,
         options.pace,
-        DEFAULT_START_FIT,
-        0,
-        0,
+        options.startFit,
+        options.maxPoints,
+        options.strict,
       ],
     );
     if (!result) throw new Error('The converter could not allocate a result.');
@@ -492,6 +590,7 @@ export function initApp({
     downloadLink.href = downloadUrl;
     downloadLink.download = fitFileName(options.courseName || metadata.course_name, loadedSource.name);
     downloadLink.hidden = false;
+    if (transferInstructions) transferInstructions.hidden = false;
     setStatus(`${loadedSource.name} converted successfully. Your FIT course is ready.`, 'success');
   }
 
@@ -643,6 +742,22 @@ export function initApp({
   paceUnitSelect.addEventListener('change', () => requestConversion({ immediate: true }));
   activitySelect.addEventListener('change', () => requestConversion({ immediate: true }));
   passModeSelect.addEventListener('change', () => requestConversion({ immediate: true }));
+
+  if (maxPointsInput) {
+    maxPointsInput.addEventListener('input', () => requestConversion());
+    maxPointsInput.addEventListener('change', () => requestConversion({ immediate: true }));
+  }
+  if (startTimeInput) {
+    startTimeInput.addEventListener('input', () => requestConversion());
+    startTimeInput.addEventListener('change', () => requestConversion({ immediate: true }));
+  }
+  if (strictModeCheckbox) {
+    strictModeCheckbox.addEventListener('change', () => requestConversion({ immediate: true }));
+  }
+  if (mapRulesInput) {
+    mapRulesInput.addEventListener('input', () => requestConversion());
+    mapRulesInput.addEventListener('change', () => requestConversion({ immediate: true }));
+  }
 
   snapSlider.addEventListener('input', () => {
     snapInput.value = snapSlider.value;

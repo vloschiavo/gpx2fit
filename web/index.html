@@ -76,17 +76,6 @@
       </div>
 
       <div class="field full-width">
-        <label for="pass-mode">Pass selection</label>
-        <select id="pass-mode" name="pass-mode">
-          <option value="nearest" selected>Nearest pass</option>
-          <option value="ordered">Ordered by GPX waypoints</option>
-          <option value="first">First pass</option>
-          <option value="last">Last pass</option>
-        </select>
-        <p class="field-help">Choose which visit to use when the route passes a waypoint more than once.</p>
-      </div>
-
-      <div class="field full-width">
         <label for="snap-distance">Snap distance</label>
         <div class="snap-control">
           <input id="snap-slider" type="range" min="0" max="1000" step="1" value="250" aria-label="Snap distance slider">
@@ -97,6 +86,53 @@
         </div>
         <p class="field-help">Snap waypoints to the track when they are within this distance (0–1000 m).</p>
       </div>
+
+      <details class="full-width" id="advanced-options">
+        <summary><strong>Advanced options</strong></summary>
+        <div class="controls">
+          <div class="field full-width">
+            <label for="pass-mode">Pass selection</label>
+            <select id="pass-mode" name="pass-mode">
+              <option value="nearest" selected>Nearest pass</option>
+              <option value="ordered">Ordered by GPX waypoints</option>
+              <option value="first">First pass</option>
+              <option value="last">Last pass</option>
+            </select>
+            <p class="field-help">Choose which visit to use when the route passes a waypoint more than once.</p>
+          </div>
+
+          <div class="field">
+            <label for="max-points">Maximum track points</label>
+            <input id="max-points" name="max-points" type="number" min="2" step="1" inputmode="numeric"
+                   placeholder="No limit" aria-describedby="max-points-help">
+            <p class="field-help" id="max-points-help">Leave blank to keep every point. Otherwise, enter a whole number of at least 2.</p>
+          </div>
+
+          <div class="field">
+            <label for="start-time">Start date/time (UTC)</label>
+            <input id="start-time" name="start-time" type="text" value="2025-01-01T00:00Z"
+                   placeholder="2025-06-01T07:30Z" spellcheck="false" aria-describedby="start-time-help">
+            <p class="field-help" id="start-time-help">UTC only: YYYY-MM-DD or YYYY-MM-DDTHH:MM[:SS][Z]. Blank uses 2025-01-01T00:00:00Z.</p>
+          </div>
+
+          <div class="field full-width">
+            <label for="strict-mode">
+              <input id="strict-mode" name="strict-mode" type="checkbox">
+              Strict mode
+            </label>
+            <p class="field-help">Fail conversion instead of skipping a waypoint that is too far away or keeping more points than the limit requires.</p>
+          </div>
+
+          <div class="field full-width">
+            <label for="map-rules">Custom waypoint type rules</label>
+            <textarea id="map-rules" name="map-rules" rows="6" spellcheck="false"
+                      placeholder="# One rule per line&#10;waterfall = generic&#10;checkpoint = checkpoint"
+                      aria-describedby="map-rules-help"
+                      style="width: 100%; min-height: 9rem; padding: 0.65rem 0.75rem; border: 1px solid var(--border); border-radius: 0.5rem; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;"></textarea>
+            <p class="field-help" id="map-rules-help">Use <code>keyword = type</code>, one rule per line. Matching is ASCII case-insensitive; the first match wins, and these rules override the built-ins.</p>
+          </div>
+        </div>
+      </details>
     </form>
 
     <section class="panel output-panel" aria-labelledby="output-heading">
@@ -154,6 +190,14 @@
       </div>
 
       <a class="button primary download-button" id="download-fit" hidden>Download .fit course</a>
+
+      <section class="results route-details" id="transfer-instructions" hidden aria-labelledby="transfer-heading">
+        <h3 id="transfer-heading">Transfer the downloaded course</h3>
+        <ol>
+          <li><strong>Garmin Connect:</strong> Sign in, go to <strong>Training & Planning → Courses → Import</strong>, and select the downloaded <code>.fit</code> file.</li>
+          <li><strong>USB:</strong> Connect the Garmin device in mass-storage mode and copy the downloaded <code>.fit</code> file into the <code>GARMIN/NewFiles</code> folder. Safely eject the device before using it.</li>
+        </ol>
+      </section>
     </section>
 
     <footer>

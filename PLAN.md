@@ -20,7 +20,7 @@ Zero-backend static app (hostable on GitHub Pages / Cloudflare Pages) where GPX 
   - Output: Leaflet (or MapLibre) map displaying the GPX polyline, snapped course point markers (color/icon-coded by FIT type), and skipped waypoints (e.g., `Caution` at 477 m[cite: 2, 5]) with a live table showing distance (km), offset (m), and assigned icon type.
   - Done when: adjusting `--snap` or `--pass` updates the map markers and skipped-waypoint warnings in real time[cite: 5].
 
-- [ ] **15.3 Advanced options & Garmin transfer instructions**
+- [x] **15.3 Advanced options & Garmin transfer instructions**
   - Needs: `web/index.html`, `web/app.js`
   - Output: collapsible "Advanced" drawer for `--pass` (`nearest`, `ordered`, `first`, `last`), `--max-points`, `--start` UTC date/time, `--strict`, and custom `--map` rule editor (`keyword = type`)[cite: 5]; plus post-download instructions for Garmin Connect (*Training & Planning → Courses → Import*) and USB (`GARMIN/NewFiles`)[cite: 5].
   - Done when: custom map rules and advanced flags work end-to-end.
