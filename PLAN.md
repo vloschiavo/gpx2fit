@@ -96,7 +96,7 @@ Prepare `LIB_SRC` so every stage (GPX read, custom map parse, FIT write, warning
 
 Zero-backend static app (hostable on GitHub Pages / Cloudflare Pages) where GPX files never leave the user's browser.
 
-- [ ] **15.1 Minimalist UI & file dropzone (`web/index.html`, `web/app.js`, `web/style.css`)**
+- [x] **15.1 Minimalist UI & file dropzone (`web/index.html`, `web/app.js`, `web/style.css`)**
   - Needs: `web/dist/gpx2fit.js`
   - Output: drag-and-drop `.gpx` picker + "Load sample CalTopo route" button (`caltopo_sample.gpx`)[cite: 2, 5], primary controls (Course Name, Activity Type dropdown for all 7 sports, Pace input supporting `min/km` and `km/h`, Snap distance slider/input), and one-click `.fit` download button.
   - Done when: dropping a GPX file converts and

@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Convert a GPX route to a Garmin FIT course entirely in your browser.">
+  <title>gpx2fit — GPX to Garmin FIT</title>
+  <link rel="stylesheet" href="./style.css">
+</head>
+<body>
+  <main class="app" id="app">
+    <header class="app-header">
+      <div>
+        <p class="eyebrow">Garmin course converter</p>
+        <h1>gpx2fit</h1>
+        <p class="intro">Turn a planned GPX route into a navigable FIT course.</p>
+      </div>
+      <span class="local-badge">Private by design</span>
+    </header>
+
+    <noscript>
+      <p class="notice error-notice">JavaScript is required to convert a course locally in your browser.</p>
+    </noscript>
+
+    <section class="panel" aria-labelledby="route-heading">
+      <h2 id="route-heading">Your route</h2>
+      <label class="dropzone" id="dropzone" for="gpx-file">
+        <input class="file-input" id="gpx-file" type="file" accept=".gpx,application/gpx+xml,text/xml">
+        <span class="drop-icon" aria-hidden="true">↓</span>
+        <span class="drop-title">Drop a GPX file here</span>
+        <span class="drop-subtitle">or <span class="choose-text">choose a .gpx file</span></span>
+      </label>
+      <div class="sample-row">
+        <button class="button secondary" id="load-sample" type="button">Load sample CalTopo route</button>
+        <span class="file-note" id="source-name">No route loaded</span>
+      </div>
+    </section>
+
+    <form class="panel controls" id="conversion-controls" autocomplete="off">
+      <div class="section-heading">
+        <h2>Course settings</h2>
+        <span>Changes reconvert automatically</span>
+      </div>
+
+      <div class="field full-width">
+        <label for="course-name">Course name</label>
+        <input id="course-name" name="course-name" type="text" placeholder="Use the name from the GPX" spellcheck="false">
+      </div>
+
+      <div class="field">
+        <label for="activity-type">Activity type</label>
+        <select id="activity-type" name="activity-type">
+          <option value="hiking" selected>Hiking</option>
+          <option value="running">Running</option>
+          <option value="trail-running">Trail Running</option>
+          <option value="cycling">Cycling</option>
+          <option value="gravel-cycling">Gravel Cycling</option>
+          <option value="mountain-biking">Mountain Biking</option>
+          <option value="other">Other</option>
+        </select>
+      </div>
+
+      <div class="field">
+        <label for="pace">Pace</label>
+        <div class="input-group">
+          <input id="pace" name="pace" type="text" value="12:00" inputmode="decimal" aria-describedby="pace-help" required>
+          <label class="sr-only" for="pace-unit">Pace unit</label>
+          <select id="pace-unit" name="pace-unit" aria-label="Pace unit">
+            <option value="min/km" selected>min/km</option>
+            <option value="km/h">km/h</option>
+          </select>
+        </div>
+        <p class="field-help" id="pace-help">Use 12:00 or 12 for min/km, or 5 for km/h.</p>
+      </div>
+
+      <div class="field full-width">
+        <label for="snap-distance">Snap distance</label>
+        <div class="snap-control">
+          <input id="snap-slider" type="range" min="0" max="1000" step="1" value="250" aria-label="Snap distance slider">
+          <div class="snap-number">
+            <input id="snap-distance" name="snap-distance" type="number" min="0" max="1000" step="1" value="250" required>
+            <span aria-hidden="true">m</span>
+          </div>
+        </div>
+        <p class="field-help">Snap waypoints to the track when they are within this distance (0–1000 m).</p>
+      </div>
+    </form>
+
+    <section class="panel output-panel" aria-labelledby="output-heading">
+      <h2 id="output-heading" class="sr-only">Conversion output</h2>
+      <p class="status" id="status" role="status" aria-live="polite" data-state="idle">Choose or drop a GPX file to get started.</p>
+      <p class="error-message" id="error-message" role="alert" hidden></p>
+
+      <div class="results" id="results" hidden>
+        <dl class="stats">
+          <div>
+            <dt>Distance</dt>
+            <dd id="stat-distance">—</dd>
+          </div>
+          <div>
+            <dt>Track points</dt>
+            <dd id="stat-track-points">—</dd>
+          </div>
+          <div>
+            <dt>Course points</dt>
+            <dd id="stat-course-points">—</dd>
+          </div>
+          <div>
+            <dt>Waypoints</dt>
+            <dd id="stat-waypoints">—</dd>
+          </div>
+        </dl>
+        <p class="warnings" id="warnings" hidden></p>
+      </div>
+
+      <a class="button primary download-button" id="download-fit" hidden>Download .fit course</a>
+    </section>
+
+    <footer>
+      <span class="privacy-dot" aria-hidden="true"></span>
+      Conversion happens on this device. Your GPX data never leaves your browser.
+    </footer>
+  </main>
+
+  <script type="module" src="./app.js"></script>
+</body>
+</html>
