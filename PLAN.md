@@ -40,7 +40,7 @@ Zero-backend static app (hostable on GitHub Pages / Cloudflare Pages) where GPX 
 
 ## Phase 16: GitHub Pages, Multi-Arch `httpd:alpine` Docker Image & HAProxy Docs
 
-- [ ] **16.1 GitHub Pages deployment workflow (`.github/workflows/pages.yml`)**
+- [x] **16.1 GitHub Pages deployment workflow (`.github/workflows/pages.yml`)**
   - Needs: `Makefile`, `web/`
   - Output: GitHub Actions workflow triggered on pushes to `main` (touching `src/`, `data/`, `web/`, or `Makefile`) that compiles `make wasm` + `web/` bundle and deploys to GitHub Pages (`https://vloschiavo.github.io/gpx2fit/`).
   - Done when: `https://vloschiavo.github.io/gpx2fit/` loads cleanly, instantiates `gpx2fit.wasm`, and converts a GPX file.

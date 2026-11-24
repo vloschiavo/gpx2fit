@@ -1,0 +1,91 @@
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'src/**'
+      - 'data/**'
+      - 'web/**'
+      - 'Makefile'
+      # These affect the generated bundle too, so changes here must redeploy.
+      - 'tools/expat_port.py'
+      - '.github/workflows/pages.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Serialise deployments and never cancel one already in progress.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libexpat1-dev xxd
+
+      - name: Set up Emscripten
+        uses: mymindstorm/setup-emsdk@v14
+        with:
+          version: 7.0.1
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Build WebAssembly bundle
+        run: make wasm
+
+      - name: Test wasm converter and web app
+        run: |
+          node tests/test_wasm.mjs
+          node tests/test_web.mjs
+
+      # Rewrites web/version.json, web/sw.js and web/index.html with one
+      # build id; run after make wasm and before packaging the artifact.
+      - name: Stamp web build version
+        run: make web-version
+
+      - name: Verify web bundle
+        run: |
+          test -s web/index.html
+          test -s web/app.js
+          test -s web/style.css
+          test -s web/sw.js
+          test -s web/version.json
+          test -s web/caltopo_sample.gpx
+          test -s web/dist/gpx2fit.js
+          test -s web/dist/gpx2fit.wasm
+
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: web
+
+  deploy:
+    name: Deploy
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
