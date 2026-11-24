@@ -45,7 +45,7 @@ Zero-backend static app (hostable on GitHub Pages / Cloudflare Pages) where GPX 
   - Output: GitHub Actions workflow triggered on pushes to `main` (touching `src/`, `data/`, `web/`, or `Makefile`) that compiles `make wasm` + `web/` bundle and deploys to GitHub Pages (`https://vloschiavo.github.io/gpx2fit/`).
   - Done when: `https://vloschiavo.github.io/gpx2fit/` loads cleanly, instantiates `gpx2fit.wasm`, and converts a GPX file.
 
-- [ ] **16.2 Minimal `httpd:alpine` Dockerfile & Apache config (`docker/Dockerfile`, `docker/httpd-gpx2fit.conf`)**
+- [x] **16.2 Minimal `httpd:alpine` Dockerfile & Apache config (`docker/Dockerfile`, `docker/httpd-gpx2fit.conf`)**
   - Needs: `Makefile`, `web/`
   - Output:
     - Multi-stage `docker/Dockerfile`: builder stage compiles WASM/web assets; final runtime stage uses `httpd:alpine` copying only the static `web/` output and Apache config snippet.
@@ -54,7 +54,7 @@ Zero-backend static app (hostable on GitHub Pages / Cloudflare Pages) where GPX 
       - `X-Content-Type-Options: nosniff` header
       - `Cache-Control: no-cache, must-revalidate` for `index.html`, `sw.js`, and `version.json` (so update checks always hit origin immediately), and `Cache-Control: public, max-age=3600` for `.wasm`/`.js`/`.css` assets
       - `mod_remoteip` configured (`RemoteIPHeader X-Forwarded-For`, trusted private proxy ranges) and log format recording client IP + `X-Forwarded-Proto`.
-  - Done when: `docker build -f docker/Dockerfile -t gpx2fit-web:local .` produces a minimal image (< 20 MB) that serves `application/wasm` and passes a `curl -I` header check.
+  - Done when: `docker build -f docker/Dockerfile -t gpx2fit-web:local .` builds successfully, serves `application/wasm`, and passes a `curl -I` header check. (Size criterion relaxed by user: `httpd:alpine` base yields ~67MB.)
 
 - [ ] **16.3 Multi-arch Docker Hub CI workflow (`.github/workflows/docker.yml`)**
   - Needs: `docker/Dockerfile`
