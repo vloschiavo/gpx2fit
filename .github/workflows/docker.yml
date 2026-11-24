@@ -42,6 +42,8 @@ jobs:
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
             type=sha,format=short
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=raw,value=main,enable={{is_default_branch}}
 
       - name: Prepare web build metadata
         id: web-build
@@ -72,5 +74,92 @@ jobs:
             WEB_BUILD_ID=${{ steps.web-build.outputs.build_id }}
             WEB_SHA=${{ steps.web-build.outputs.sha }}
             WEB_BUILD_TIME=${{ steps.web-build.outputs.build_time }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-from: type=gha,scope=multiarch
+          cache-to: type=gha,mode=max,scope=multiarch
+
+      - name: Build and push amd64 image
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: docker/Dockerfile
+          platforms: linux/amd64
+          push: true
+          tags: docker.io/vloschiavo/gpx2fit:amd64
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            WEB_BUILD_ID=${{ steps.web-build.outputs.build_id }}
+            WEB_SHA=${{ steps.web-build.outputs.sha }}
+            WEB_BUILD_TIME=${{ steps.web-build.outputs.build_time }}
+          cache-from: type=gha,scope=amd64
+          cache-to: type=gha,mode=max,scope=amd64
+
+      - name: Build and push arm64 image
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: docker/Dockerfile
+          platforms: linux/arm64
+          push: true
+          tags: docker.io/vloschiavo/gpx2fit:arm64
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            WEB_BUILD_ID=${{ steps.web-build.outputs.build_id }}
+            WEB_SHA=${{ steps.web-build.outputs.sha }}
+            WEB_BUILD_TIME=${{ steps.web-build.outputs.build_time }}
+          cache-from: type=gha,scope=arm64
+          cache-to: type=gha,mode=max,scope=arm64
+
+      - name: Verify published architectures
+        shell: bash
+        env:
+          IMAGE: docker.io/vloschiavo/gpx2fit
+        run: |
+          set -euo pipefail
+
+          arches() {
+            local tag=$1 output
+            for attempt in 1 2 3; do
+              if output=$(docker buildx imagetools inspect --format '{{json .Image}}' "$IMAGE:$tag" \
+                  | jq -r '
+                      if type == "object" and has("os") then
+                        .os + "/" + .architecture
+                      elif type == "object" then
+                        keys[]
+                      else
+                        empty
+                      end
+                    ' | sort -u) && [[ -n "$output" ]]; then
+                printf '%s\n' "$output"
+                return 0
+              fi
+              echo "Retrying $IMAGE:$tag ($attempt/3)..." >&2
+              sleep 10
+            done
+            echo "::error::could not inspect $IMAGE:$tag" >&2
+            return 1
+          }
+
+          check() {
+            local tag=$1 expected=$2 unexpected=${3:-}
+            local found arch
+            found=$(arches "$tag")
+            echo "::group::$IMAGE:$tag"
+            printf '%s\n' "$found"
+            echo "::endgroup::"
+            for arch in $expected; do
+              grep -qx "$arch" <<<"$found" || {
+                echo "::error::$IMAGE:$tag is missing $arch"
+                return 1
+              }
+            done
+            for arch in $unexpected; do
+              if grep -qx "$arch" <<<"$found"; then
+                echo "::error::$IMAGE:$tag unexpectedly contains $arch"
+                return 1
+              fi
+            done
+          }
+
+          check latest "linux/amd64 linux/arm64"
+          check amd64 "linux/amd64" "linux/arm64"
+          check arm64 "linux/arm64" "linux/amd64"

@@ -362,11 +362,42 @@ The sections below cover running that same bundle yourself.
 
 ### Docker
 
-The published image is `vloschiavo/gpx2fit`, built multi-arch for
-`linux/amd64` and `linux/arm64`. The `main` tag tracks the main branch; `v*`
-release tags (for example `v1.2.3`) pin a released version. The runtime is
-`httpd:alpine` and serves only the static `web/` bundle on container port 80 —
-there is no server-side GPX processing in the container.
+The published image is `vloschiavo/gpx2fit`. The runtime is `httpd:alpine` and
+serves only the static `web/` bundle on container port 80 — there is no
+server-side GPX processing in the container.
+
+| Tag | Points to | Architectures |
+| --- | --- | --- |
+| `latest` | Newest stable build (`main` or a `v*` release) | `linux/amd64`, `linux/arm64` |
+| `main` | Latest build from the `main` branch | `linux/amd64`, `linux/arm64` |
+| `sha-<short>` | The commit that built it, e.g. `sha-abc1234` | `linux/amd64`, `linux/arm64` |
+| `v1.2.3`, `1.2.3`, `1.2` | A `v*` release tag: the ref tag plus semver variants | `linux/amd64`, `linux/arm64` |
+| `amd64` | Most recent build, single-platform | `linux/amd64` only |
+| `arm64` | Most recent build, single-platform | `linux/arm64` only |
+
+The first four are multi-arch indexes, so Docker picks the right variant
+automatically. `amd64` and `arm64` are single-arch images, useful when you want
+to pin a platform. Check what a tag contains with `imagetools`:
+
+```sh
+$ docker buildx imagetools inspect docker.io/vloschiavo/gpx2fit:latest
+Name:      docker.io/vloschiavo/gpx2fit:latest
+MediaType: application/vnd.oci.image.index.v1+json
+Digest:    sha256:<digest>
+
+Manifests:
+  Name:      docker.io/vloschiavo/gpx2fit@sha256:<amd64-digest>
+  MediaType: application/vnd.oci.image.manifest.v1+json
+  Platform:  linux/amd64
+
+  Name:      docker.io/vloschiavo/gpx2fit@sha256:<arm64-digest>
+  MediaType: application/vnd.oci.image.manifest.v1+json
+  Platform:  linux/arm64
+```
+
+Inspect `:amd64` or `:arm64` the same way to confirm each tag lists only its own
+platform. Build provenance may add an attestation manifest, but there should be
+no second runnable platform.
 
 ```sh
 docker run -d --name gpx2fit -p 8080:80 vloschiavo/gpx2fit:main
