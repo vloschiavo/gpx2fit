@@ -1,0 +1,98 @@
+name: Bug Report or Feature Request
+description: Report a bug, conversion issue, device problem, or suggest an improvement for gpx2fit
+title: "[Report]: "
+labels: ["triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for helping improve **gpx2fit**! Whether you ran into a conversion issue or have an idea for a new feature, please fill out the details below.
+
+  - type: dropdown
+    id: report_type
+    attributes:
+      label: Report Type
+      description: Are you reporting a bug or suggesting a feature/improvement?
+      options:
+        - Bug Report
+        - Feature Request / Enhancement
+        - Device Compatibility Report
+    validations:
+      required: true
+
+  - type: dropdown
+    id: interface
+    attributes:
+      label: Where did you use gpx2fit?
+      description: Select the interface or deployment method you used.
+      options:
+        - Web App (GitHub Pages - vloschiavo.github.io/gpx2fit)
+        - CLI Binary (Linux / macOS / Windows)
+        - Self-Hosted Docker Container
+        - Built from Source
+        - N/A (General Feature Request)
+    validations:
+      required: true
+
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary & Expected Behavior
+      description: Describe the bug (what happened vs. what you expected) or the feature/improvement you would like to see.
+      placeholder: |
+        - What happened (or what feature you'd like):
+        - What you expected to happen:
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to Reproduce & Options Used
+      description: Include the exact CLI command/flags or Web UI settings used (e.g., --snap, --pass, --stitch, --split-tracks, --turns, --map, --max-points).
+      placeholder: |
+        Example CLI:
+        ./gpx2fit --snap 250 --pass both --stitch route.gpx course.fit
+
+        Example Web UI:
+        Loaded 2-track GPX, Stitch disabled, Snap set to 150 m on Track 1...
+    validations:
+      required: false
+
+  - type: markdown
+    attributes:
+      value: |
+        ### Test GPX File (Privacy Reminder)
+        > **Privacy Notice:** GitHub issues are **public**. GPX files often contain GPS coordinates that reveal your home address, trailhead parking spots, or private routes.
+        > - Before attaching a file, consider trimming or anonymizing sensitive start/end segments, or creating a minimal GPX that reproduces the issue.
+        > - Note: GitHub does not allow attaching raw `.gpx` files directly—please **zip the file (`.zip`)** or rename it to **`.txt` / `.xml`** before dragging it into the box below.
+
+  - type: textarea
+    id: gpx_file
+    attributes:
+      label: GPX File & Route Details
+      description: Drag and drop a zipped/renamed GPX file here, and briefly describe the route (e.g., exported from CalTopo/Garmin/Strava, single vs. multi-track, waypoint count).
+      placeholder: |
+        Attach your .zip / .txt / .xml GPX file here, or paste a minimal XML snippet.
+        Source tool (e.g., CalTopo, Gaia, Komoot):
+        Number of tracks & waypoints:
+    validations:
+      required: false
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Console Output, Warnings, or Browser Errors
+      description: Paste any stderr/stdout warnings from the CLI, browser DevTools console errors, or FitCSVTool.jar output.
+      render: shell
+    validations:
+      required: false
+
+  - type: input
+    id: environment
+    attributes:
+      label: Version, OS, Browser, or Garmin Device
+      description: Include any relevant version info so we can reproduce your environment.
+      placeholder: "e.g., Web app (2026-11), Chrome on Windows 11, Garmin Fenix 7X (FW 27.18)"
+    validations:
+      required: false
