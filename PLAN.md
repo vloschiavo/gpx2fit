@@ -1,7 +1,7 @@
 # gpx2fit: v3 Task Breakdown (Out-and-Back Waypoints, Multi-Track Stitching, Turn-by-Turn & Web UX)
 
 ## Tools & Agent Workflow
-- **FIT Verification:** `tests/tools/FITCSVTool.jar` (run via `java -jar tests/tools/FITCSVTool.jar -b <file.fit> <out.csv>` to verify generated FIT messages).
+- **FIT Verification:** `tests/tools/FitCSVTool.jar` (run via `java -jar tests/tools/FITCSVTool.jar -b <file.fit> <out.csv>` to verify generated FIT messages).
 - **Build & Test Commands:**
   - Native + ASan/UBSan unit & E2E tests: `make test`
   - WASM build (if Emscripten is installed): `make wasm` (or `emcc` target in `Makefile`)
@@ -50,13 +50,13 @@
   - **Implementation Details:**
     - Add a checkbox in `web/index.html` (e.g., `Stitch multiple tracks into a single course`, checked by default or clearly labeled) that appears or is active when GPX files are converted.
     - Pass the `stitch` boolean option into the WASM conversion function.
-    - When `stitch` is **checked**: generate and download a single `.fit` file using the stitching logic (including `"start"` waypoint detection).
+    - When `stitch` is **checked**: generate and download a single `.fit` file using the stitching logic (including `"start"` waypoint detection).  If there is no obvious `"start"` waypoint, ask the user to pick the first track, this is important for loops.
     - When `stitch` is **unchecked** and the GPX contains multiple `<trk>` elements: generate one `.fit` per track and offer individual download buttons (or sequential downloads / zip if a helper already exists—follow YAGNI, individual download links/buttons per track in the results panel require zero new dependencies).
-  - **Verification:** Build WASM target if Emscripten is available; verify JS/C bridge parameter signatures and UI state handling; run `make test`.
+  - **Verification:** Build WASM target if Emscripten is available; verify JS/C bridge parameter signatures and UI state handling; run `make test`. Use `reference/Tahoe_200__Official_Race_Map_2022.gpx` to test multiple GPX tracks.
   - **Acceptance Criteria:**
     - Web UI has a checkbox to toggle stitching multiple GPX tracks into one FIT course vs. separate FIT courses.
     - Single-track GPX files continue to work without extra friction.
-    - Multi-track GPX files produce either 1 stitched `.fit` or N separate `.fit` downloads depending on the checkbox.
+    - Multi-track GPX files produce either 1 stitched `.fit` or N separate `.fit` downloads depending on the checkbox. 
 
 ---
 
