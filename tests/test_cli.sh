@@ -62,6 +62,37 @@ else
     echo "FAIL - --help prints usage"; fail=1
 fi
 
+# ---- -v / --version ------------------------------------------------------
+
+VERSION=v1.0.0
+
+# expect_version DESC ARGS...: version flags exit 0 with exactly one stdout
+# line and nothing on stderr, regardless of positionals or trailing arguments.
+expect_version() {
+    local desc=$1; shift
+    local out rc err="$TMP/version-err"
+    out=$("$BIN" "$@" 2>"$err"); rc=$?
+    if [ "$rc" -eq 0 ] && [ "$out" = "gpx2fit $VERSION" ] && [ ! -s "$err" ]; then
+        echo "ok   - $desc"
+    else
+        echo "FAIL - $desc (exit $rc, stdout '$out', stderr '$(cat "$err")')"
+        fail=1
+    fi
+}
+
+expect_version "-v prints the version"           -v
+expect_version "--version prints the version"    --version
+expect_version "--version with trailing args"    --version in.gpx out.fit extra
+expect_version "-v after positional arguments"   in.gpx out.fit -v
+expect_version "-v with other options"           --quiet --snap 40 -v in.gpx out.fit
+expect_version "-v short-circuits later options" -v --bogus
+
+if "$BIN" --help 2>&1 | grep -qF -- '-v, --version'; then
+    echo "ok   - --help documents -v and --version"
+else
+    echo "FAIL - --help documents -v and --version"; fail=1
+fi
+
 expect_out "defaults: snap"      "snap=250"        in.gpx out.fit
 expect_out "defaults: max_points" "max_points=0"   in.gpx out.fit
 expect_out "positionals"         "input=in.gpx"    in.gpx out.fit

@@ -6,6 +6,11 @@ LDLIBS  = -lexpat -lm
 BUILD   = build
 TARGET  = gpx2fit
 
+# One authoritative version, defined in src/version.h. Read the same string
+# here for tooling (release tags, web build metadata) so it cannot drift from
+# what `gpx2fit --version` prints. `make version` exposes it to scripts.
+VERSION := $(shell sed -n 's/^#define GPX2FIT_VERSION "\([^"]*\)"/\1/p' src/version.h)
+
 # data/default.map is embedded into the binary as a C string (task 5.3).
 # Needs xxd (ships with vim). The header is regenerated when the map changes.
 GEN_HDR = src/default_map.h
@@ -16,9 +21,16 @@ DEP     = $(OBJ:.o=.d)
 
 PREFIX ?= /usr/local
 
-.PHONY: all test clean asan test-asan install wasm web-version web-sample
+.PHONY: all version test clean asan test-asan install wasm web-version web-sample
 
 all: $(TARGET)
+
+version:
+	@if [ -z '$(VERSION)' ]; then \
+	    echo "version: cannot read GPX2FIT_VERSION from src/version.h" >&2; \
+	    exit 1; \
+	fi
+	@printf '%s\n' '$(VERSION)'
 
 $(TARGET): $(OBJ)
 	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $^ $(LDLIBS)
@@ -102,7 +114,10 @@ web-sample: $(WEB_SAMPLE)
 $(WEB_SAMPLE): $(REFERENCE_GPX)
 	cp '$<' '$@'
 
-# Web build stamping (task 15.4). Explicit target: `make`, `make test`,
+# Web build stamping (task 15.4). VERSION above comes from src/version.h:
+# release tags and web metadata that names a release should use it instead of
+# a second copy of the version string. The build id below is per-build.
+# Explicit target: `make`, `make test`,
 # `make wasm` and `make clean` never rewrite the tracked web files. Run
 # `make web-version` before deploying the bundle (e.g. in the Pages workflow),
 # after `make wasm`. The same build id goes into web/version.json, web/sw.js

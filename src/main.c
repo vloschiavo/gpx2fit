@@ -1,7 +1,7 @@
 /* gpx2fit: convert a GPX track to a FIT course file.
- * (tasks 1.4 CLI parsing, 2.x GPX reading, 4.x snapping, 5.4 --map and name
- * handling, 6.x synthetic times, 7.x FIT output, 8.1 pipeline, 8.2
- * --max-points, 8.3 summary) */
+ * (tasks T1 version flags, 1.4 CLI parsing, 2.x GPX reading, 4.x snapping,
+ *  5.4 --map and name handling, 6.x synthetic times, 7.x FIT output,
+ *  8.1 pipeline, 8.2 --max-points, 8.3 summary) */
 #define _POSIX_C_SOURCE 200809L
 
 #include <errno.h>
@@ -25,6 +25,7 @@
 #include "sport.h"
 #include "symmap.h"
 #include "timing.h"
+#include "version.h"
 
 /* Exit codes. */
 enum {
@@ -60,6 +61,7 @@ struct options {
     uint8_t     sport_id;  /* course.sport, resolved by sport_parse() */
     uint8_t     sub_sport; /* course.sub_sport, resolved by sport_parse() */
     bool        help;      /* --help given */
+    bool        version;   /* -v / --version given */
     bool        dump;      /* hidden --dump-options, for tests */
 };
 
@@ -93,6 +95,7 @@ static void usage(FILE *out, const char *prog)
         "  --map FILE         waypoint name-to-type rules, tried before defaults\n"
         "  --strict           treat warnings as errors\n"
         "  -q, --quiet        print only errors\n"
+        "  -v, --version      show version and exit\n"
         "  -h, --help         show this help and exit\n"
         "\n"
         "Exit status: 0 success, 1 error, 2 bad usage.\n",
@@ -128,7 +131,8 @@ static int parse_long(const char *s, long *out)
 }
 
 /* Parse argv into *o. Returns EXIT_OK, or EXIT_USAGE after printing a
- * message to stderr. With --help, returns EXIT_OK and sets o->help. */
+ * message to stderr. With -v/--version or --help, returns EXIT_OK early and
+ * sets o->version or o->help; no positional arguments are required then. */
 static int parse_options(int argc, char **argv, struct options *o)
 {
     enum { OPT_SNAP = 256, OPT_NAME, OPT_SPORT, OPT_PACE, OPT_START,
@@ -141,6 +145,7 @@ static int parse_options(int argc, char **argv, struct options *o)
         { "pace",         required_argument, NULL, OPT_PACE },
         { "start",        required_argument, NULL, OPT_START },
         { "quiet",        no_argument,       NULL, 'q' },
+        { "version",      no_argument,       NULL, 'v' },
         { "strict",       no_argument,       NULL, OPT_STRICT },
         { "max-points",   required_argument, NULL, OPT_MAX_POINTS },
         { "map",          required_argument, NULL, OPT_MAP },
@@ -162,7 +167,7 @@ static int parse_options(int argc, char **argv, struct options *o)
     o->sub_sport = FIT_SUB_SPORT_TRAIL;
 
     optind = 1; /* allow parse_options to be called more than once */
-    while ((c = getopt_long(argc, argv, "qh", longopts, NULL)) != -1) {
+    while ((c = getopt_long(argc, argv, "qhv", longopts, NULL)) != -1) {
         switch (c) {
         case OPT_SNAP:
             if (parse_nonneg_double(optarg, &o->snap_m) != 0) {
@@ -212,6 +217,7 @@ static int parse_options(int argc, char **argv, struct options *o)
         case OPT_STITCH: o->stitch = true; break;
         case OPT_SPLIT:  o->split = true;  break;
         case 'q': o->quiet = true; break;
+        case 'v': o->version = true; return EXIT_OK;
         case 'h': o->help = true;  return EXIT_OK;
         case OPT_DUMP: o->dump = true; break;
         default: /* getopt_long already printed the reason */
@@ -454,6 +460,10 @@ int main(int argc, char **argv)
 
     if (rc != EXIT_OK)
         return rc;
+    if (opt.version) {
+        printf("gpx2fit %s\n", GPX2FIT_VERSION);
+        return EXIT_OK;
+    }
     if (opt.help) {
         usage(stdout, argv[0]);
         return EXIT_OK;

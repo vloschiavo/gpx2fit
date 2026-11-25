@@ -18,7 +18,7 @@
 ## Tasks
 
 ### T1: Add `-v` and `--version` CLI Flags & Single-Source Version Definition
-* [ ] **Expose version information via `-v` and `--version` in the CLI binary from a single authoritative version source**
+* [x] **Expose version information via `-v` and `--version` in the CLI binary from a single authoritative version source**
   * **Scope:**
     * Read: `course.h`, `Makefile`, `main.c`, `README.md`, and CLI test scripts (`tests/`).
     * Modify: `course.h` (or version header / `Makefile` define), `main.c`, `README.md`, and CLI tests.

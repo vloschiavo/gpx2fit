@@ -106,7 +106,14 @@ gpx2fit [options] input.gpx output.fit
 | `--map FILE` | Waypoint name-to-type rules, tried before the built-in defaults. |
 | `--strict` | Make two warnings fatal: a waypoint skipped for being too far from the track, and a `--max-points` too small to hold the required points. Other warnings (no type for a name, truncated names, several tracks or segments) stay warnings. |
 | `-q`, `--quiet` | Print only errors. |
+| `-v`, `--version` | Print `gpx2fit v1.0.0` and exit without reading any files. |
 | `-h`, `--help` | Show help and exit. |
+
+`-v` and `--version` are short-circuits: no input or output file is needed,
+trailing arguments are ignored, and the first of these flags and `--help` on
+the command line wins. The version is defined once in
+[`src/version.h`](src/version.h); `make version` prints the same string, so
+release tags and web build metadata can use it instead of a second copy.
 
 ### Activity type (`--sport`)
 
