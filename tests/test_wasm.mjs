@@ -8,7 +8,7 @@ const gpx = await readFile(
   'utf8',
 );
 
-const argumentTypes = Array(13).fill('number');
+const argumentTypes = Array(14).fill('number');
 const utf8Encoder = new TextEncoder();
 
 function heapString(value) {
@@ -22,13 +22,14 @@ function heapString(value) {
 
 function convert(gpxXml, {
   snap = 250, pass = 'nearest', maxPoints = 0, strict = 0,
-  track = 0, stitch = true,
+  track = 0, stitch = true, overrides = [],
 } = {}) {
   const pointers = [
     heapString(gpxXml),
     heapString(null),
     heapString(null),
     heapString(pass),
+    heapString(JSON.stringify(overrides)),
   ];
   try {
     const result = wasm.ccall(
@@ -38,7 +39,7 @@ function convert(gpxXml, {
       [
         pointers[0], pointers[1], pointers[2],
         17, 0, snap, pointers[3], 5 / 3.6, 1104624000, maxPoints, strict,
-        track, stitch ? 1 : 0,
+        track, stitch ? 1 : 0, pointers[4],
       ],
     );
     assert.notEqual(result, 0, 'gpx2fit_convert returned a null result pointer');
@@ -228,4 +229,35 @@ assert.equal(failed.fit.length, 0);
 assert.equal(failed.metadata.distance_m, 0);
 assert.equal(failed.metadata.track_points, 0);
 
-console.log('test_wasm.mjs: FIT header, CRCs, metadata, large GPX, multi-track stitch/split, and errors passed');
+/* T2: per-waypoint overrides beat the global --snap in both the preview and
+ * the exported FIT bytes. */
+const overrideGpx = `<?xml version="1.0"?><gpx xmlns="http://www.topografix.com/GPX/1/1" version="1.1">
+  <wpt lat="0.001" lon="0"><name>Near</name></wpt>
+  <wpt lat="0.01" lon="0"><name>Far</name></wpt>
+  <trk><trkseg><trkpt lat="0" lon="0"/><trkpt lat="0" lon="0.01"/></trkseg></trk>
+</gpx>`;
+const autoPreview = convert(overrideGpx, { snap: 250 });
+const forcedPreview = convert(overrideGpx, { snap: 250, overrides: [2, 1] });
+
+function statusesOf(metadata) {
+  return metadata.waypoint_statuses.map(({ status, overridden }) =>
+    `${status}${overridden ? '*' : ''}`);
+}
+
+assert.deepEqual(statusesOf(autoPreview.metadata), ['snapped', 'skipped']);
+assert.deepEqual(statusesOf(forcedPreview.metadata), ['skipped*', 'snapped*']);
+assert.deepEqual(autoPreview.metadata.course_points_list.map(({ name }) => name), ['Near']);
+assert.deepEqual(forcedPreview.metadata.course_points_list.map(({ name }) => name), ['Far']);
+assert.deepEqual(
+  autoPreview.metadata.skipped_waypoints_list.map(({ name }) => name), ['Far']);
+assert.deepEqual(
+  forcedPreview.metadata.skipped_waypoints_list.map(({ name }) => name), ['Near']);
+assert.notDeepEqual([...autoPreview.fit], [...forcedPreview.fit]);
+
+/* Reducing --snap changes only the non-overridden waypoint. */
+const tighter = convert(overrideGpx, { snap: 0, overrides: [2, 1] });
+assert.deepEqual(tighter.metadata.course_points_list.map(({ name }) => name), ['Far']);
+assert.deepEqual(
+  tighter.metadata.skipped_waypoints_list.map(({ name }) => name), ['Near']);
+
+console.log('test_wasm.mjs: FIT header, CRCs, metadata, large GPX, multi-track stitch/split, waypoint overrides, and errors passed');

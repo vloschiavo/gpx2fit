@@ -11,6 +11,8 @@
 #include "sport.h"
 #include "symmap.h"
 #include "timing.h"
+#include <ctype.h>
+#include <errno.h>
 #include <math.h>
 #include <stdarg.h>
 #include <stdbool.h>
@@ -101,6 +103,47 @@ static int nearest_track_candidate(const struct course*c,const struct waypoint*w
     return out->offset<0.0?-1:0;
 }
 
+/* Parse the UI's dense JSON override array, e.g. [0,2,1]. Indices beyond the
+ * waypoint count are ignored (stale UI state after a file change); null/other
+ * values mean AUTO. Returns 0, or -1 for malformed JSON. */
+static int parse_waypoint_overrides(const char*text,int*out,size_t n)
+{
+    const char*p=text?text:"";
+    size_t i=0;
+    int closed=0;
+
+    while(isspace((unsigned char)*p)) p++;
+    if(*p!='[') return -1;
+    p++;
+    while(*p){
+        long v=0;
+        char*end=NULL;
+        while(isspace((unsigned char)*p)) p++;
+        if(*p==']'){ p++; closed=1; break; }
+        if(*p=='n'){
+            if(strncmp(p,"null",4)!=0) return -1;
+            p+=4;
+        } else {
+            if(!isdigit((unsigned char)*p)) return -1;
+            errno=0;
+            v=strtol(p,&end,10);
+            if(end==p||errno==ERANGE) return -1;
+            p=end;
+        }
+        if(i<n)
+            out[i]=(v==SNAP_OVERRIDE_FORCE_SNAP||v==SNAP_OVERRIDE_FORCE_SKIP)
+                   ?(int)v:SNAP_OVERRIDE_AUTO;
+        i++;
+        while(isspace((unsigned char)*p)) p++;
+        if(*p==','){ p++; continue; }
+        if(*p==']'){ p++; closed=1; break; }
+        return -1;
+    }
+    if(!closed) return -1;
+    while(isspace((unsigned char)*p)) p++;
+    return *p=='\0'?0:-1;
+}
+
 /* `track` is the 1-based <trk> index (0 = the core default), and `stitch`
  * selects the core's all-tracks join. They are mutually exclusive, as on the
  * CLI. Callers that want to pick the first leg of a loop reorder the tracks in
@@ -110,7 +153,7 @@ EMSCRIPTEN_KEEPALIVE struct gpx2fit_result *gpx2fit_convert(
     const char*gpx_xml,const char*map_text,const char*course_name,
     uint8_t sport,uint8_t sub_sport,double snap_m,const char*pass_mode,
     double pace_mps,uint32_t start_fit,long max_points,int strict,
-    long track,int stitch)
+    long track,int stitch,const char*overrides_json)
 {
     struct gpx2fit_result *res=calloc(1,sizeof*res);
     if(!res) return NULL;
@@ -118,6 +161,7 @@ EMSCRIPTEN_KEEPALIVE struct gpx2fit_result *gpx2fit_convert(
     struct trackpoint *tp_full=NULL;
     size_t n_full=0; double total_m=0.0; int trc=0;
     struct gpx_options go; struct diag_list diag; struct jbuf jb;
+    int *overrides=NULL; int *statuses=NULL;
     char err[256]; char errmsg[256];
     course_init(&c); symmap_init(&map); diag_list_init(&diag); jbuf_init(&jb);
     memset(&sr,0,sizeof sr); memset(&es,0,sizeof es);
@@ -150,6 +194,15 @@ EMSCRIPTEN_KEEPALIVE struct gpx2fit_result *gpx2fit_convert(
         int rc=read_gpx_mem(gpx_xml,glen,NULL,&c,&go,err,sizeof err);
         if(rc!=0){ snprintf(errmsg,sizeof errmsg,"%s",err[0]?err:"failed to read GPX"); ok=0; }
     }
+    if(ok){
+        overrides=calloc(c.n_wp?c.n_wp:1,sizeof*overrides);
+        statuses=malloc((c.n_wp?c.n_wp:1)*sizeof*statuses);
+        if(!overrides||!statuses){ snprintf(errmsg,sizeof errmsg,"out of memory"); ok=0; }
+        else if(overrides_json&&overrides_json[0]&&
+                parse_waypoint_overrides(overrides_json,overrides,c.n_wp)!=0){
+            snprintf(errmsg,sizeof errmsg,"invalid waypoint overrides"); ok=0;
+        }
+    }
     if(ok&&course_name&&course_name[0]){
         char*n=strdup(course_name);
         if(!n){ snprintf(errmsg,sizeof errmsg,"out of memory"); ok=0; }
@@ -161,7 +214,8 @@ EMSCRIPTEN_KEEPALIVE struct gpx2fit_result *gpx2fit_convert(
     }
     if(ok) course_compute_distances(&c);
     if(ok){
-        struct snap_options so={smode,snap_m,true,(bool)strict,&diag};
+        struct snap_options so={smode,snap_m,true,(bool)strict,&diag,
+                                overrides,statuses};
         int src=snap_waypoints(&c,&so,&sr);
         if(src==SNAP_NOMEM){ snprintf(errmsg,sizeof errmsg,"out of memory"); ok=0; }
         else if(src==SNAP_STRICT){ snprintf(errmsg,sizeof errmsg,"--strict: %zu waypoint(s) farther than %g m from the track",sr.n_skipped,snap_m); ok=0; }
@@ -234,7 +288,8 @@ EMSCRIPTEN_KEEPALIVE struct gpx2fit_result *gpx2fit_convert(
         for(size_t i=0;i<c.n_cp;i++){
             if(i) jbuf_puts(&jb,",");
             jbuf_puts(&jb,"{");
-            jbuf_puts(&jb,"\"name\":"); jbuf_json_string(&jb,c.cp[i].name);
+            jbuf_printf(&jb,"\"index\":%zu",c.cp[i].wp_index);
+            jbuf_puts(&jb,",\"name\":"); jbuf_json_string(&jb,c.cp[i].name);
             jbuf_printf(&jb,",\"lat\":%.10g",c.cp[i].lat);
             jbuf_printf(&jb,",\"lon\":%.10g",c.cp[i].lon);
             jbuf_printf(&jb,",\"km\":%.6g",c.cp[i].dist/1000.0);
@@ -271,17 +326,31 @@ EMSCRIPTEN_KEEPALIVE struct gpx2fit_result *gpx2fit_convert(
         full_track.tp=tp_full; full_track.n_tp=n_full;
         for(size_t i=0;i<c.n_wp;i++){
             struct snap_candidate nearest;
-            if(nearest_track_candidate(&full_track,&c.wp[i],&nearest)!=0||nearest.offset<=snap_m)
+            /* Use the snapping result, not the threshold: a manually skipped
+             * waypoint must appear even when it is close to the track. */
+            if(statuses[i]!=SNAP_STATUS_SKIPPED) continue;
+            if(nearest_track_candidate(&full_track,&c.wp[i],&nearest)!=0)
                 continue;
             if(!first) jbuf_puts(&jb,",");
             first=0;
             jbuf_puts(&jb,"{");
-            jbuf_puts(&jb,"\"name\":"); jbuf_json_string(&jb,c.wp[i].name);
+            jbuf_printf(&jb,"\"index\":%zu",i);
+            jbuf_puts(&jb,",\"name\":"); jbuf_json_string(&jb,c.wp[i].name);
             jbuf_printf(&jb,",\"lat\":%.10g",c.wp[i].lat);
             jbuf_printf(&jb,",\"lon\":%.10g",c.wp[i].lon);
             jbuf_printf(&jb,",\"km\":%.6g",nearest.dist/1000.0);
             jbuf_printf(&jb,",\"offset_m\":%.6g",nearest.offset);
             jbuf_printf(&jb,",\"type\":%u}",symmap_lookup(&map,c.wp[i].name));
+        }
+    }
+    jbuf_puts(&jb,"],");
+    jbuf_puts(&jb,"\"waypoint_statuses\":[");
+    if(ok){
+        for(size_t i=0;i<c.n_wp;i++){
+            if(i) jbuf_puts(&jb,",");
+            jbuf_printf(&jb,"{\"index\":%zu,\"status\":\"%s\",\"overridden\":%s}",
+                        i,statuses[i]==SNAP_STATUS_SNAPPED?"snapped":"skipped",
+                        (overrides[i]!=SNAP_OVERRIDE_AUTO)?"true":"false");
         }
     }
     jbuf_puts(&jb,"],");
@@ -296,6 +365,8 @@ EMSCRIPTEN_KEEPALIVE struct gpx2fit_result *gpx2fit_convert(
     diag_list_free(&diag);
     symmap_free(&map);
     free(tp_full);
+    free(overrides);
+    free(statuses);
     course_free(&c);
     (void)trc; (void)err;
     return res;

@@ -11,7 +11,7 @@ extern void *gpx2fit_convert(const char *gpx, const char *map, const char *name,
                              uint8_t sport, uint8_t sub_sport, double snap_m,
                              const char *pass_mode, double pace_mps,
                              uint32_t start_fit, long max_points, int strict,
-                             long track, int stitch);
+                             long track, int stitch, const char *overrides_json);
 extern uint8_t *gpx2fit_result_data(void *result);
 extern size_t gpx2fit_result_len(void *result);
 extern const char *gpx2fit_result_json(void *result);
@@ -34,19 +34,66 @@ static char *read_file(const char *path)
     return text;
 }
 
-static void *convert(const char *gpx, const char *name, long track, int stitch)
+static void *convert_with(const char *gpx, const char *name, long track,
+                          int stitch, double snap_m, const char *overrides)
 {
-    void *result = gpx2fit_convert(gpx, "", name, 17, 0, 2000.0, "nearest",
-                                   5.0 / 3.6, 1104624000, 0, 0, track, stitch);
+    void *result = gpx2fit_convert(gpx, "", name, 17, 0, snap_m, "nearest",
+                                   5.0 / 3.6, 1104624000, 0, 0, track, stitch,
+                                   overrides);
     assert(result != NULL);
     return result;
 }
+
+#define convert(gpx, name, track, stitch) \
+    convert_with((gpx), (name), (track), (stitch), 2000.0, NULL)
 
 static void expect_json(void *result, const char *needle)
 {
     const char *json = gpx2fit_result_json(result);
     assert(json != NULL);
     assert(strstr(json, needle) != NULL);
+}
+
+/* T2: the bridge applies per-waypoint overrides to snapping, preview JSON,
+ * and the FIT bytes. Waypoint 0 is near the track; waypoint 1 is ~1.1 km away. */
+static void test_overrides(void)
+{
+    const char *gpx =
+        "<?xml version=\"1.0\"?><gpx version=\"1.1\" "
+        "xmlns=\"http://www.topografix.com/GPX/1/1\">"
+        "<wpt lat=\"0.001\" lon=\"0\"><name>Near</name></wpt>"
+        "<wpt lat=\"0.01\" lon=\"0\"><name>Far</name></wpt>"
+        "<trk><trkseg><trkpt lat=\"0\" lon=\"0\"/><trkpt lat=\"0\" lon=\"0.01\"/>"
+        "</trkseg></trk></gpx>";
+
+    void *automatic = convert_with(gpx, NULL, 0, 1, 250.0, "[]");
+    assert(gpx2fit_result_rc(automatic) == 0);
+    expect_json(automatic, "\"index\":0,\"status\":\"snapped\",\"overridden\":false");
+    expect_json(automatic, "\"index\":1,\"status\":\"skipped\",\"overridden\":false");
+    expect_json(automatic, "\"index\":0,\"name\":\"Near\""); /* skipped list */
+    expect_json(automatic, "\"index\":1,\"name\":\"Far\"");  /* course points */
+
+    void *forced = convert_with(gpx, NULL, 0, 1, 250.0, "[2,1]");
+    assert(gpx2fit_result_rc(forced) == 0);
+    expect_json(forced, "\"index\":0,\"status\":\"skipped\",\"overridden\":true");
+    expect_json(forced, "\"index\":1,\"status\":\"snapped\",\"overridden\":true");
+    expect_json(forced, "\"index\":0,\"name\":\"Near\""); /* still skipped */
+    expect_json(forced, "\"waypoints_snapped\":1,");
+
+    size_t auto_len = gpx2fit_result_len(automatic);
+    size_t forced_len = gpx2fit_result_len(forced);
+    assert(auto_len > 0 && forced_len > 0);
+    assert(auto_len != forced_len
+           || memcmp(gpx2fit_result_data(automatic),
+                     gpx2fit_result_data(forced), auto_len) != 0);
+
+    /* Malformed override input is rejected before any file is produced. */
+    void *bad = convert_with(gpx, NULL, 0, 1, 250.0, "[1,");
+    assert(gpx2fit_result_rc(bad) == 1);
+    expect_json(bad, "invalid waypoint overrides");
+    gpx2fit_free(bad);
+    gpx2fit_free(forced);
+    gpx2fit_free(automatic);
 }
 
 int main(void)
@@ -104,8 +151,10 @@ int main(void)
     expect_json(bad, "invalid track index");
     gpx2fit_free(bad);
 
+    test_overrides();
     free(multi);
     free(single);
-    printf("test_wasm_bridge: track/stitch bridge parameters and core reuse passed\n");
+    printf("test_wasm_bridge: track/stitch bridge parameters, core reuse, and "
+           "waypoint overrides passed\n");
     return 0;
 }

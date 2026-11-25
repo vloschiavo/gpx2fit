@@ -81,6 +81,11 @@ static bool offset_less(double a, double b)
     return a < b - OFFSET_EPS;
 }
 
+static int override_for(const struct snap_options *opt, size_t w)
+{
+    return opt && opt->overrides ? opt->overrides[w] : SNAP_OVERRIDE_AUTO;
+}
+
 int snap_mode_parse(const char *s, enum snap_mode *out)
 {
     static const struct { const char *name; enum snap_mode m; } tab[] = {
@@ -457,9 +462,10 @@ static void clear_course_points(struct course *c)
     c->n_cp = 0;
 }
 
-static int add_course_point(struct course *c, const struct waypoint *w,
+static int add_course_point(struct course *c, size_t wi,
                             const struct snap_candidate *s)
 {
+    const struct waypoint *w = &c->wp[wi];
     struct course_pt *p;
 
     if (c->n_cp == c->cap_cp) {
@@ -481,6 +487,7 @@ static int add_course_point(struct course *c, const struct waypoint *w,
     p->offset = s->offset;
     p->t = 0;
     p->type = 0;
+    p->wp_index = wi;
     return 0;
 }
 
@@ -507,11 +514,15 @@ int snap_waypoints(struct course *c, const struct snap_options *opt,
     int *choice = NULL;
     bool *in_chain = NULL;
     size_t nw = c->n_wp;
+    size_t n_manual_skip = 0;
     int rc = SNAP_NOMEM;
 
     clear_course_points(c);
     if (rep)
         *rep = r;
+    if (opt->status_out)
+        for (size_t i = 0; i < nw; i++)
+            opt->status_out[i] = SNAP_STATUS_SKIPPED;
     if (nw == 0)
         return SNAP_OK;
     if (snap_index_init(&ix, c) != 0)
@@ -524,8 +535,17 @@ int snap_waypoints(struct course *c, const struct snap_options *opt,
         goto done;
 
     for (size_t w = 0; w < nw; w++) {
+        int ov = override_for(opt, w);
+
+        if (ov == SNAP_OVERRIDE_FORCE_SKIP) {
+            choice[w] = -1;
+            continue;
+        }
+        /* A forced snap ignores --snap and searches the whole track. */
+        double thr = ov == SNAP_OVERRIDE_FORCE_SNAP
+                   ? SNAP_FORCE_THRESHOLD_M : opt->threshold_m;
         if (snap_candidates(&ix, c->wp[w].lat, c->wp[w].lon,
-                            opt->threshold_m, &all[w]) != 0)
+                            thr, &all[w]) != 0)
             goto done;
         if (all[w].n == 0)
             choice[w] = -1;
@@ -544,6 +564,21 @@ int snap_waypoints(struct course *c, const struct snap_options *opt,
         const struct waypoint *wp = &c->wp[w];
 
         if (choice[w] < 0) {
+            if (override_for(opt, w) == SNAP_OVERRIDE_FORCE_SKIP) {
+                /* An explicit user decision, not a threshold failure: count
+                 * it for the stats but do not let --strict reject it. */
+                n_manual_skip++;
+                r.n_skipped++;
+                if (opt->diag)
+                    diag_list_add(opt->diag,
+                                  "warning: waypoint '%s' skipped "
+                                  "(manual override)\n",
+                                  display_name(wp->name));
+                if (!opt->quiet)
+                    fprintf(stderr, "warning: waypoint '%s' skipped "
+                            "(manual override)\n", display_name(wp->name));
+                continue;
+            }
             double d = snap_nearest_offset(c, wp->lat, wp->lon);
             r.n_skipped++;
             if (d < 0.0) {
@@ -595,18 +630,20 @@ int snap_waypoints(struct course *c, const struct snap_options *opt,
             size_t n_take = opt->mode == SNAP_BOTH ? all[w].n : 1;
 
             for (size_t k = 0; k < n_take; k++) {
-                if (add_course_point(c, wp, &all[w].v[first + k]) != 0)
+                if (add_course_point(c, w, &all[w].v[first + k]) != 0)
                     goto done;
                 r.n_course_points++;
             }
         }
+        if (opt->status_out)
+            opt->status_out[w] = SNAP_STATUS_SNAPPED;
         r.n_snapped++;
     }
 
     snap_sort_course_points(c);
     if (rep)
         *rep = r;
-    rc = (opt->strict && r.n_skipped > 0) ? SNAP_STRICT : SNAP_OK;
+    rc = (opt->strict && r.n_skipped > n_manual_skip) ? SNAP_STRICT : SNAP_OK;
 
 done:
     if (all)

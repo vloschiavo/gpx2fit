@@ -40,7 +40,7 @@
 ---
 
 ### T2: Clickable Waypoint Status Toggle (Force Snapped vs. Force Skipped)
-* \[ \] **Allow clicking each waypoint's Status field in the Web UI to toggle `Snapped` vs. `Skipped`, overriding `--snap` distance**
+- [x] **Allow clicking each waypoint's Status field in the Web UI to toggle `Snapped` vs. `Skipped`, overriding `--snap` distance**
   * **Scope:**
     * Read: `course.h`, `snap.c` / `course.c`, WASM C bridge (`wasm.c` / `web/*.c`), `web/index.html`, `web/app.js`, `web/style.css`.
     * Modify: `course.h` / `snap.c` (if per-waypoint override is passed to C/WASM), WASM C bridge, `web/app.js`, `web/style.css`.

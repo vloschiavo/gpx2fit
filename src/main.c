@@ -345,7 +345,8 @@ static int convert_course(const struct options *o, const struct symmap *map,
 
     course_compute_distances(&c);
     {
-        struct snap_options so = { o->pass, o->snap_m, o->quiet, o->strict, o->diag };
+        struct snap_options so = { o->pass, o->snap_m, o->quiet, o->strict,
+                                   o->diag, NULL, NULL };
         int src = snap_waypoints(&c, &so, &sr);
 
         if (src == SNAP_NOMEM) {

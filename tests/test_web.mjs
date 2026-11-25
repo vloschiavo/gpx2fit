@@ -22,7 +22,18 @@ class FakeElement {
     this.listeners = new Map();
     this.attributes = new Map();
     this.style = { setProperty(name, value) { this[name] = value; } };
-    this.classList = { add() {}, remove() {} };
+    this.className = '';
+    this.classList = {
+      add(name) {
+        if (!this.owner.className.split(/\s+/).includes(name))
+          this.owner.className = `${this.owner.className} ${name}`.trim();
+      },
+      remove(name) {
+        this.owner.className = this.owner.className.split(/\s+/)
+          .filter((part) => part && part !== name).join(' ');
+      },
+      owner: this,
+    };
     this.textContent = '';
   }
 
@@ -37,6 +48,7 @@ class FakeElement {
   }
 
   setAttribute(name, value) { this.attributes.set(name, value); }
+  getAttribute(name) { return this.attributes.has(name) ? this.attributes.get(name) : null; }
   removeAttribute(name) { this.attributes.delete(name); }
   append(...children) { this.children.push(...children); }
   replaceChildren(...children) { this.children = [...children]; }
@@ -77,10 +89,17 @@ function createHarness(gpx, { moduleFactory = async () => wasm, promptImpl = nul
     createElement(tagName) { return new FakeElement(tagName); },
     createTextNode(text) { return { textContent: text }; },
   };
+  const blobs = [];
   const win = {
     setTimeout,
     clearTimeout,
-    URL: { createObjectURL: () => 'blob:test', revokeObjectURL() {} },
+    URL: {
+      createObjectURL(blob) {
+        blobs.push(blob);
+        return `blob:test-${blobs.length}`;
+      },
+      revokeObjectURL() {},
+    },
     addEventListener() {},
   };
   const mapState = { groups: [], fittedBounds: [] };
@@ -160,6 +179,7 @@ function createHarness(gpx, { moduleFactory = async () => wasm, promptImpl = nul
     elements,
     mapState,
     sampleRequests,
+    blobs,
     async loadSample() {
       elements['load-sample'].dispatch('click');
       await converted();
@@ -193,6 +213,15 @@ function createHarness(gpx, { moduleFactory = async () => wasm, promptImpl = nul
 
 function rowDistance(row) {
   return row.children[2].textContent;
+}
+
+function statusButton(row) {
+  return row.children[1].children[0];
+}
+
+async function latestFitBytes(harness) {
+  const blob = harness.blobs.at(-1);
+  return blob ? new Uint8Array(await blob.arrayBuffer()) : null;
 }
 
 assert.match(
@@ -539,4 +568,63 @@ assert.equal(tahoeUI.elements.status.dataset.state, 'success');
 assert.equal(tahoeUI.downloads().length, 14);
 assert.equal(tahoeUI.downloads()[0].download, 'House Wife Hill Aid to Armstrong Pass.fit');
 
-console.log('test_web.mjs: live map/table/warnings, custom maps, multi-track stitch/split, Tahoe 14-track reference, antimeridian, and stale conversion checks passed');
+/* T2: the Status pill is an accessible toggle that forces snapping/skipping
+ * in the map, the stats, the downloaded FIT, and later --snap changes. */
+const overrideCalls = [];
+const overrideRecorder = Object.create(wasm);
+overrideRecorder.ccall = (...args) => {
+  if (args[0] === 'gpx2fit_convert')
+    overrideCalls.push(JSON.parse(wasm.UTF8ToString(args[3][13])));
+  return wasm.ccall(...args);
+};
+const toggleUI = createHarness(sampleGpx, {
+  moduleFactory: async () => overrideRecorder,
+});
+await toggleUI.loadSample();
+const initialCount = toggleUI.elements['stat-course-points'].textContent;
+const autoFit = await latestFitBytes(toggleUI);
+let cautionBadge = statusButton(toggleUI.rowNamed('Caution'));
+assert.equal(cautionBadge.tagName, 'button');
+assert.equal(cautionBadge.textContent, 'Skipped');
+assert.equal(cautionBadge.getAttribute('aria-pressed'), 'false');
+assert.match(cautionBadge.getAttribute('aria-label'), /Caution: skipped/);
+assert.doesNotMatch(cautionBadge.getAttribute('aria-label'), /manual override/);
+
+cautionBadge.dispatch('click');
+await toggleUI.converted();
+assert.equal(toggleUI.rowNamed('Caution').dataset.status, 'snapped');
+cautionBadge = statusButton(toggleUI.rowNamed('Caution'));
+assert.equal(cautionBadge.textContent, 'Snapped');
+assert.equal(cautionBadge.getAttribute('aria-pressed'), 'true');
+assert.match(cautionBadge.getAttribute('aria-label'), /manual override/);
+assert.match(cautionBadge.className, /is-overridden/);
+assert.doesNotMatch(toggleUI.markerNamed('Caution').options.icon.html, /is-skipped/);
+assert.equal(
+  Number(toggleUI.elements['stat-course-points'].textContent),
+  Number(initialCount) + 1,
+);
+assert.equal(toggleUI.elements['stat-waypoints'].textContent, '5/5 snapped');
+assert.deepEqual(overrideCalls.at(-1), [0, 0, 0, 1]);
+assert.notDeepEqual([...(await latestFitBytes(toggleUI))], [...autoFit]);
+
+await toggleUI.setSnap(500);
+assert.equal(toggleUI.rowNamed('Caution').dataset.status, 'snapped');
+assert.match(statusButton(toggleUI.rowNamed('Caution')).getAttribute('aria-label'),
+  /manual override/);
+
+statusButton(toggleUI.rowNamed('Caution')).dispatch('click');
+await toggleUI.converted();
+assert.equal(toggleUI.rowNamed('Caution').dataset.status, 'skipped');
+assert.match(toggleUI.markerNamed('Caution').options.icon.html, /is-skipped/);
+assert.match(statusButton(toggleUI.rowNamed('Caution')).getAttribute('aria-label'),
+  /manual override/);
+assert.deepEqual(overrideCalls.at(-1), [0, 0, 0, 2]);
+
+/* Loading another GPX clears the override map. */
+await toggleUI.loadSample();
+assert.equal(toggleUI.rowNamed('Caution').dataset.status, 'snapped');
+assert.doesNotMatch(statusButton(toggleUI.rowNamed('Caution')).getAttribute('aria-label'),
+  /manual override/);
+assert.deepEqual(overrideCalls.at(-1), []);
+
+console.log('test_web.mjs: live map/table/warnings, status toggles, custom maps, multi-track stitch/split, Tahoe 14-track reference, antimeridian, and stale conversion checks passed');

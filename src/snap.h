@@ -108,12 +108,36 @@ double snap_nearest_offset(const struct course *c, double lat, double lon);
 
 /* ---- 4.3 to 4.6 Assignment, sorting, summary --------------------------- */
 
+/* Per-waypoint decisions from an interactive caller (e.g. the web UI).
+ * AUTO follows the global threshold; the other two override it. */
+enum snap_override {
+    SNAP_OVERRIDE_AUTO = 0,
+    SNAP_OVERRIDE_FORCE_SNAP = 1, /* project even if farther than threshold_m */
+    SNAP_OVERRIDE_FORCE_SKIP = 2  /* never emit, even if within threshold_m */
+};
+
+/* Values written to snap_options.status_out, one per waypoint. */
+enum snap_status {
+    SNAP_STATUS_SKIPPED = 0,
+    SNAP_STATUS_SNAPPED = 1
+};
+
+/* Force-snap searches the whole track: no point on Earth is farther than
+ * this many meters from another. Keeps the same candidate code path. */
+#define SNAP_FORCE_THRESHOLD_M 1e9
+
 struct snap_options {
     enum snap_mode mode;
     double         threshold_m; /* --snap */
     bool           quiet;       /* no warnings on stderr */
     bool           strict;      /* nonzero result if any waypoint is skipped */
     struct diag_list *diag;     /* optional collector for warnings; NULL = none */
+
+    /* Optional, both sized course->n_wp; NULL means "no overrides/status".
+     * overrides[] holds SNAP_OVERRIDE_* values; status_out[] receives
+     * SNAP_STATUS_* for every waypoint. Manual skips do not trip --strict. */
+    const int *overrides;
+    int       *status_out;
 };
 
 struct snap_report {
@@ -135,8 +159,9 @@ struct snap_report {
  * SNAP_BOTH mode every candidate pass of every waypoint is emitted.
  * Skipped waypoints warn on stderr unless quiet. Course points get type 0
  * (generic) and t = 0; both are filled in by later phases. The name is copied
- * untruncated (truncation is task 5.5). Returns SNAP_OK, SNAP_STRICT (course
- * points are still produced), or SNAP_NOMEM. *rep may be NULL.
+ * untruncated (truncation is task 5.5). Optional overrides in opt bypass the
+ * threshold per waypoint; manual skips do not trip --strict. Returns SNAP_OK,
+ * SNAP_STRICT (course points are still produced), or SNAP_NOMEM. *rep may be NULL.
  */
 int snap_waypoints(struct course *c, const struct snap_options *opt,
                    struct snap_report *rep);

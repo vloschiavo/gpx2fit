@@ -13,8 +13,10 @@ const ACTIVITIES = Object.freeze({
 // Strings are passed as heap pointers: ccall copies 'string' arguments onto
 // the wasm stack, which is only 64 KB by default and overflows on large GPX.
 // gpx2fit_convert(gpx, map, name, sport, sub_sport, snap, pass, pace, start,
-//                 max_points, strict, track, stitch): all numeric/pointer args.
-const ARGUMENT_TYPES = Object.freeze(Array(13).fill('number'));
+//                 max_points, strict, track, stitch, overrides): all numeric/pointer args.
+const ARGUMENT_TYPES = Object.freeze(Array(14).fill('number'));
+const WAYPOINT_OVERRIDE_FORCE_SNAP = 1;
+const WAYPOINT_OVERRIDE_FORCE_SKIP = 2;
 const utf8Encoder = new TextEncoder();
 
 function wasmString(wasm, value) {
@@ -646,6 +648,10 @@ export function initApp({
   let defaultMapPromise = null;
   let defaultMapPinned = false;
   let suppressDefaultMapFocusOpen = false;
+  // Per-waypoint decisions keyed by the waypoint index reported by WASM:
+  // 0 = follow --snap, 1 = force snap, 2 = force skip. Reset per GPX file.
+  let waypointOverrides = [];
+  let focusWaypointIndex = null;
 
   function clearConvertTimer() {
     if (convertTimer !== null) {
@@ -833,6 +839,9 @@ export function initApp({
       maxPoints,
       strict,
       stitch,
+      overrides: Array.from(waypointOverrides, (code) =>
+        code === WAYPOINT_OVERRIDE_FORCE_SNAP || code === WAYPOINT_OVERRIDE_FORCE_SKIP
+          ? code : 0),
     };
   }
 
@@ -843,6 +852,7 @@ export function initApp({
       pointers.push(wasmString(wasm, options.mapText || ''));
       pointers.push(wasmString(wasm, options.courseName || ''));
       pointers.push(wasmString(wasm, options.passMode));
+      pointers.push(wasmString(wasm, JSON.stringify(options.overrides || [])));
 
       const result = wasm.ccall(
         'gpx2fit_convert',
@@ -862,6 +872,7 @@ export function initApp({
           options.strict,
           options.track || 0,
           options.stitch ? 1 : 0,
+          pointers[4],
         ],
       );
       if (!result) throw new Error('The converter could not allocate a result.');
@@ -895,8 +906,15 @@ export function initApp({
       ...snapped.map((point) => ({ point, skipped: false })),
       ...skipped.map((point) => ({ point, skipped: true })),
     ].sort((a, b) => Number(a.point.km) - Number(b.point.km));
+    const statuses = new Map(
+      (Array.isArray(metadata.waypoint_statuses) ? metadata.waypoint_statuses : [])
+        .map((status) => [Number(status.index), status]),
+    );
 
     waypointTableBody.replaceChildren();
+    const focusAfterRender = focusWaypointIndex;
+    focusWaypointIndex = null;
+    let focusTarget = null;
     if (!points.length) {
       const row = doc.createElement('tr');
       const cell = doc.createElement('td');
@@ -911,19 +929,44 @@ export function initApp({
     for (const { point, skipped: isSkipped } of points) {
       const type = fitPointType(point.type);
       const row = doc.createElement('tr');
-      row.dataset.status = isSkipped ? 'skipped' : 'snapped';
+      const index = Number(point.index);
+      const statusInfo = statuses.get(index);
+      const status = statusInfo?.status === 'snapped' || statusInfo?.status === 'skipped'
+        ? statusInfo.status
+        : (isSkipped ? 'skipped' : 'snapped');
+      const overridden = Boolean(statusInfo?.overridden);
+      const label = point.name || '(unnamed)';
+      row.dataset.status = status;
 
       const name = doc.createElement('th');
       name.scope = 'row';
-      name.textContent = point.name || '(unnamed)';
+      name.textContent = label;
       row.append(name);
 
       const state = doc.createElement('td');
-      const badge = doc.createElement('span');
-      badge.className = `waypoint-status ${isSkipped ? 'is-skipped' : 'is-snapped'}`;
-      badge.textContent = isSkipped ? 'Skipped' : 'Snapped';
+      const badge = doc.createElement('button');
+      badge.type = 'button';
+      badge.className = `waypoint-status is-${status}`;
+      if (overridden) badge.classList.add('is-overridden');
+      badge.dataset.status = status;
+      badge.dataset.waypointIndex = String(index);
+      badge.textContent = status === 'snapped' ? 'Snapped' : 'Skipped';
+      badge.setAttribute('aria-pressed', String(status === 'snapped'));
+      badge.setAttribute('aria-label',
+        `${label}: ${status}${overridden ? ' (manual override)' : ''}. `
+        + `Click to ${status === 'snapped' ? 'skip' : 'snap'} this waypoint.`);
+      badge.title = status === 'snapped' ? 'Click to force Skip' : 'Click to force Snap';
+      badge.addEventListener('click', () => {
+        if (!Number.isInteger(index) || index < 0) return;
+        waypointOverrides[index] = status === 'snapped'
+          ? WAYPOINT_OVERRIDE_FORCE_SKIP
+          : WAYPOINT_OVERRIDE_FORCE_SNAP;
+        focusWaypointIndex = index;
+        requestConversion({ immediate: true });
+      });
       state.append(badge);
       row.append(state);
+      if (focusAfterRender === index && !focusTarget) focusTarget = badge;
 
       const distance = doc.createElement('td');
       distance.className = 'numeric-cell';
@@ -945,6 +988,8 @@ export function initApp({
       row.append(iconType);
       waypointTableBody.append(row);
     }
+
+    if (focusTarget && typeof focusTarget.focus === 'function') focusTarget.focus();
   }
 
   function waypointPopup(point, isSkipped) {
@@ -959,7 +1004,7 @@ export function initApp({
     if (isSkipped) {
       const note = doc.createElement('span');
       note.className = 'skipped-popup-note';
-      note.textContent = 'Skipped from the FIT course. Increase Snap distance to include it.';
+      note.textContent = 'Skipped from the FIT course. Click its Status badge to snap it anyway.';
       popup.append(note);
     }
     return popup;
@@ -1109,6 +1154,9 @@ export function initApp({
             ...options,
             stitch: false,
             track: track.index,
+            // This table shows only the first track's waypoints; its overrides
+            // must not silently affect the other FIT downloads.
+            overrides: track.index === tracks[0].index ? options.overrides : [],
             courseName: options.courseName ? `${options.courseName} ${label}`.trim() : '',
           };
           const output = convert(wasm, loadedSource.xml, splitOptions);
@@ -1164,6 +1212,8 @@ export function initApp({
   async function loadSource(loader, name) {
     const version = ++requestVersion;
     source = null;
+    waypointOverrides = [];
+    focusWaypointIndex = null;
     invalidateOutput();
     clearError();
     sourceNameElement.textContent = name;
@@ -1194,6 +1244,7 @@ export function initApp({
     if (!validGpxFile(file)) {
       ++requestVersion;
       source = null;
+      waypointOverrides = [];
       invalidateOutput();
       sourceNameElement.textContent = 'No route loaded';
       showError('Choose a file with a .gpx extension.');
@@ -1202,6 +1253,7 @@ export function initApp({
     if (typeof file.text !== 'function') {
       ++requestVersion;
       source = null;
+      waypointOverrides = [];
       invalidateOutput();
       sourceNameElement.textContent = 'No route loaded';
       showError('This browser cannot read the selected file. Try a current browser.');
@@ -1250,6 +1302,7 @@ export function initApp({
     if (!files || files.length !== 1) {
       ++requestVersion;
       source = null;
+      waypointOverrides = [];
       invalidateOutput();
       sourceNameElement.textContent = 'No route loaded';
       showError('Drop exactly one GPX file.');

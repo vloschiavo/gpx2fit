@@ -659,19 +659,45 @@ select:focus-visible {
 }
 
 .waypoint-status {
-  display: inline-block;
-  padding: 0.2rem 0.42rem;
+  display: inline-flex;
+  min-width: 5.2rem;
+  padding: 0.28rem 0.55rem;
+  border: 1px solid transparent;
   border-radius: 999px;
+  align-items: center;
+  justify-content: center;
   font-size: 0.65rem;
   font-weight: 700;
+  line-height: 1.2;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: border-color 150ms ease, box-shadow 150ms ease, transform 150ms ease;
+}
+
+.waypoint-status:hover {
+  border-color: currentColor;
+  box-shadow: 0 1px 4px rgb(20 45 30 / 14%);
+  transform: translateY(-1px);
+}
+
+.waypoint-status:active {
+  transform: translateY(0);
+}
+
+.waypoint-status.is-overridden::after {
+  margin-left: 0.35rem;
+  content: "✱";
+  font-size: 0.85em;
 }
 
 .waypoint-status.is-snapped {
+  border-color: #c7dccb;
   color: var(--accent-dark);
   background: #e4eee6;
 }
 
 .waypoint-status.is-skipped {
+  border-color: #f0d9a4;
   color: #7b5317;
   background: #ffedc2;
 }

@@ -42,6 +42,7 @@ struct course_pt {
     double   offset; /* distance from the original waypoint to the track, meters */
     uint32_t t;      /* interpolated timestamp, seconds since FIT epoch */
     uint8_t  type;   /* FIT course_point type enum value (generic = 0) */
+    size_t   wp_index; /* index of the source waypoint in c->wp (UI status key) */
 };
 
 /* The whole course. Each array is growable: n_* items used, cap_* allocated. */

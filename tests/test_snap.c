@@ -84,7 +84,7 @@ static void make_track(struct course *c, const double (*pts)[2], size_t n)
 static int run(struct course *c, enum snap_mode m, double thr, bool strict,
                struct snap_report *rep)
 {
-    struct snap_options o = { m, thr, true, strict, NULL };
+    struct snap_options o = { m, thr, true, strict, NULL, NULL, NULL };
     return snap_waypoints(c, &o, rep);
 }
 
@@ -638,6 +638,55 @@ static void test_duplicates(void)
     course_free(&c);
 }
 
+/* ---- T2: per-waypoint overrides ---------------------------------------- */
+
+static void test_overrides(void)
+{
+    struct course c;
+    struct snap_report rep;
+    struct snap_options o;
+    int overrides[3] = { SNAP_OVERRIDE_AUTO, SNAP_OVERRIDE_FORCE_SNAP,
+                         SNAP_OVERRIDE_FORCE_SKIP };
+    int statuses[3];
+
+    make_track(&c, STRAIGHT, 4);
+    add_wp(&c, "Near", 500, 30);  /* within the 250 m threshold */
+    add_wp(&c, "Far", 1500, 400); /* beyond it, but force-snapped */
+    add_wp(&c, "Hidden", 2500, 10); /* within it, but force-skipped */
+    o = (struct snap_options){ SNAP_NEAREST, 250.0, true, false, NULL,
+                               overrides, statuses };
+
+    CHECK(snap_waypoints(&c, &o, &rep) == SNAP_OK);
+    CHECK(rep.n_snapped == 2 && rep.n_skipped == 1 && c.n_cp == 2);
+    CHECK(find_cp(&c, "Near") != NULL && find_cp(&c, "Far") != NULL);
+    CHECK(find_cp(&c, "Hidden") == NULL);
+    if (find_cp(&c, "Far")) {
+        CHECK_NEAR(find_cp(&c, "Far")->offset, 400.0, 0.5);
+        CHECK(find_cp(&c, "Far")->wp_index == 1);
+    }
+    CHECK(statuses[0] == SNAP_STATUS_SNAPPED);
+    CHECK(statuses[1] == SNAP_STATUS_SNAPPED);
+    CHECK(statuses[2] == SNAP_STATUS_SKIPPED);
+
+    /* Manual skips are intentional, so --strict does not reject them. */
+    o.strict = true;
+    CHECK(snap_waypoints(&c, &o, &rep) == SNAP_OK);
+
+    /* Changing --snap updates AUTO waypoints but leaves overrides intact. */
+    o.strict = false;
+    o.threshold_m = 0.0;
+    CHECK(snap_waypoints(&c, &o, &rep) == SNAP_OK);
+    CHECK(rep.n_snapped == 1 && rep.n_skipped == 2);
+    CHECK(find_cp(&c, "Near") == NULL);
+    CHECK(find_cp(&c, "Far") != NULL);
+    CHECK(find_cp(&c, "Hidden") == NULL);
+    CHECK(statuses[0] == SNAP_STATUS_SKIPPED);
+    CHECK(statuses[1] == SNAP_STATUS_SNAPPED);
+    CHECK(statuses[2] == SNAP_STATUS_SKIPPED);
+
+    course_free(&c);
+}
+
 int main(void)
 {
     test_prefilter();
@@ -646,6 +695,7 @@ int main(void)
     test_both();
     test_sort_strict_summary();
     test_duplicates();
+    test_overrides();
 
     if (failures) {
         fprintf(stderr, "test_snap: %d of %d checks FAILED\n", failures, checks);
