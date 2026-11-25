@@ -17,7 +17,7 @@
 
 ## Tasks
 
-### T3: Multi-Track Natural Numerical Sorting & Independent Per-Track Maps, Snap Controls & Waypoint Toggles
+### T1: Multi-Track Natural Numerical Sorting & Independent Per-Track Maps, Snap Controls & Waypoint Toggles
 * \[x\] **Sort tracks naturally (`"Day 1"` before `"Day 2"`) and render a separate map, snap distance control, and clickable waypoint list per track when not stitching**
   * **Scope:**
     * Read: WASM C bridge (`wasm.c` / `web/*.c`), `web/index.html`, `web/app.js`, `web/style.css`.
@@ -40,9 +40,29 @@
 
 ---
 
+### T2: Diagnose and fix per-segment (unstitched) maps in the Web/WASM UI (follow-up to T3 regression)
+* \[ \] **Identify why each unstitched per-track Leaflet map is over-zoomed, off-center, and missing tiles, then apply a minimal fix with regression tests**
+  * **Scope:**
+    * Read (only): map/render code in `web/app.js` (`getMapInstance`, `releaseMapInstance`, `renderRouteMap`, `renderWaypointTable`, `showResults`, `buildTrackCard`, `renderTrackCards`, `renderTrackCardResult`, `runConversion`, `requestConversion`, `loadSource`, `invalidateOutput`), map markup in `web/index.html`, map/card CSS in `web/style.css`, the fake-Leaflet harness in `tests/test_web.mjs`, and at most one multi-track fixture (`tests/data/multi_track.gpx` or `web/Rio_Del_Lago_100mi_2025.gpx`). Do not scan unrelated modules or re-read large reference fixtures.
+    * Modify: `web/app.js`; `web/style.css` and `tests/test_web.mjs` (or a new `tests/test_*.mjs`) as needed; optionally `tests/test_multi_track_web.sh`.
+  * **Implementation Details (diagnose first, report evidence before changing behavior):**
+    1. Compare the working stitched path (`showResults` → `renderRouteMap(mapElement)` with visible `#route-map`) against the broken unstitched path (`renderTrackCards` → `buildTrackCard` → `renderTrackCardResult` → `renderRouteMap(mapForCard)`). Instrument `leaflet.map`, `invalidateSize`, `fitBounds`, and tile-layer creation to log, for each container: `hidden` state of the container **and all ancestors** (`#track-list`, `#results`), `offsetWidth`/`offsetHeight`/`getBoundingClientRect()`, track-point count, computed bounds, resulting zoom/center, and tile request status (including any HTTP 429/403).
+    2. Test the leading hypothesis: `renderTrackCards` appends cards and calls `renderTrackCardResult` (which creates the Leaflet map and calls `invalidateSize()`/`fitBounds()`) **while `#track-list` is still `hidden`**, then sets `trackList.hidden = false` only after the loop. Leaflet would measure a 0×0 container, fit to meaningless dimensions, and never refit because `mappedSourceByElement` records the source as already fitted and later per-track updates deliberately skip `fitBounds`. Confirm or refute with logged sizes/zoom/center; check whether `invalidateOutput()` leaving `#results` hidden adds a second hidden ancestor on full reconverts.
+    3. Rule out data/viewport alternatives: verify `metadata.track_points_list` for `stitch=false, track=N` contains the expected lat/lon array for that track (non-degenerate bounds) and that `unwrapTrackCoordinates` does not distort per-track bounds; verify marker coordinates land inside the fitted bounds. Check whether missing tiles are merely a consequence of the wrong zoom/center/viewport or a separate issue (OSM tile throttling from many simultaneous map instances, tile URL/connection limits), using observed tile request counts and statuses.
+    4. After identifying the root cause(s), implement the smallest fix in `web/app.js`: e.g. reveal `#results`/`#track-list` and let layout settle before instantiating/fitting per-track maps (or defer `invalidateSize()` + `fitBounds()` with `requestAnimationFrame` after visibility), and make the fit-state guard account for a container that was unmeasurable at first render. Ensure mode switches, new GPX loads, snap changes, and waypoint toggles still clean up old maps (`releaseMapInstance`) and leave every visible map correctly sized and fitted. Only change tile configuration if step 3 proves it is an independent cause.
+    5. Add regression coverage in the JS harness: simulate hidden ancestors/zero-size containers, assert that each per-track map gets a non-zero-size `invalidateSize()` and a `fitBounds()` over its own track's bounds after becoming visible; assert distinct per-track bounds for `Day 1`/`Day 2`, correct behavior when switching stitched ↔ unstitched and after a per-track snap/toggle update, and no `fitBounds` on a still-hidden container.
+  * **Verification:** Reproduce the bad zoom/center with the harness instrumentation (and a real browser/devtools if available) before the fix and capture the same metrics after. Run `make test` (includes `tests/test_web.mjs` and `test_multi_track_web.sh`) and `make wasm` if Emscripten is installed; review `git diff` for scope.
+  * **Acceptance Criteria:**
+    * Root cause documented with concrete evidence (container sizes, fitted bounds, zoom/center, tile statuses) and the stitched-vs-unstitched difference explained.
+    * In unstitched multi-track mode every segment map is centered on its own track at a sensible zoom comparable to the stitched map, with all expected tiles loading; maps remain correct after stitched/unstitched switches, new GPX loads, per-track snap changes, and waypoint status toggles.
+    * Regression tests fail against the current code and pass after the fix; `make test` passes under ASan/UBSan and no stale/blank map instances remain.
+
+
+---
+
 # Optional 
 
-### T4: Turn-by-Turn Cue Generation from Track Geometry (Core C + CLI)
+### T3: Turn-by-Turn Cue Generation from Track Geometry (Core C + CLI)
 * \[ \] **Generate Garmin turn course points (`left`, `right`, `slight_left`, `slight_right`, `sharp_left`, `sharp_right`, `u_turn`) from track bearing changes**
   * **Scope:**
     * Read: `course.h`, geometry/distance math (`track.c` / `course.c`), `main.c`, `README.md`, `tests/`.
@@ -65,7 +85,7 @@
 
 ---
 
-### T5: Expose Turn-by-Turn Cue Generation in Web/WASM UI & Update Docs
+### T4: Expose Turn-by-Turn Cue Generation in Web/WASM UI & Update Docs
 * \[ \] **Add Turn-by-Turn cues toggle in Web/WASM UI and wire it to the C turn generator**
   * **Scope:**
     * Read: WASM C bridge (`wasm.c` / `web/*.c`), `web/index.html`, `web/app.js`, `README.md`.
