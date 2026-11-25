@@ -12,6 +12,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <strings.h>
 
 #include "course.h"
 #include "decimate.h"
@@ -51,6 +52,8 @@ struct options {
     struct diag_list *diag; /* optional collector for warnings; NULL = none */
     long        max_points; /* decimation target; 0 = no limit */
     long        track;     /* 1-based <trk> to use; 0 = longest */
+    bool        stitch;    /* concatenate all <trk>s into one course */
+    bool        split;     /* one .fit per <trk>, named <stem>_N.fit */
     enum snap_mode pass;   /* which pass of the track a waypoint snaps to */
     const char *map_file;  /* user type-map file; NULL = none */
     const char *sport;     /* raw --sport text; NULL = default (trail-running) */
@@ -83,6 +86,9 @@ static void usage(FILE *out, const char *prog)
         "  --start TIME       synthetic start time, UTC: YYYY-MM-DD or\n"
         "                     YYYY-MM-DDTHH:MM:SSZ (default 2025-01-01T00:00:00Z)\n"
         "  --track N          use the Nth <trk> of the GPX file (default: longest)\n"
+        "  --stitch           order, join and reverse all <trk>s into one course;\n"
+        "                     a waypoint named 'start' anchors the beginning\n"
+        "  --split-tracks     write one FIT course per <trk>: <stem>_1.fit, ...\n"
         "  --max-points N     reduce the track to at most N points (N >= 2)\n"
         "  --map FILE         waypoint name-to-type rules, tried before defaults\n"
         "  --strict           treat warnings as errors\n"
@@ -126,7 +132,8 @@ static int parse_long(const char *s, long *out)
 static int parse_options(int argc, char **argv, struct options *o)
 {
     enum { OPT_SNAP = 256, OPT_NAME, OPT_SPORT, OPT_PACE, OPT_START,
-           OPT_STRICT, OPT_MAX_POINTS, OPT_MAP, OPT_TRACK, OPT_PASS, OPT_DUMP };
+           OPT_STRICT, OPT_MAX_POINTS, OPT_MAP, OPT_TRACK, OPT_PASS,
+           OPT_STITCH, OPT_SPLIT, OPT_DUMP };
     static const struct option longopts[] = {
         { "snap",         required_argument, NULL, OPT_SNAP },
         { "name",         required_argument, NULL, OPT_NAME },
@@ -139,6 +146,8 @@ static int parse_options(int argc, char **argv, struct options *o)
         { "map",          required_argument, NULL, OPT_MAP },
         { "track",        required_argument, NULL, OPT_TRACK },
         { "pass",         required_argument, NULL, OPT_PASS },
+        { "stitch",       no_argument,       NULL, OPT_STITCH },
+        { "split-tracks", no_argument,       NULL, OPT_SPLIT },
         { "help",         no_argument,       NULL, 'h' },
         { "dump-options", no_argument,       NULL, OPT_DUMP }, /* hidden */
         { NULL, 0, NULL, 0 }
@@ -200,6 +209,8 @@ static int parse_options(int argc, char **argv, struct options *o)
                 return EXIT_USAGE;
             }
             break;
+        case OPT_STITCH: o->stitch = true; break;
+        case OPT_SPLIT:  o->split = true;  break;
         case 'q': o->quiet = true; break;
         case 'h': o->help = true;  return EXIT_OK;
         case OPT_DUMP: o->dump = true; break;
@@ -230,6 +241,8 @@ static void dump_options(const struct options *o)
     printf("start=%s\n",      o->start ? o->start : "(none)");
     printf("max_points=%ld\n", o->max_points);
     printf("track=%ld\n",     o->track);
+    printf("stitch=%d\n",     o->stitch);
+    printf("split=%d\n",      o->split);
     printf("pass=%s\n",      snap_mode_name(o->pass));
     printf("map=%s\n",        o->map_file ? o->map_file : "(none)");
     printf("sport=%u\n",      (unsigned)o->sport_id);
@@ -267,6 +280,172 @@ static void print_track_summary(const struct course *c,
     printf("\n");
 }
 
+/* Path of the Nth course in --split-tracks mode: output.fit -> output_N.fit.
+ * A filename without a .fit suffix simply gets _N.fit appended. */
+static char *split_output_path(const char *path, long idx)
+{
+    const char *dot = strrchr(path, '.');
+    size_t stem = (dot && dot != path && strcasecmp(dot, ".fit") == 0)
+                      ? (size_t)(dot - path) : strlen(path);
+    char *out = malloc(stem + 32);
+
+    if (!out)
+        return NULL;
+    snprintf(out, stem + 32, "%.*s_%ld.fit", (int)stem, path, idx);
+    return out;
+}
+
+/* The pipeline (8.1) for one course: read GPX, distances, snap, point types,
+ * synthetic times, write FIT. Each stage reports failure and stops with exit
+ * 1; the output file is only written once every earlier stage has succeeded.
+ * Normal output (the summary) is printed after the file is written, so that
+ * it is never shown for a run that then fails. `track` and `stitch` select
+ * which <trk>s become this course. */
+static int convert_course(const struct options *o, const struct symmap *map,
+                          double pace_mps, uint32_t start_fit,
+                          long track, bool stitch, const char *output)
+{
+    struct course c;
+    struct snap_report sr;
+    struct ele_stats es;
+    size_t n_full;
+    double total_m;
+    int trc = EXIT_ERROR;
+    struct gpx_options go = { .track = track, .stitch = stitch,
+                              .quiet = o->quiet, .diag = o->diag };
+    char err[256];
+
+    course_init(&c);
+    if (read_gpx(o->input, &c, &go, err, sizeof err) != 0) {
+        fprintf(stderr, "gpx2fit: error: %s\n", err);
+        goto out;
+    }
+    if (o->name) {
+        char *n = strdup(o->name);
+        if (!n) {
+            fprintf(stderr, "gpx2fit: error: out of memory\n");
+            goto out;
+        }
+        free(c.name);
+        c.name = n;
+    }
+    if (c.name && strlen(c.name) > COURSE_NAME_MAX) {
+        if (o->diag)
+            diag_list_add(o->diag,
+                          "warning: course name is longer than %d bytes, "
+                          "truncating\n", COURSE_NAME_MAX);
+        if (!o->quiet)
+            fprintf(stderr, "warning: course name is longer than %d bytes, "
+                    "truncating\n", COURSE_NAME_MAX);
+        utf8_truncate(c.name, strlen(c.name) + 1, c.name, COURSE_NAME_MAX);
+    }
+    if (!o->quiet)
+        printf("Read '%s': %zu trackpoints, %zu waypoints\n",
+               c.name, c.n_tp, c.n_wp);
+
+    course_compute_distances(&c);
+    {
+        struct snap_options so = { o->pass, o->snap_m, o->quiet, o->strict, o->diag };
+        int src = snap_waypoints(&c, &so, &sr);
+
+        if (src == SNAP_NOMEM) {
+            fprintf(stderr, "gpx2fit: error: out of memory\n");
+            goto out;
+        }
+        if (src == SNAP_STRICT) {
+            /* The run fails, so the normal summary will not be printed;
+             * show which waypoints were snapped and which were skipped. */
+            if (!o->quiet)
+                snap_print_summary(stdout, &c, &sr);
+            fprintf(stderr, "gpx2fit: error: --strict: %zu waypoint(s) farther "
+                    "than %g m from the track\n", sr.n_skipped, o->snap_m);
+            goto out;
+        }
+    }
+
+    /* Point types from names, then name truncation (5.4, 5.5). */
+    course_apply_types(&c, map, o->quiet, o->diag);
+
+    /* Synthetic times for the track, then for the course points (6.1, 6.2).
+     * Before any --max-points decimation (8.2), which must not change them. */
+    {
+        int t_rc = course_assign_times(&c, start_fit, pace_mps);
+        if (t_rc != TIMING_OK) {
+            fprintf(stderr, "gpx2fit: error: %s\n", timing_strerror(t_rc));
+            goto out;
+        }
+    }
+    course_assign_cp_times(&c);
+
+    /* Summary figures come from the full-resolution track, so take them
+     * before --max-points changes it (8.2, 8.3). */
+    n_full = c.n_tp;
+    total_m = c.n_tp ? c.tp[c.n_tp - 1].dist : 0.0;
+    course_elevation_stats(&c, ELE_THRESHOLD_M, &es);
+
+    /* --max-points (8.2). Course points refer to the track by distance and
+     * the surviving points keep their distances and times, so nothing else
+     * needs updating. */
+    if (o->max_points > 0) {
+        struct decimate_report dr;
+
+        if (course_decimate(&c, (size_t)o->max_points, &dr) != 0) {
+            fprintf(stderr, "gpx2fit: error: out of memory\n");
+            goto out;
+        }
+        if (dr.exceeded) {
+            if (o->strict) {
+                fprintf(stderr, "gpx2fit: error: --strict: --max-points %ld is "
+                        "less than the %zu points that must be kept (first, "
+                        "last, and one per course point)\n",
+                        o->max_points, dr.n_required);
+                goto out;
+            }
+            if (o->diag)
+                diag_list_add(o->diag,
+                              "warning: --max-points %ld is less than the "
+                              "%zu points that must be kept (first, last, and "
+                              "one per course point); keeping %zu\n",
+                              o->max_points, dr.n_required, dr.n_after);
+            if (!o->quiet)
+                fprintf(stderr, "warning: --max-points %ld is less than the "
+                        "%zu points that must be kept (first, last, and one "
+                        "per course point); keeping %zu\n",
+                        o->max_points, dr.n_required, dr.n_after);
+        }
+    }
+
+    /* Encode and write the FIT course file (7.x). */
+    {
+        struct fit_options fo;
+        int frc;
+
+        fit_options_default(&fo);
+        fo.sport = o->sport_id;
+        fo.sub_sport = o->sub_sport;
+        frc = fit_write_course(&c, &fo, output);
+        if (frc != FIT_OK) {
+            fprintf(stderr, "gpx2fit: error: cannot write '%s': %s\n",
+                    output, fit_strerror(frc));
+            goto out;
+        }
+    }
+
+    /* The summary (8.3): chosen activity, track totals, one line per course
+     * point, the snapped tally, then the output file. Nothing under --quiet. */
+    if (!o->quiet) {
+        printf("Activity: %s\n", o->sport ? o->sport : "trail-running");
+        print_track_summary(&c, &es, total_m, n_full);
+        snap_print_summary(stdout, &c, &sr);
+        printf("Wrote '%s' (%zu course points)\n", output, c.n_cp);
+    }
+
+    trc = EXIT_OK;
+out:
+    course_free(&c);
+    return trc;
+}
+
 int main(int argc, char **argv)
 {
     struct options opt;
@@ -281,6 +460,16 @@ int main(int argc, char **argv)
     if (opt.dump) {
         dump_options(&opt);
         return EXIT_OK;
+    }
+    if (opt.stitch && opt.split) {
+        fprintf(stderr, "%s: --stitch and --split-tracks cannot be combined\n",
+                argv[0]);
+        return EXIT_USAGE;
+    }
+    if (opt.track > 0 && (opt.stitch || opt.split)) {
+        fprintf(stderr, "%s: --track cannot be combined with --stitch or "
+                "--split-tracks\n", argv[0]);
+        return EXIT_USAGE;
     }
 
     /* Check --pace and --start now, so a bad value is a usage error (exit 2)
@@ -300,25 +489,13 @@ int main(int argc, char **argv)
         return EXIT_USAGE;
     }
 
-    /* The pipeline (8.1): read GPX, distances, snap, point types, synthetic
-     * times, write FIT. Each stage reports failure and stops with exit 1; the
-     * output file is only written once every earlier stage has succeeded.
-     * Normal output (the summary) is printed after the file is written, so
-     * that it is never shown for a run that then fails. */
-    struct course c;
     struct symmap map;
-    struct snap_report sr;
-    struct ele_stats es;
-    size_t n_full;
-    double total_m;
-    int trc;
     struct diag_list diag;
+    char err[256];
+    int trc;
+
     diag_list_init(&diag);
     opt.diag = &diag;
-    struct gpx_options go = { .track = opt.track, .quiet = opt.quiet, .diag = opt.diag };
-    char err[256];
-
-    course_init(&c);
     symmap_init(&map);
     rc = EXIT_ERROR;
 
@@ -329,132 +506,45 @@ int main(int argc, char **argv)
         goto out;
     }
 
-    if (read_gpx(opt.input, &c, &go, err, sizeof err) != 0) {
-        fprintf(stderr, "%s: error: %s\n", argv[0], err);
-        goto out;
-    }
-    if (opt.name) {
-        char *n = strdup(opt.name);
-        if (!n) {
-            fprintf(stderr, "%s: error: out of memory\n", argv[0]);
+    if (opt.split) {
+        long *indices = NULL;
+        size_t n = 0;
+
+        if (gpx_track_indices(opt.input, &indices, &n, err, sizeof err) != 0) {
+            fprintf(stderr, "%s: error: %s\n", argv[0], err);
             goto out;
         }
-        free(c.name);
-        c.name = n;
-    }
-    if (c.name && strlen(c.name) > COURSE_NAME_MAX) {
-        if (opt.diag)
-            diag_list_add(opt.diag,
-                          "warning: course name is longer than %d bytes, "
-                          "truncating\n", COURSE_NAME_MAX);
-        if (!opt.quiet)
-            fprintf(stderr, "warning: course name is longer than %d bytes, "
-                    "truncating\n", COURSE_NAME_MAX);
-        utf8_truncate(c.name, strlen(c.name) + 1, c.name, COURSE_NAME_MAX);
-    }
-    if (!opt.quiet)
-        printf("Read '%s': %zu trackpoints, %zu waypoints\n",
-               c.name, c.n_tp, c.n_wp);
-
-    course_compute_distances(&c);
-    {
-        struct snap_options so = { opt.pass, opt.snap_m, opt.quiet, opt.strict, opt.diag };
-        int src = snap_waypoints(&c, &so, &sr);
-
-        if (src == SNAP_NOMEM) {
-            fprintf(stderr, "%s: error: out of memory\n", argv[0]);
+        if (n == 0) {
+            fprintf(stderr, "%s: error: no trackpoints found\n", argv[0]);
+            free(indices);
             goto out;
         }
-        if (src == SNAP_STRICT) {
-            /* The run fails, so the normal summary will not be printed;
-             * show which waypoints were snapped and which were skipped. */
-            if (!opt.quiet)
-                snap_print_summary(stdout, &c, &sr);
-            fprintf(stderr, "%s: error: --strict: %zu waypoint(s) farther than "
-                    "%g m from the track\n", argv[0], sr.n_skipped, opt.snap_m);
-            goto out;
-        }
-    }
-
-    /* Point types from names, then name truncation (5.4, 5.5). */
-    course_apply_types(&c, &map, opt.quiet, opt.diag);
-
-    /* Synthetic times for the track, then for the course points (6.1, 6.2).
-     * Before any --max-points decimation (8.2), which must not change them. */
-    trc = course_assign_times(&c, start_fit, pace_mps);
-    if (trc != TIMING_OK) {
-        fprintf(stderr, "%s: error: %s\n", argv[0], timing_strerror(trc));
-        goto out;
-    }
-    course_assign_cp_times(&c);
-
-    /* Summary figures come from the full-resolution track, so take them
-     * before --max-points changes it (8.2, 8.3). */
-    n_full = c.n_tp;
-    total_m = c.n_tp ? c.tp[c.n_tp - 1].dist : 0.0;
-    course_elevation_stats(&c, ELE_THRESHOLD_M, &es);
-
-    /* --max-points (8.2). Course points refer to the track by distance and
-     * the surviving points keep their distances and times, so nothing else
-     * needs updating. */
-    if (opt.max_points > 0) {
-        struct decimate_report dr;
-
-        if (course_decimate(&c, (size_t)opt.max_points, &dr) != 0) {
-            fprintf(stderr, "%s: error: out of memory\n", argv[0]);
-            goto out;
-        }
-        if (dr.exceeded) {
-            if (opt.strict) {
-                fprintf(stderr, "%s: error: --strict: --max-points %ld is "
-                        "less than the %zu points that must be kept (first, "
-                        "last, and one per course point)\n",
-                        argv[0], opt.max_points, dr.n_required);
+        for (size_t i = 0; i < n; i++) {
+            char *path = split_output_path(opt.output, indices[i]);
+            if (!path) {
+                fprintf(stderr, "%s: error: out of memory\n", argv[0]);
+                free(indices);
                 goto out;
             }
-            if (opt.diag)
-                diag_list_add(opt.diag,
-                              "warning: --max-points %ld is less than the "
-                              "%zu points that must be kept (first, last, and "
-                              "one per course point); keeping %zu\n",
-                              opt.max_points, dr.n_required, dr.n_after);
-            if (!opt.quiet)
-                fprintf(stderr, "warning: --max-points %ld is less than the "
-                        "%zu points that must be kept (first, last, and one "
-                        "per course point); keeping %zu\n",
-                        opt.max_points, dr.n_required, dr.n_after);
+            trc = convert_course(&opt, &map, pace_mps, start_fit,
+                                 indices[i], false, path);
+            free(path);
+            if (trc != EXIT_OK) {
+                free(indices);
+                goto out;
+            }
         }
-    }
-
-    /* Encode and write the FIT course file (7.x). */
-    {
-        struct fit_options fo;
-        int frc;
-
-        fit_options_default(&fo);
-        fo.sport = opt.sport_id;
-        fo.sub_sport = opt.sub_sport;
-        frc = fit_write_course(&c, &fo, opt.output);
-        if (frc != FIT_OK) {
-            fprintf(stderr, "%s: error: cannot write '%s': %s\n",
-                    argv[0], opt.output, fit_strerror(frc));
+        free(indices);
+    } else {
+        trc = convert_course(&opt, &map, pace_mps, start_fit,
+                             opt.track, opt.stitch, opt.output);
+        if (trc != EXIT_OK)
             goto out;
-        }
-    }
-
-    /* The summary (8.3): chosen activity, track totals, one line per course
-     * point, the snapped tally, then the output file. Nothing under --quiet. */
-    if (!opt.quiet) {
-        printf("Activity: %s\n", opt.sport ? opt.sport : "trail-running");
-        print_track_summary(&c, &es, total_m, n_full);
-        snap_print_summary(stdout, &c, &sr);
-        printf("Wrote '%s' (%zu course points)\n", opt.output, c.n_cp);
     }
 
     rc = EXIT_OK;
 out:
     symmap_free(&map);
-    course_free(&c);
     diag_list_free(&diag);
     return rc;
 }

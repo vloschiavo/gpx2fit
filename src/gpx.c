@@ -105,6 +105,54 @@ static char *name_from_path(const char *path)
     return d;
 }
 
+/* Read a whole file into a malloc'ed buffer. On failure returns NULL and fills
+ * err (err may be NULL). */
+static char *slurp_file(const char *path, size_t *len, char *err, size_t errsz)
+{
+    FILE *f;
+    char *buf = NULL;
+    size_t n = 0, cap = 0;
+
+    if (err && errsz > 0)
+        err[0] = '\0';
+    f = fopen(path, "rb");
+    if (!f) {
+        if (err && errsz > 0)
+            snprintf(err, errsz, "cannot open '%s': %s", path, strerror(errno));
+        return NULL;
+    }
+    for (;;) {
+        if (n == cap) {
+            size_t ncap = cap ? cap * 2 : 64 * 1024;
+            char *nb = realloc(buf, ncap);
+            if (!nb) {
+                free(buf);
+                fclose(f);
+                if (err && errsz > 0)
+                    snprintf(err, errsz, "out of memory");
+                return NULL;
+            }
+            buf = nb;
+            cap = ncap;
+        }
+        size_t got = fread(buf + n, 1, cap - n, f);
+        if (got == 0) {
+            if (ferror(f)) {
+                if (err && errsz > 0)
+                    snprintf(err, errsz, "error reading '%s'", path);
+                free(buf);
+                fclose(f);
+                return NULL;
+            }
+            break;
+        }
+        n += got;
+    }
+    fclose(f);
+    *len = n;
+    return buf;
+}
+
 /* Great-circle distance in meters. Local copy until geo.c (task 3.1) exists;
  * only used to pick the longest track. */
 static double hav_m(double lat1, double lon1, double lat2, double lon2)
@@ -470,6 +518,189 @@ static long select_track(const struct gpx_state *st, char *err, size_t errsz)
     return best;
 }
 
+/* ---- track stitching ---------------------------------------------------- */
+
+/* A "start" waypoint is an exact match ignoring case and surrounding space;
+ * names like "Start of trail" are deliberately not anchors. */
+static bool name_is_start(const char *name)
+{
+    static const char keyword[] = "start";
+    if (!name)
+        return false;
+    while (isspace((unsigned char)*name))
+        name++;
+    for (size_t i = 0; i < sizeof keyword - 1; i++)
+        if (tolower((unsigned char)name[i]) != keyword[i])
+            return false;
+    name += sizeof keyword - 1;
+    while (isspace((unsigned char)*name))
+        name++;
+    return *name == '\0';
+}
+
+struct stitch_item {
+    struct gpx_trk *trk;
+    bool            rev;   /* append this track's points end-first */
+    bool            used;
+    size_t          pos;   /* position in the stitched chain */
+};
+
+static struct stitch_item *stitch_at(struct stitch_item *items, size_t n,
+                                     size_t pos)
+{
+    for (size_t i = 0; i < n; i++)
+        if (items[i].used && items[i].pos == pos)
+            return &items[i];
+    return NULL;
+}
+
+/* Nearest endpoint of a track to `p`. Sets *rev when the track's last point
+ * is closer than its first (so it must be walked backwards). */
+static double nearest_endpoint(const struct gpx_trk *t,
+                               double lat, double lon, bool *rev)
+{
+    const struct trackpoint *a = &t->pts.tp[0];
+    const struct trackpoint *b = &t->pts.tp[t->pts.n_tp - 1];
+    double da = hav_m(lat, lon, a->lat, a->lon);
+    double db = hav_m(lat, lon, b->lat, b->lon);
+
+    *rev = db < da;
+    return *rev ? db : da;
+}
+
+/* Order, reverse and concatenate every non-empty track into c. The course's
+ * waypoints are left untouched: they are snapped against the joined track by
+ * the caller, after distances have been computed. */
+static int stitch_tracks(struct gpx_state *st, struct course *c,
+                         const char *fallback_name, char *err, size_t errsz)
+{
+    size_t n = 0, total = 0, next_pos = 0;
+    struct stitch_item *items = NULL;
+    const struct waypoint *anchor = NULL;
+    struct trackpoint *merged = NULL;
+    int rc = -1;
+
+    for (size_t i = 0; i < st->n_trks; i++) {
+        if (st->trks[i].pts.n_tp > 0)
+            n++;
+    }
+    if (n == 0) {
+        snprintf(err, errsz, "no trackpoints found");
+        return -1;
+    }
+    items = calloc(n, sizeof *items);
+    if (!items) {
+        snprintf(err, errsz, "out of memory");
+        return -1;
+    }
+    for (size_t i = 0, j = 0; i < st->n_trks; i++) {
+        if (st->trks[i].pts.n_tp == 0)
+            continue;
+        items[j++].trk = &st->trks[i];
+    }
+
+    for (size_t i = 0; i < c->n_wp && !anchor; i++)
+        if (name_is_start(c->wp[i].name))
+            anchor = &c->wp[i];
+
+    if (anchor) {
+        double best = HUGE_VAL;
+        size_t best_i = 0;
+        bool best_rev = false;
+
+        for (size_t i = 0; i < n; i++) {
+            bool rev;
+            double d = nearest_endpoint(items[i].trk, anchor->lat,
+                                        anchor->lon, &rev);
+            if (d < best) {
+                best = d;
+                best_i = i;
+                best_rev = rev;
+            }
+        }
+        items[best_i].used = true;
+        items[best_i].pos = next_pos++;
+        items[best_i].rev = best_rev;
+    } else {
+        /* No anchor: begin with the first track in file order. */
+        items[0].used = true;
+        items[0].pos = next_pos++;
+    }
+
+    /* Greedy chain: repeatedly take the unused track whose nearer endpoint
+     * is closest to the current chain tail, reversing it when necessary. */
+    while (next_pos < n) {
+        const struct stitch_item *last = stitch_at(items, n, next_pos - 1);
+        struct gpx_trk *tail_trk = last->trk;
+        const struct trackpoint *tail = last->rev
+                                            ? &tail_trk->pts.tp[0]
+                                            : &tail_trk->pts.tp[tail_trk->pts.n_tp - 1];
+        double tail_lat = tail->lat, tail_lon = tail->lon;
+        double best = HUGE_VAL;
+        size_t best_i = 0;
+        bool best_rev = false;
+
+        for (size_t i = 0; i < n; i++) {
+            bool rev;
+            double d;
+            if (items[i].used)
+                continue;
+            d = nearest_endpoint(items[i].trk, tail_lat, tail_lon, &rev);
+            if (d < best) {
+                best = d;
+                best_i = i;
+                best_rev = rev;
+            }
+        }
+        items[best_i].used = true;
+        items[best_i].pos = next_pos++;
+        items[best_i].rev = best_rev;
+    }
+
+    for (size_t i = 0; i < n; i++)
+        total += items[i].trk->pts.n_tp;
+    if (total > SIZE_MAX / sizeof *merged) {
+        snprintf(err, errsz, "out of memory");
+        goto done;
+    }
+    merged = malloc(total * sizeof *merged);
+    if (!merged) {
+        snprintf(err, errsz, "out of memory");
+        goto done;
+    }
+    for (size_t pos = 0, k = 0; pos < n; pos++) {
+        struct stitch_item *it = stitch_at(items, n, pos);
+        struct gpx_trk *t = it->trk;
+        for (size_t i = 0; i < t->pts.n_tp; i++)
+            merged[k++] = it->rev ? t->pts.tp[t->pts.n_tp - 1 - i]
+                                  : t->pts.tp[i];
+    }
+
+    free(c->tp);
+    c->tp = merged;
+    c->n_tp = c->cap_tp = total;
+    merged = NULL;
+
+    free(c->name);
+    {
+        const char *first_name = stitch_at(items, n, 0)->trk->name;
+        c->name = first_name ? dup_str(first_name) : name_from_path(fallback_name);
+        if (!c->name) {
+            snprintf(err, errsz, "out of memory");
+            goto done;
+        }
+    }
+
+    if (n > 1)
+        warn(st, "file has %zu tracks; stitching them into one course", n);
+    rc = 0;
+
+done:
+    free(merged);
+    free(items);
+    return rc;
+}
+
 /* ---- public entry point ------------------------------------------------ */
 
 static void state_free(struct gpx_state *st)
@@ -507,6 +738,7 @@ int read_gpx_mem(const char *buf, size_t len, const char *fallback_name,
         st.opt = opt;
     else {
         default_opt.track = 0;
+        default_opt.stitch = false;
         default_opt.quiet = false;
         default_opt.diag = NULL;
         st.opt = &default_opt;
@@ -556,37 +788,42 @@ int read_gpx_mem(const char *buf, size_t len, const char *fallback_name,
         if (!err || errsz == 0)
             ebuf[0] = '\0';
 
-        long sel = select_track(&st, euse, esz);
-        if (sel < 0) {
-            if (err && errsz > 0 && st.err[0] && !err[0])
-                snprintf(err, errsz, "%s", st.err);
-            goto done;
-        }
-        struct gpx_trk *t = &st.trks[sel];
-
-        if (t->n_seg > 1)
-            warn(&st, "track %ld has %zu segments; joining them in order",
-                 sel + 1, t->n_seg);
-
-        /* Take over the track's point array. */
-        free(c->tp);
-        c->tp = t->pts.tp;
-        c->n_tp = t->pts.n_tp;
-        c->cap_tp = t->pts.cap_tp;
-        t->pts.tp = NULL;
-        t->pts.n_tp = t->pts.cap_tp = 0;
-
-        free(c->name);
-        if (t->name) {
-            c->name = t->name;
-            t->name = NULL;
+        if (st.opt->stitch) {
+            if (stitch_tracks(&st, c, fallback_name, euse, esz) != 0)
+                goto done;
         } else {
-            c->name = name_from_path(fallback_name);
-        }
-        if (!c->name) {
-            if (err && errsz > 0)
-                snprintf(err, errsz, "out of memory");
-            goto done;
+            long sel = select_track(&st, euse, esz);
+            if (sel < 0) {
+                if (err && errsz > 0 && st.err[0] && !err[0])
+                    snprintf(err, errsz, "%s", st.err);
+                goto done;
+            }
+            struct gpx_trk *t = &st.trks[sel];
+
+            if (t->n_seg > 1)
+                warn(&st, "track %ld has %zu segments; joining them in order",
+                     sel + 1, t->n_seg);
+
+            /* Take over the track's point array. */
+            free(c->tp);
+            c->tp = t->pts.tp;
+            c->n_tp = t->pts.n_tp;
+            c->cap_tp = t->pts.cap_tp;
+            t->pts.tp = NULL;
+            t->pts.n_tp = t->pts.cap_tp = 0;
+
+            free(c->name);
+            if (t->name) {
+                c->name = t->name;
+                t->name = NULL;
+            } else {
+                c->name = name_from_path(fallback_name);
+            }
+            if (!c->name) {
+                if (err && errsz > 0)
+                    snprintf(err, errsz, "out of memory");
+                goto done;
+            }
         }
     }
     rc = 0;
@@ -600,50 +837,127 @@ done:
 int read_gpx(const char *path, struct course *c, const struct gpx_options *opt,
              char *err, size_t errsz)
 {
-    FILE *f;
-    char *buf = NULL;
-    size_t len = 0, cap = 0;
+    char *buf;
+    size_t len = 0;
     int rc;
+
+    buf = slurp_file(path, &len, err, errsz);
+    if (!buf)
+        return -1;
+    rc = read_gpx_mem(buf, len, path, c, opt, err, errsz);
+    free(buf);
+    return rc;
+}
+
+/* ---- track listing (for --split-tracks) -------------------------------- */
+
+struct count_state {
+    XML_Parser parser;
+    int   depth, trk_depth, seg_depth;
+    long  trk_no;
+    bool  have_pt, oom;
+    long *idx;
+    size_t n, cap;
+};
+
+static void XMLCALL count_start(void *ud, const XML_Char *qname,
+                                const XML_Char **atts)
+{
+    struct count_state *st = ud;
+    int d = ++st->depth;
+    const char *ln = gpx_local_name(qname);
+
+    (void)atts;
+    if (d == 1) {
+        if (!gpx_ns_ok(qname) || strcmp(ln, "gpx") != 0)
+            XML_StopParser(st->parser, XML_FALSE);
+        return;
+    }
+    if (!gpx_ns_ok(qname))
+        return;
+    if (d == 2 && strcmp(ln, "trk") == 0) {
+        st->trk_no++;
+        st->trk_depth = d;
+        st->have_pt = false;
+    } else if (st->trk_depth && d == st->trk_depth + 1 &&
+               strcmp(ln, "trkseg") == 0) {
+        st->seg_depth = d;
+    } else if (st->seg_depth && d == st->seg_depth + 1 &&
+               strcmp(ln, "trkpt") == 0) {
+        st->have_pt = true;
+    }
+}
+
+static void XMLCALL count_end(void *ud, const XML_Char *qname)
+{
+    struct count_state *st = ud;
+    int d = st->depth--;
+
+    (void)qname;
+    if (d == st->trk_depth) {
+        if (st->have_pt) {
+            if (st->n == st->cap) {
+                size_t nc = st->cap ? st->cap * 2 : 4;
+                long *p = realloc(st->idx, nc * sizeof *p);
+                if (!p) {
+                    st->oom = true;
+                    return;
+                }
+                st->idx = p;
+                st->cap = nc;
+            }
+            st->idx[st->n++] = st->trk_no;
+        }
+        st->trk_depth = st->seg_depth = 0;
+    } else if (d == st->seg_depth) {
+        st->seg_depth = 0;
+    }
+}
+
+int gpx_track_indices(const char *path, long **indices, size_t *n,
+                      char *err, size_t errsz)
+{
+    char *buf;
+    size_t len = 0;
+    struct count_state st;
+    XML_Parser p;
+    int rc = -1;
 
     if (err && errsz > 0)
         err[0] = '\0';
-
-    f = fopen(path, "rb");
-    if (!f) {
-        if (err && errsz > 0)
-            snprintf(err, errsz, "cannot open '%s': %s", path, strerror(errno));
+    *indices = NULL;
+    *n = 0;
+    buf = slurp_file(path, &len, err, errsz);
+    if (!buf)
         return -1;
-    }
 
-    for (;;) {
-        if (len == cap) {
-            size_t ncap = cap ? cap * 2 : 64 * 1024;
-            char *nb = realloc(buf, ncap);
-            if (!nb) {
-                free(buf);
-                fclose(f);
-                if (err && errsz > 0)
-                    snprintf(err, errsz, "out of memory");
-                return -1;
-            }
-            buf = nb;
-            cap = ncap;
-        }
-        size_t got = fread(buf + len, 1, cap - len, f);
-        if (got == 0) {
-            if (ferror(f)) {
-                snprintf(err, errsz, "error reading '%s'", path);
-                free(buf);
-                fclose(f);
-                return -1;
-            }
-            break;
-        }
-        len += got;
+    memset(&st, 0, sizeof st);
+    p = XML_ParserCreateNS(NULL, ' ');
+    if (!p) {
+        if (err && errsz > 0)
+            snprintf(err, errsz, "out of memory");
+        goto done;
     }
-    fclose(f);
+    st.parser = p;
+    XML_SetUserData(p, &st);
+    XML_SetElementHandler(p, count_start, count_end);
+    if (XML_Parse(p, buf, (int)len, XML_TRUE) != XML_STATUS_ERROR && !st.oom) {
+        *indices = st.idx;
+        *n = st.n;
+        st.idx = NULL;
+        rc = 0;
+    } else if (st.oom) {
+        if (err && errsz > 0)
+            snprintf(err, errsz, "out of memory");
+    } else if (err && errsz > 0) {
+        snprintf(err, errsz, "line %lu: %s",
+                 (unsigned long)XML_GetCurrentLineNumber(p),
+                 XML_ErrorString(XML_GetErrorCode(p)));
+    }
+    XML_ParserFree(p);
 
-    rc = read_gpx_mem(buf, len, path, c, opt, err, errsz);
+done:
+    free(st.idx);
     free(buf);
     return rc;
 }

@@ -104,7 +104,7 @@
 ---
 
 ### T6: Multi-Track GPX Stitching & Start Waypoint Identification (Core C + CLI)
-- [ ] **Support stitching multiple `<trk>` elements into one course (`--stitch`) or emitting multiple `.fit` courses, using a `"start"` waypoint or track proximity to order segments**
+- [x] **Support stitching multiple `<trk>` elements into one course (`--stitch`) or emitting multiple `.fit` courses, using a `"start"` waypoint or track proximity to order segments**
   - **Scope:**
     - Read: `course.h`, GPX parser (`gpx.c` / `parser.c`), `main.c`, `README.md`, and multi-track tests in `tests/`.
     - Modify: `course.h`, GPX parser, `main.c`, `README.md`, and `tests/`.

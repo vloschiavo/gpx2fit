@@ -2,8 +2,8 @@
  * gpx.h: GPX 1.0 / 1.1 reader (expat).
  *
  * Reads one track (all of its segments joined) plus every waypoint into a
- * struct course. <sym> is deliberately not parsed; waypoint types are derived
- * from names later.
+ * struct course, or concatenates all tracks into one course with stitch=true.
+ * <sym> is deliberately not parsed; waypoint types are derived from names later.
  */
 #ifndef GPX_H
 #define GPX_H
@@ -16,6 +16,7 @@
 
 struct gpx_options {
     long track;            /* 1-based <trk> index to use; 0 = pick the longest */
+    bool stitch;           /* order, reverse and concatenate all <trk>s */
     bool quiet;            /* suppress warnings on stderr */
     struct diag_list *diag; /* optional collector for warnings; NULL = none */
 };
@@ -42,6 +43,14 @@ int read_gpx(const char *path, struct course *c, const struct gpx_options *opt,
 int read_gpx_mem(const char *buf, size_t len, const char *fallback_name,
                  struct course *c, const struct gpx_options *opt,
                  char *err, size_t errsz);
+
+/* List the 1-based indices of every <trk> containing at least one <trkpt>,
+ * in file order. *indices is a malloc'ed array (NULL if *n == 0) owned by the
+ * caller. This is used to emit one FIT course per track without changing the
+ * meaning of --track N, which counts all <trk> elements. Returns 0 on success,
+ * -1 on failure with a one-line message in err. */
+int gpx_track_indices(const char *path, long **indices, size_t *n,
+                      char *err, size_t errsz);
 
 /* Element-name helpers, exposed for unit tests. */
 

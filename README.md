@@ -100,6 +100,8 @@ gpx2fit [options] input.gpx output.fit
 | `--pace PACE` | Synthetic pace, as m/s or min/km (for example `2.5` or `6:40`). Default 5 km/h. |
 | `--start TIME` | Synthetic start time, UTC: `YYYY-MM-DD` or `YYYY-MM-DDTHH:MM[:SS][Z]` (for example `2025-06-01T07:30Z`). Time zone offsets such as `+02:00` are rejected. Default `2025-01-01T00:00:00Z`. |
 | `--track N` | Use the Nth `<trk>` of the GPX file, counting from 1. Default: the longest. |
+| `--stitch` | Order and join every `<trk>` into one course, reversing legs when needed. A waypoint named `start` anchors the beginning. See [Multiple tracks](#multiple-tracks). |
+| `--split-tracks` | Write one FIT course per `<trk>`: `<output_stem>_1.fit`, `<output_stem>_2.fit`, ... See [Multiple tracks](#multiple-tracks). |
 | `--max-points N` | Reduce the track to at most N points (N >= 2). Always keeps the first point, the last point, and the point nearest each course point. See [Reducing the track](#reducing-the-track---max-points). |
 | `--map FILE` | Waypoint name-to-type rules, tried before the built-in defaults. |
 | `--strict` | Make two warnings fatal: a waypoint skipped for being too far from the track, and a `--max-points` too small to hold the required points. Other warnings (no type for a name, truncated names, several tracks or segments) stay warnings. |
@@ -142,7 +144,8 @@ failed run does not leave a partial `.fit` behind.
 ## CalTopo workflow
 
 1. Draw your route as a single line (track) in CalTopo. If the export
-   contains several tracks, the longest is used (see `--track`).
+   contains several tracks, the longest is used (see `--track`), or use
+   `--stitch` / `--split-tracks` to combine or export them all.
 2. Add markers for the things you want on the watch, and **name them with a
    keyword the type map recognizes**: "Water", "Camp", "Caution". Numbers and
    extra words are fine ("Water 2", "Upper camp"). Markers must be within
@@ -242,8 +245,9 @@ lines inside a readable file are only warnings (see above).
 
 1. **Read** the GPX file. All `<trkseg>` of the chosen track are concatenated.
    With several `<trk>` elements the one given by `--track N` is used;
-   without `--track` the longest is used and a warning is printed. Elevation is kept only for points
-   that have an `<ele>` element.
+   without `--track` the longest is used and a warning is printed.
+   `--stitch` joins all tracks instead (see [Multiple tracks](#multiple-tracks)).
+   Elevation is kept only for points that have an `<ele>` element.
 2. **Distances.** Cumulative distance along the track is computed with the
    haversine formula (spherical Earth, mean radius).
 3. **Snap.** Each waypoint is projected onto the nearest part of the track
@@ -274,6 +278,40 @@ that revisits a junction), `--pass` decides which pass to use:
 
 With `both`, `--max-points` keeps the trackpoint nearest each emitted course
 point, including every pass of a repeatedly visited waypoint.
+
+### Multiple tracks
+
+By default a GPX file with several `<trk>` elements behaves as before: the
+longest track is used with a warning, and `--track N` selects one by its 1-based
+position in the file. Two options handle all of them:
+
+- **`--stitch`** builds a single course. If a waypoint is named exactly `start`
+  (case-insensitive, surrounding whitespace ignored), the track with the
+  nearest endpoint to it becomes the first leg, reversed if its end is closer
+  than its beginning. Without such a waypoint, the first track in file order
+  starts the course. Each remaining track is then chosen by whichever of its
+  endpoints is closest to the current end of the course, and reversed when
+  that endpoint is its last point. The trackpoints are concatenated in that
+  order *before* distances, waypoint snapping, synthetic times and
+  `--max-points` are applied, so course points and their distances span the
+  whole joined route. The stitched course is named after the first leg unless
+  `--name` overrides it.
+
+  ```sh
+  ./gpx2fit --stitch legs.gpx course.fit
+  ```
+
+- **`--split-tracks`** writes one independent FIT course per track, named
+  `<stem>_N.fit`, where `N` is the track's original 1-based position and
+  `<stem>` is the output path without its `.fit` suffix. For example,
+  `course.gpx course.fit` produces `course_1.fit`, `course_2.fit`, and so on.
+  Every waypoint is snapped to every track within `--snap`; waypoints far from
+  a given track are skipped for that course with a warning (a fatal error
+  under `--strict`). `--name` applies to each output.
+
+The two options cannot be combined with each other or with `--track`: pick one
+way to handle the tracks. A file with a single `<trk>` works unchanged with
+either option.
 
 ### Reducing the track (`--max-points`)
 

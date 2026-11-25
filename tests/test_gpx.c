@@ -1,6 +1,7 @@
-/* Unit tests for the GPX reader (tasks 2.2-2.6). Run from the repo root. */
+/* Unit tests for the GPX reader (tasks 2.2-2.6, T6). Run from the repo root. */
 #include <math.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 #include "../src/course.h"
@@ -32,14 +33,20 @@ static int failures;
     CHECK(fabs((got) - (want)) < 1e-9)
 
 /* Read fixture `file`; returns read_gpx's result, message in err. */
-static int load(const char *file, struct course *c, long track, char *err,
-                size_t errsz)
+static int load_opts(const char *file, struct course *c, long track,
+                     bool stitch, char *err, size_t errsz)
 {
     char path[256];
-    struct gpx_options o = { .track = track, .quiet = true };
+    struct gpx_options o = { .track = track, .stitch = stitch, .quiet = true };
     snprintf(path, sizeof path, DATA "%s", file);
     course_init(c);
     return read_gpx(path, c, &o, err, errsz);
+}
+
+static int load(const char *file, struct course *c, long track, char *err,
+                size_t errsz)
+{
+    return load_opts(file, c, track, false, err, errsz);
 }
 
 /* Expect failure whose message contains `needle`. */
@@ -178,6 +185,142 @@ static void test_track_selection(void)
     course_free(&c);
 }
 
+/* T6: all <trk>s ordered and joined into one continuous course. */
+static void test_stitch(void)
+{
+    static const double want_start[] = {
+        0.00, 0.01, 0.02, 0.03, 0.04, 0.05, 0.06, 0.07, 0.08
+    };
+    static const double want_no_start[] = {
+        0.06, 0.07, 0.08, 0.05, 0.04, 0.03, 0.02, 0.01, 0.00
+    };
+    struct course c;
+    char err[256];
+
+    /* Out-of-order file with "Start" at the end of the third (reversed) leg:
+     * that leg is reversed and placed first, then Middle, then Tail. */
+    CHECK(load_opts("multi_track.gpx", &c, 0, true, err, sizeof err) == 0);
+    CHECK_STR(c.name, "Head");
+    CHECK(c.n_tp == 9);
+    for (size_t i = 0; i < c.n_tp && i < 9; i++)
+        CHECK_NEAR(c.tp[i].lon, want_start[i]);
+    CHECK(c.tp[0].has_ele && c.tp[0].ele == 0.0); /* reversed: 0 -> 2 */
+    CHECK(c.tp[2].has_ele && c.tp[2].ele == 2.0);
+    CHECK(c.n_wp == 3); /* waypoints are kept for snapping after the join */
+    CHECK_STR(c.wp[0].name, "Start");
+    CHECK_STR(c.wp[1].name, "Water");
+    CHECK_STR(c.wp[2].name, "Camp");
+    course_free(&c);
+
+    /* Without an anchor, start with track 1 and greedily chain by nearest
+     * endpoint; from Tail's 0.08 end, Middle is walked backwards (0.05 first),
+     * then Head forward to 0.00. */
+    CHECK(load_opts("multi_track_no_start.gpx", &c, 0, true,
+                    err, sizeof err) == 0);
+    CHECK_STR(c.name, "Tail");
+    CHECK(c.n_tp == 9);
+    for (size_t i = 0; i < c.n_tp && i < 9; i++)
+        CHECK_NEAR(c.tp[i].lon, want_no_start[i]);
+    CHECK(c.n_wp == 2);
+    course_free(&c);
+
+    /* A single track is unchanged by stitching. */
+    CHECK(load_opts("gpx11_basic.gpx", &c, 0, true, err, sizeof err) == 0);
+    CHECK_STR(c.name, "Basic Track");
+    CHECK(c.n_tp == 3);
+    CHECK_NEAR(c.tp[0].lat, 38.5816);
+    course_free(&c);
+
+    /* The parser ignores --track when stitching (the CLI rejects the pair). */
+    CHECK(load_opts("multi_track.gpx", &c, 2, true, err, sizeof err) == 0);
+    CHECK(c.n_tp == 9);
+    course_free(&c);
+
+    CHECK(load_opts("empty_track.gpx", &c, 0, true, err, sizeof err) != 0);
+    CHECK(strstr(err, "no trackpoints found") != NULL);
+    course_free(&c);
+}
+
+/* Case-insensitive anchor matching, and the exact-match convention. */
+static void check_anchor_name(const char *wp_name, bool anchored)
+{
+    char buf[1024];
+    struct gpx_options o = { .track = 0, .stitch = true, .quiet = true };
+    struct course c;
+    char err[256];
+
+    snprintf(buf, sizeof buf,
+             "<?xml version=\"1.0\"?>"
+             "<gpx version=\"1.1\" xmlns=\"http://www.topografix.com/GPX/1/1\">"
+             "<wpt lat=\"0\" lon=\"0\"><name>%s</name></wpt>"
+             "<trk><name>A</name><trkseg>"
+             "<trkpt lat=\"0\" lon=\"0.02\"/><trkpt lat=\"0\" lon=\"0\"/>"
+             "</trkseg></trk>"
+             "<trk><name>B</name><trkseg>"
+             "<trkpt lat=\"0\" lon=\"0.04\"/><trkpt lat=\"0\" lon=\"0.03\"/>"
+             "</trkseg></trk></gpx>", wp_name);
+    course_init(&c);
+    CHECK(read_gpx_mem(buf, strlen(buf), "mem", &c, &o, err, sizeof err) == 0);
+    CHECK(c.n_tp == 4);
+    if (c.n_tp == 4) {
+        CHECK_NEAR(c.tp[0].lon, anchored ? 0.0 : 0.02);
+        CHECK_NEAR(c.tp[1].lon, anchored ? 0.02 : 0.0);
+        CHECK_NEAR(c.tp[2].lon, 0.03); /* B is reversed either way */
+        CHECK_NEAR(c.tp[3].lon, 0.04);
+    }
+    course_free(&c);
+}
+
+/* T6: indices used for one-FIT-per-track output. */
+static void test_track_indices(void)
+{
+    char path[256], err[256];
+    long *idx = NULL;
+    size_t n = 99;
+
+    snprintf(path, sizeof path, DATA "multi_track.gpx");
+    CHECK(gpx_track_indices(path, &idx, &n, err, sizeof err) == 0);
+    CHECK(n == 3);
+    if (n == 3)
+        CHECK(idx[0] == 1 && idx[1] == 2 && idx[2] == 3);
+    free(idx);
+
+    idx = NULL;
+    n = 99;
+    snprintf(path, sizeof path, DATA "multi_track_no_start.gpx");
+    CHECK(gpx_track_indices(path, &idx, &n, err, sizeof err) == 0);
+    CHECK(n == 3);
+    free(idx);
+
+    idx = NULL;
+    n = 99;
+    snprintf(path, sizeof path, DATA "gpx11_basic.gpx");
+    CHECK(gpx_track_indices(path, &idx, &n, err, sizeof err) == 0);
+    CHECK(n == 1 && idx && idx[0] == 1);
+    free(idx);
+
+    /* Tracks without points are not courses. */
+    idx = NULL;
+    n = 99;
+    snprintf(path, sizeof path, DATA "empty_track.gpx");
+    CHECK(gpx_track_indices(path, &idx, &n, err, sizeof err) == 0);
+    CHECK(n == 0 && idx == NULL);
+    free(idx);
+
+    idx = NULL;
+    n = 99;
+    snprintf(path, sizeof path, DATA "malformed.gpx");
+    CHECK(gpx_track_indices(path, &idx, &n, err, sizeof err) != 0);
+    free(idx);
+
+    idx = NULL;
+    n = 99;
+    CHECK(gpx_track_indices(DATA "does_not_exist.gpx", &idx, &n,
+                            err, sizeof err) != 0);
+    CHECK(strstr(err, "cannot open") != NULL);
+    free(idx);
+}
+
 static void test_errors(void)
 {
     struct course c;
@@ -207,6 +350,11 @@ int main(void)
     test_unicode();
     test_segments();
     test_track_selection();
+    test_stitch();
+    check_anchor_name("START", true);
+    check_anchor_name("  start  ", true);
+    check_anchor_name("Start Here", false);
+    test_track_indices();
     test_errors();
 
     if (failures) {
