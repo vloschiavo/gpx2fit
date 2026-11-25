@@ -1,7 +1,9 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import createModule from '../web/dist/gpx2fit.js';
-import { initApp, gpxTrackBlocks, gpxHasStartWaypoint, reorderGpxTracks } from '../web/app.js';
+import {
+  initApp, gpxTrackBlocks, gpxHasStartWaypoint, reorderGpxTracks, MAP_RULES_DEBOUNCE_MS,
+} from '../web/app.js';
 
 const wasm = await createModule();
 const sampleGpx = await readFile(new URL('./data/caltopo_sample.gpx', import.meta.url), 'utf8');
@@ -148,11 +150,13 @@ function createHarness(gpx, {
   promptImpl = null,
   elementSize = { width: 800, height: 400 },
   tileStatus = () => 200,
+  focusAllElements = false,
 } = {}) {
   const ids = [
     'app', 'conversion-controls', 'dropzone', 'gpx-file', 'load-sample',
     'source-name', 'course-name', 'activity-type', 'pace', 'pace-unit',
-    'pass-mode', 'snap-distance', 'snap-slider', 'snap-field', 'map-rules', 'stitch-tracks',
+    'pass-mode', 'snap-distance', 'snap-slider', 'snap-field', 'map-rules', 'map-rules-field',
+    'stitch-tracks',
     'status', 'error-message', 'download-list',
     'results', 'warnings', 'warning-status', 'download-fit', 'stat-distance',
     'stat-track-points', 'stat-course-points', 'stat-waypoints', 'route-map',
@@ -174,14 +178,27 @@ function createHarness(gpx, {
 
   const doc = {
     getElementById(id) { return elements[id] || null; },
-    createElement(tagName) { return new FakeElement(tagName, '', elementSize); },
+    createElement(tagName) {
+      const element = new FakeElement(tagName, '', elementSize);
+      // Used by the focus-stability probe: waypoint badges created during a
+      // render can record an unwanted focus change, just like real buttons.
+      if (focusAllElements) element.focus = () => { doc.activeElement = element; };
+      return element;
+    },
     createTextNode(text) { return { textContent: text }; },
   };
+  doc.activeElement = null;
+  elements['map-rules'].focus = () => { doc.activeElement = elements['map-rules']; };
+  elements.results.scrollTop = 41;
+  elements['waypoint-table-wrap'].scrollTop = 17;
   const blobs = [];
   const frameQueue = [];
   const win = {
     setTimeout,
     clearTimeout,
+    scrollX: 0,
+    scrollY: 1234,
+    scrollTo(x, y) { win.scrollX = x; win.scrollY = y; },
     requestAnimationFrame(callback) { frameQueue.push(callback); return frameQueue.length; },
     URL: {
       createObjectURL(blob) {
@@ -351,6 +368,8 @@ function createHarness(gpx, {
 
   return {
     elements,
+    win,
+    doc,
     mapState,
     sampleRequests,
     blobs,
@@ -543,6 +562,135 @@ assert.match(customMap.elements.warnings.textContent, /custom\.map:4: unknown ty
 assert.equal(
   customMap.elements['warning-status'].textContent,
   customMap.elements.warnings.textContent,
+);
+
+/* T1: typing rules is debounced for 800 ms. The preview stays mounted, the
+ * rules dialog/textarea keep their identity, and focus/scroll do not move. */
+assert.equal(MAP_RULES_DEBOUNCE_MS, 800, 'rules edits use an 800 ms debounce');
+assert.match(
+  indexHtml,
+  /<div class="field full-width" id="map-rules-field">/,
+  'custom-rules field is a persistent, addressable container',
+);
+assert.match(
+  indexHtml,
+  /<textarea id="map-rules" name="map-rules" class="map-rules-input"/,
+  'rules textarea has a stable identity and a CSS class instead of inline styles',
+);
+
+const rulesCalls = [];
+const rulesRecorder = Object.create(wasm);
+rulesRecorder.ccall = (...args) => {
+  if (args[0] === 'gpx2fit_convert')
+    rulesCalls.push({ map: wasm.UTF8ToString(args[3][1]), at: Date.now() });
+  return wasm.ccall(...args);
+};
+const rulesUI = createHarness(sampleGpx, { moduleFactory: async () => rulesRecorder });
+await rulesUI.loadSample();
+rulesCalls.length = 0; // ignore the initial sample conversion
+const rulesField = rulesUI.elements['map-rules-field'];
+const rulesTextarea = rulesUI.elements['map-rules'];
+const rulesBody = rulesUI.elements['waypoint-table-body'];
+const rowsBeforeRules = rulesUI.rows().length;
+assert.ok(rowsBeforeRules > 0, 'sample route has a preview table to keep stable');
+rulesTextarea.focus();
+const scrollBeforeRules = {
+  y: rulesUI.win.scrollY,
+  results: rulesUI.elements.results.scrollTop,
+  table: rulesUI.elements['waypoint-table-wrap'].scrollTop,
+};
+
+rulesTextarea.value = 'water = food';
+rulesTextarea.dispatch('input');
+await new Promise((resolve) => setTimeout(resolve, 100));
+rulesTextarea.value = 'water = food\ncamp = shelter';
+rulesTextarea.dispatch('input');
+await new Promise((resolve) => setTimeout(resolve, 300));
+rulesTextarea.value = 'water = food\ncamp = shelter\ncache = water';
+rulesTextarea.dispatch('input');
+assert.equal(rulesCalls.length, 0, 'no WASM conversion before the 800 ms debounce elapses');
+assert.equal(rulesUI.elements.results.hidden, false, 'preview stays mounted while typing');
+assert.equal(rulesUI.rows().length, rowsBeforeRules, 'existing table content is retained');
+assert.equal(rulesUI.doc.activeElement, rulesTextarea, 'focus stays in the rules textarea');
+
+await rulesUI.waitFor(() => rulesCalls.length === 1, 'debounced rule conversion');
+await rulesUI.converted();
+assert.equal(rulesCalls.length, 1, 'a burst of keystrokes converts exactly once');
+assert.match(rulesCalls[0].map, /cache = water/, 'only the final rule text reaches WASM');
+assert.equal(rulesUI.elements.results.hidden, false, 'preview remains visible after the render');
+assert.equal(rulesUI.elements['map-rules-field'], rulesField, 'rules container is not recreated');
+assert.equal(rulesUI.elements['map-rules'], rulesTextarea, 'rules textarea is not recreated');
+assert.equal(rulesUI.elements['waypoint-table-body'], rulesBody, 'table body is updated in place');
+assert.equal(rulesUI.doc.activeElement, rulesTextarea, 're-render does not steal focus');
+assert.equal(rulesUI.win.scrollY, scrollBeforeRules.y, 'page scroll is preserved');
+assert.equal(rulesUI.elements.results.scrollTop, scrollBeforeRules.results);
+assert.equal(rulesUI.elements['waypoint-table-wrap'].scrollTop, scrollBeforeRules.table);
+
+const callsBeforeChange = rulesCalls.length;
+const changeAt = Date.now();
+rulesTextarea.value = 'camp = shelter';
+rulesTextarea.dispatch('change');
+await rulesUI.waitFor(
+  () => rulesCalls.length === callsBeforeChange + 1,
+  'immediate rule change conversion',
+);
+assert.ok(
+  Date.now() - changeAt < MAP_RULES_DEBOUNCE_MS / 2,
+  'change applies immediately instead of waiting for the debounce',
+);
+assert.equal(rulesCalls.at(-1).map, 'camp = shelter');
+await rulesUI.converted();
+assert.equal(rulesUI.doc.activeElement, rulesTextarea, 'immediate render keeps the rules focus');
+assert.equal(rulesUI.win.scrollY, scrollBeforeRules.y, 'immediate render preserves page scroll');
+
+/* T1 regression: keepOutput must survive runConversion's WASM await too. Probe
+ * the DOM at ccall time (i.e. after conversion starts, before showResults):
+ * the old preview/warnings must still be mounted, not collapsed mid-update. */
+const inFlightStates = [];
+let probeUI;
+const probeRecorder = Object.create(wasm);
+probeRecorder.ccall = (...args) => {
+  if (args[0] === 'gpx2fit_convert' && probeUI) {
+    inFlightStates.push({
+      hidden: probeUI.elements.results.hidden,
+      rows: probeUI.rows().length,
+      warningsHidden: probeUI.elements.warnings.hidden,
+      warnings: probeUI.elements.warnings.textContent,
+    });
+  }
+  return wasm.ccall(...args);
+};
+probeUI = createHarness(sampleGpx, {
+  moduleFactory: async () => probeRecorder,
+  focusAllElements: true,
+});
+await probeUI.loadSample();
+inFlightStates.length = 0;
+
+// A prior waypoint-badge toggle leaves stale focus intent. An immediate rule
+// change must not re-focus that badge afterwards.
+statusButton(probeUI.rowNamed('Water')).dispatch('click');
+await probeUI.converted();
+inFlightStates.length = 0;
+const stableRows = probeUI.rows().length;
+const stableWarningsHidden = probeUI.elements.warnings.hidden;
+const stableWarnings = probeUI.elements.warnings.textContent;
+const rulesFieldInput = probeUI.elements['map-rules'];
+rulesFieldInput.focus();
+rulesFieldInput.value = 'water = food';
+rulesFieldInput.dispatch('change');
+await probeUI.waitFor(() => inFlightStates.length === 1, 'in-flight rule conversion probe');
+assert.equal(
+  inFlightStates[0].hidden, false,
+  'preview stays mounted while the rule conversion is in flight',
+);
+assert.equal(inFlightStates[0].rows, stableRows, 'old waypoint rows stay mounted');
+assert.equal(inFlightStates[0].warningsHidden, stableWarningsHidden, 'warning container stays mounted');
+assert.equal(inFlightStates[0].warnings, stableWarnings, 'old warnings stay visible until render');
+await probeUI.converted();
+assert.equal(
+  probeUI.doc.activeElement, rulesFieldInput,
+  'change path does not restore stale waypoint-badge focus',
 );
 
 /* The dateline is a short jump, and every overlay uses the same unwrapped frame. */
@@ -1141,4 +1289,4 @@ hiddenUI.flushFrames();
 t2AssertMapSet(hiddenUI, 3);
 assert.ok(t2TileStatuses.every((status) => status === 200), 'tile statuses remain healthy');
 
-console.log('test_web.mjs: live map/table/warnings, status toggles, custom maps, multi-track stitch/split, Tahoe 14-track reference, antimeridian, stale conversion, T3 per-track, and T2 map visibility/fit checks passed');
+console.log('test_web.mjs: live map/table/warnings, status toggles, custom maps, debounced rule edits with stable focus/scroll, multi-track stitch/split, Tahoe 14-track reference, antimeridian, stale conversion, T3 per-track, and T2 map visibility/fit checks passed');

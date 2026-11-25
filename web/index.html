@@ -135,7 +135,7 @@
             <p class="field-help">Fail conversion instead of skipping a waypoint that is too far away or keeping more points than the limit requires.</p>
           </div>
 
-          <div class="field full-width">
+          <div class="field full-width" id="map-rules-field">
             <div class="field-heading">
               <label for="map-rules">Custom waypoint type rules</label>
               <div class="default-map-info" id="default-map-info">
@@ -156,10 +156,9 @@
                 </div>
               </div>
             </div>
-            <textarea id="map-rules" name="map-rules" rows="6" spellcheck="false"
+            <textarea id="map-rules" name="map-rules" class="map-rules-input" rows="6" spellcheck="false"
                       placeholder="# One rule per line&#10;waterfall = generic&#10;checkpoint = checkpoint"
-                      aria-describedby="map-rules-help"
-                      style="width: 100%; min-height: 9rem; padding: 0.65rem 0.75rem; border: 1px solid var(--border); border-radius: 0.5rem; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;"></textarea>
+                      aria-describedby="map-rules-help"></textarea>
             <p class="field-help" id="map-rules-help">Use <code>keyword = type</code>, one rule per line. Matching is ASCII case-insensitive; the first match wins, and these rules override the built-ins.</p>
           </div>
         </div>

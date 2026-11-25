@@ -18,7 +18,7 @@
 ## Tasks
 
 ### T1: Fix Scroll Jump, Layout Shift, and Focus Loss in `"Custom waypoint type rules"` Dialog
-* [ ] **Debounce custom waypoint rules edits (800 ms) and preserve scroll position, layout height, and input focus during Web/WASM updates**
+* [x] **Debounce custom waypoint rules edits (800 ms) and preserve scroll position, layout height, and input focus during Web/WASM updates**
   * **Scope:**
     * Read: `web/index.html`, `web/app.js`, `web/style.css`, and existing web UI test scripts (`tests/test_web*.mjs`, `tests/test_web*.sh`).
     * Modify: `web/index.html`, `web/app.js`, `web/style.css`, and web UI tests as needed.

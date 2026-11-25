@@ -313,6 +313,24 @@ select:focus-visible {
   border-color: var(--error);
 }
 
+/* The custom-rules field is a fixed part of the form: reconversions only
+ * replace output below it, never this textarea or the info dialog beside it. */
+.map-rules-input {
+  width: 100%;
+  min-height: 9rem;
+  padding: 0.65rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+  color: #17221c;
+  background: #fff;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  resize: vertical;
+}
+
+.map-rules-input:hover {
+  border-color: #b8c3b9;
+}
+
 .input-group {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 6.6rem;
@@ -443,6 +461,7 @@ select:focus-visible {
 }
 
 .status {
+  min-height: 1.4em;
   margin: 0;
   color: var(--muted);
   font-size: 0.9rem;
@@ -480,6 +499,12 @@ select:focus-visible {
   overflow-wrap: anywhere;
 }
 
+/* Only the main results block reserves height; the transfer-instructions
+ * section shares .results but must not gain a large empty area. */
+#results {
+  min-height: 26rem;
+}
+
 .results {
   margin-top: 1.2rem;
   padding-top: 1.2rem;
@@ -505,6 +530,7 @@ select:focus-visible {
 }
 
 .warnings {
+  min-height: 2.6em;
   margin: 1rem 0 0;
   padding: 0.7rem;
   border-radius: 0.45rem;

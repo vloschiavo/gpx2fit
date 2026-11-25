@@ -35,6 +35,18 @@ expect "C bridge returns the embedded default map" \
 expect "popover is styled for desktop and mobile" \
     grep -Fq '.default-map-popover' "$CSS"
 
+# T1: custom rule edits are debounced and rendered without moving the viewport.
+expect "custom rules use an 800 ms debounce" \
+    grep -Fq 'MAP_RULES_DEBOUNCE_MS = 800' "$APP"
+expect "rules textarea has a stable container in the markup" \
+    grep -Fq 'id="map-rules-field"' "$INDEX"
+expect "viewport and focus are preserved around re-renders" \
+    grep -Fq 'withStableViewport' "$APP"
+expect "no scrollIntoView side effects during background updates" \
+    bash -c "! grep -Fq 'scrollIntoView' '$APP'"
+expect "preview and warning containers reserve layout height" \
+    bash -c "grep -Fq '.results {' '$CSS' && grep -Fq '.warnings {' '$CSS' && grep -Fq 'min-height' '$CSS'"
+
 # The behavior test imports the generated WASM bundle via app.js. Follow the
 # existing web tests: only run it when Node and a built bundle are available.
 if ! command -v node >/dev/null 2>&1; then

@@ -34,6 +34,10 @@ const FIT_DATE_MIN = 0x10000000;
 const FIT_TIME_MAX = 0xfffffffe;
 const MAX_WASM_LONG = 0x7fffffff;
 const CONVERT_DELAY_MS = 180;
+// Manual map-rule edits are comparatively expensive to reconvert, and the
+// textarea must not jump under the pointer while someone is typing. Keep the
+// previous results on screen until the debounced conversion is ready.
+export const MAP_RULES_DEBOUNCE_MS = 800;
 const PASS_MODES = new Set(['nearest', 'ordered', 'first', 'last', 'both']);
 export const UPDATE_MESSAGE = 'A new version of gpx2fit is available.';
 const VERSION_CHECK_INTERVAL_MS = 15 * 1000;
@@ -659,6 +663,7 @@ export function initApp({
   let source = null;
   let requestVersion = 0;
   let convertTimer = null;
+  let mapRulesTimer = null;
   let modulePromise = null;
   let downloadUrls = [];
   let dragDepth = 0;
@@ -678,6 +683,69 @@ export function initApp({
   // stitched/single-track mode. Reset per GPX file.
   const waypointOverridesByTrack = new Map();
   let focusWaypointIndex = null;
+
+  // Re-rendering must never move the page under the pointer. Save the viewport
+  // and the active field before a DOM update, then put them back afterwards.
+  // Only scroll containers that actually hold rendered output are tracked; the
+  // rules dialog itself is never recreated, so its identity and focus survive.
+  const scrollContainers = [app, results, waypointTableWrap, trackList, defaultMapContent]
+    .filter(Boolean);
+
+  function captureViewport() {
+    return {
+      scrollX: Number(win.scrollX ?? win.pageXOffset ?? 0),
+      scrollY: Number(win.scrollY ?? win.pageYOffset ?? 0),
+      activeElement: doc.activeElement,
+      containers: scrollContainers.map((element) => ({
+        element,
+        scrollTop: Number(element.scrollTop),
+        scrollLeft: Number(element.scrollLeft),
+      })),
+    };
+  }
+
+  function stillVisible(element) {
+    if (!element || element.isConnected === false) return false;
+    if (typeof element.getClientRects !== 'function') return true;
+    try {
+      return element.getClientRects().length > 0;
+    } catch {
+      return true;
+    }
+  }
+
+  function restoreViewport(state) {
+    if (typeof win.scrollTo === 'function'
+        && (win.scrollX !== state.scrollX || win.scrollY !== state.scrollY)) {
+      try { win.scrollTo(state.scrollX, state.scrollY); } catch {}
+    }
+    for (const { element, scrollTop, scrollLeft } of state.containers) {
+      if (Number.isFinite(scrollTop) && element.scrollTop !== scrollTop)
+        element.scrollTop = scrollTop;
+      if (Number.isFinite(scrollLeft) && element.scrollLeft !== scrollLeft)
+        element.scrollLeft = scrollLeft;
+    }
+    const active = state.activeElement;
+    const current = doc.activeElement;
+    if (!stillVisible(active) || current === active) return;
+    // A deliberate focus() during the update (e.g. a waypoint toggle) wins;
+    // only repair focus that was lost as a side effect of re-rendering.
+    if (current && current !== doc.body && stillVisible(current)) return;
+    try {
+      if (typeof active.focus === 'function') active.focus({ preventScroll: true });
+    } catch {
+      try { active.focus(); } catch {}
+    }
+  }
+
+  function withStableViewport(update) {
+    const state = captureViewport();
+    try {
+      return update();
+    } finally {
+      restoreViewport(state);
+    }
+  }
 
   function trackOverrideKey(trackIndex, stitched) {
     return !stitched && trackIndex > 0 ? trackIndex : 0;
@@ -703,6 +771,14 @@ export function initApp({
     if (convertTimer !== null) {
       win.clearTimeout(convertTimer);
       convertTimer = null;
+    }
+    clearMapRulesTimer();
+  }
+
+  function clearMapRulesTimer() {
+    if (mapRulesTimer !== null) {
+      win.clearTimeout(mapRulesTimer);
+      mapRulesTimer = null;
     }
   }
 
@@ -1250,6 +1326,9 @@ export function initApp({
 
     const fileName = display.fileName
       || fitFileName(options.courseName || metadata.course_name, loadedSource.name);
+    // A keepOutput update skips invalidateOutput, so release the previous blob
+    // URLs here, in the same task that installs their replacements.
+    clearDownload();
     addDownload(output.fit, fileName, display.label || 'Download .fit course',
                 display.primary !== false);
     if (transferInstructions) transferInstructions.hidden = false;
@@ -1444,12 +1523,14 @@ export function initApp({
     }
   }
 
-  async function runConversion(version, loadedSource, trackOverride, snapOverride) {
+  async function runConversion(version, loadedSource, trackOverride, snapOverride, keepOutput = false) {
     clearConvertTimer();
     const perTrackUpdate = trackOverride !== undefined && trackOverride !== null && trackStates.has(trackOverride);
-    if (!perTrackUpdate) {
+    if (!perTrackUpdate && !keepOutput) {
       invalidateOutput();
     } else {
+      // A keepOutput rule edit (like a per-track update) must leave the old
+      // preview mounted until the new render is ready in showResults.
       clearError();
     }
 
@@ -1461,6 +1542,7 @@ export function initApp({
         trackOverride !== undefined && trackOverride !== null ? false : stitched,
       );
     } catch (error) {
+      if (keepOutput && !perTrackUpdate) invalidateOutput();
       showError(errorText(error));
       return;
     }
@@ -1508,8 +1590,10 @@ export function initApp({
       if (trackOverride !== undefined && trackOverride !== null) {
         const output = convert(wasm, gpxXml, effective);
         if (version !== requestVersion || loadedSource !== source) return;
-        renderTrackCardResult(trackOverride, output, effective, loadedSource);
-        setStatus(`${loadedSource.name}: track updated.`, 'success');
+        withStableViewport(() => {
+          renderTrackCardResult(trackOverride, output, effective, loadedSource);
+          setStatus(`${loadedSource.name}: track updated.`, 'success');
+        });
         return;
       }
 
@@ -1544,7 +1628,7 @@ export function initApp({
         downloadLink.hidden = true;
         downloadLink.removeAttribute('href');
         downloadLink.removeAttribute('download');
-        renderTrackCards(outputs, loadedSource);
+        withStableViewport(() => renderTrackCards(outputs, loadedSource));
       } else {
         // Stitched/single-track: clean up per-track maps.
         for (const state of [...trackStates.values()]) releaseMapInstance(state.mapElement);
@@ -1556,37 +1640,75 @@ export function initApp({
 
         const output = convert(wasm, gpxXml, effective);
         if (version !== requestVersion || loadedSource !== source) return;
-        showResults(output, effective, loadedSource);
+        withStableViewport(() => showResults(output, effective, loadedSource));
       }
     } catch (error) {
       if (version !== requestVersion || loadedSource !== source) return;
-      invalidateOutput();
-      showError(errorText(error));
+      withStableViewport(() => {
+        invalidateOutput();
+        showError(errorText(error));
+      });
     }
   }
 
-  function requestConversion({ immediate = false, track = undefined, snap = undefined } = {}) {
+  function requestConversion({
+    immediate = false,
+    track = undefined,
+    snap = undefined,
+    keepOutput = false,
+    background = false,
+  } = {}) {
     if (!source) return;
-    const version = ++requestVersion;
-    const loadedSource = source;
-    const perTrackUpdate = track !== undefined && track !== null && trackStates.has(track);
-    if (!perTrackUpdate) {
-      invalidateOutput();
-      clearError();
-    } else {
-      clearConvertTimer();
-      clearError();
-      // Keep existing cards/maps visible while one track recomputes.
-      results.hidden = false;
-      trackList.hidden = false;
-    }
-    setStatus(perTrackUpdate ? 'Updating track…' : 'Applying course settings…', 'busy');
-    const run = () => runConversion(version, loadedSource, track, snap);
-    if (immediate) {
-      void run();
-    } else {
-      convertTimer = win.setTimeout(run, CONVERT_DELAY_MS);
-    }
+    withStableViewport(() => {
+      const version = ++requestVersion;
+      const loadedSource = source;
+      const perTrackUpdate = track !== undefined && track !== null && trackStates.has(track);
+      if (background) {
+        // A background rule edit must not restore focus to a waypoint badge
+        // from an earlier click; the rules textarea keeps the focus.
+        focusWaypointIndex = null;
+      }
+      if (keepOutput) {
+        // Retain the current preview/summary until the new render is ready;
+        // hiding it while the user types is what makes the page jump.
+        clearConvertTimer();
+        clearError();
+      } else if (!perTrackUpdate) {
+        invalidateOutput();
+        clearError();
+      } else {
+        clearConvertTimer();
+        clearError();
+        // Keep existing cards/maps visible while one track recomputes.
+        results.hidden = false;
+        trackList.hidden = false;
+      }
+      setStatus(perTrackUpdate ? 'Updating track…' : 'Applying course settings…', 'busy');
+      const run = () => runConversion(version, loadedSource, track, snap, keepOutput);
+      if (immediate) {
+        void run();
+      } else {
+        convertTimer = win.setTimeout(run, CONVERT_DELAY_MS);
+      }
+    });
+  }
+
+  /**
+   * Typing in the rules textarea is debounced for 800 ms. `change` (blur or an
+   * explicit apply) still converts immediately, but both paths keep the old
+   * output on screen and preserve viewport/focus around the update.
+   */
+  function applyMapRules() {
+    clearMapRulesTimer();
+    requestConversion({ immediate: true, keepOutput: true, background: true });
+  }
+
+  function scheduleMapRulesConversion() {
+    clearMapRulesTimer();
+    mapRulesTimer = win.setTimeout(() => {
+      mapRulesTimer = null;
+      applyMapRules();
+    }, MAP_RULES_DEBOUNCE_MS);
   }
 
   async function loadSource(loader, name) {
@@ -1721,8 +1843,8 @@ export function initApp({
     stitchCheckbox.addEventListener('change', () => requestConversion({ immediate: true }));
   }
   if (mapRulesInput) {
-    mapRulesInput.addEventListener('input', () => requestConversion());
-    mapRulesInput.addEventListener('change', () => requestConversion({ immediate: true }));
+    mapRulesInput.addEventListener('input', scheduleMapRulesConversion);
+    mapRulesInput.addEventListener('change', () => applyMapRules());
   }
 
   if (defaultMapInfo && defaultMapButton && defaultMapPopover && defaultMapContent) {
