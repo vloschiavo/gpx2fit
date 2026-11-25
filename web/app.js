@@ -664,6 +664,8 @@ export function initApp({
   let dragDepth = 0;
   const mapInstances = new Map(); // Leaflet map container element -> { map, layers }
   const mappedSourceByElement = new Map(); // container element -> loadedSource it was fitted
+  const pendingMapFits = new Map(); // hidden/unmeasurable container -> last render context
+  let pendingFitScheduled = false;
   const trackStates = new Map(); // GPX track index -> per-track card state
   let waypointFocusTrack = null; // track index whose card owns the focused waypoint toggle
   let defaultMapRules = null;
@@ -1077,6 +1079,40 @@ export function initApp({
     return popup;
   }
 
+  /** Leaflet only fits correctly once the container (and its ancestors) has layout. */
+  function mapContainerSize(element) {
+    const rect = typeof element.getBoundingClientRect === 'function'
+      ? element.getBoundingClientRect() : null;
+    const width = Number.isFinite(rect?.width) ? rect.width : Number(element.offsetWidth);
+    const height = Number.isFinite(rect?.height) ? rect.height : Number(element.offsetHeight);
+    return { width: Number.isFinite(width) ? width : 0, height: Number.isFinite(height) ? height : 0 };
+  }
+
+  function isRenderableMapContainer(element) {
+    for (let node = element; node; node = node.parentElement) {
+      if (node.hidden) return false;
+    }
+    const { width, height } = mapContainerSize(element);
+    return width > 0 && height > 0;
+  }
+
+  /** Retry a fit that was skipped because the container was not yet measurable. */
+  function schedulePendingMapFits() {
+    if (pendingFitScheduled || !pendingMapFits.size) return;
+    pendingFitScheduled = true;
+    const schedule = typeof win.requestAnimationFrame === 'function'
+      ? win.requestAnimationFrame.bind(win)
+      : (callback) => win.setTimeout(callback, 0);
+    schedule(() => {
+      pendingFitScheduled = false;
+      for (const [container, context] of [...pendingMapFits]) {
+        pendingMapFits.delete(container);
+        if (container.isConnected === false || context.loadedSource !== source) continue;
+        renderRouteMap(context.metadata, context.loadedSource, container);
+      }
+    });
+  }
+
   function getMapInstance(element) {
     let instance = mapInstances.get(element);
     if (!instance) {
@@ -1093,6 +1129,8 @@ export function initApp({
   }
 
   function releaseMapInstance(element) {
+    mappedSourceByElement.delete(element);
+    pendingMapFits.delete(element);
     const instance = mapInstances.get(element);
     if (!instance) return;
     try {
@@ -1111,8 +1149,18 @@ export function initApp({
       return;
     }
 
+    container.hidden = false;
+    if (!isRenderableMapContainer(container)) {
+      // Do not create or fit a Leaflet map against a 0x0 box. Remember the
+      // render so it can be retried once the results/track list is visible.
+      mappedSourceByElement.delete(container);
+      pendingMapFits.set(container, { metadata, loadedSource });
+      schedulePendingMapFits();
+      return;
+    }
+    pendingMapFits.delete(container);
+
     try {
-      container.hidden = false;
       mapFallback.hidden = true;
       const instance = getMapInstance(container);
       const layers = instance.layers;
@@ -1156,7 +1204,9 @@ export function initApp({
           alt: `${name}, ${type.label}${isSkipped ? ', skipped' : ''}`,
         }).addTo(layers);
         marker.bindPopup(waypointPopup(point, isSkipped));
-        bounds.extend(coordinates);
+        // Skipped waypoints from other legs must not drag the fit away from
+        // this segment. Keep drawing them, but fit to the segment's track.
+        if (!bounds.isValid()) bounds.extend(coordinates);
       };
       snapped.forEach((point) => addMarker(point, false));
       skipped.forEach((point) => addMarker(point, true));
@@ -1326,18 +1376,21 @@ export function initApp({
   function renderTrackCards(outputs, loadedSource) {
     for (const state of [...trackStates.values()]) releaseMapInstance(state.mapElement);
     trackStates.clear();
+    releaseMapInstance(mapElement); // the stitched map is not visible in split mode
     if (waypointTableWrap) waypointTableWrap.hidden = true;
     mapElement.hidden = true;
     mapFallback.hidden = true;
     trackList.replaceChildren();
+    // Reveal both ancestors before any Leaflet map is created or fitted;
+    // otherwise every card measures 0x0 and keeps its first (bad) fit forever.
+    results.hidden = false;
+    trackList.hidden = false;
     for (const item of outputs) {
       const state = buildTrackCard(item.track, item.output, item.fileName);
       trackStates.set(item.track.index, state);
       trackList.append(state.element);
       renderTrackCardResult(item.track.index, item.output, item.options, loadedSource, state);
     }
-    trackList.hidden = false;
-    results.hidden = false;
     const allWarnings = outputs.flatMap(({ output, label }) =>
       (Array.isArray(output.metadata.warnings) ? output.metadata.warnings : [])
         .map((warning) => `${label}: ${String(warning).trim()}`));

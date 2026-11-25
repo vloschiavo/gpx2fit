@@ -41,7 +41,7 @@
 ---
 
 ### T2: Diagnose and fix per-segment (unstitched) maps in the Web/WASM UI (follow-up to T3 regression)
-* \[ \] **Identify why each unstitched per-track Leaflet map is over-zoomed, off-center, and missing tiles, then apply a minimal fix with regression tests**
+* \[x\] **Identify why each unstitched per-track Leaflet map is over-zoomed, off-center, and missing tiles, then apply a minimal fix with regression tests**
   * **Scope:**
     * Read (only): map/render code in `web/app.js` (`getMapInstance`, `releaseMapInstance`, `renderRouteMap`, `renderWaypointTable`, `showResults`, `buildTrackCard`, `renderTrackCards`, `renderTrackCardResult`, `runConversion`, `requestConversion`, `loadSource`, `invalidateOutput`), map markup in `web/index.html`, map/card CSS in `web/style.css`, the fake-Leaflet harness in `tests/test_web.mjs`, and at most one multi-track fixture (`tests/data/multi_track.gpx` or `web/Rio_Del_Lago_100mi_2025.gpx`). Do not scan unrelated modules or re-read large reference fixtures.
     * Modify: `web/app.js`; `web/style.css` and `tests/test_web.mjs` (or a new `tests/test_*.mjs`) as needed; optionally `tests/test_multi_track_web.sh`.

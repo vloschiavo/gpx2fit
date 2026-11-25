@@ -12,7 +12,7 @@ const largeGpx = await readFile(
 const indexHtml = await readFile(new URL('../web/index.html', import.meta.url), 'utf8');
 
 class FakeElement {
-  constructor(tagName, id = '') {
+  constructor(tagName, id = '', { width = 800, height = 400 } = {}) {
     this.tagName = tagName;
     this.id = id;
     this.value = '';
@@ -23,6 +23,9 @@ class FakeElement {
     this.attributes = new Map();
     this.style = { setProperty(name, value) { this[name] = value; } };
     this.className = '';
+    this.parentElement = null;
+    this.offsetWidth = width;
+    this.offsetHeight = height;
     this.classList = {
       add(name) {
         if (!this.owner.className.split(/\s+/).includes(name))
@@ -50,8 +53,32 @@ class FakeElement {
   setAttribute(name, value) { this.attributes.set(name, value); }
   getAttribute(name) { return this.attributes.has(name) ? this.attributes.get(name) : null; }
   removeAttribute(name) { this.attributes.delete(name); }
-  append(...children) { this.children.push(...children); }
-  replaceChildren(...children) { this.children = [...children]; }
+
+  hiddenAncestors() {
+    const hidden = [];
+    for (let node = this; node; node = node.parentElement) {
+      if (node.hidden) hidden.push(node.id || node.className || node.tagName);
+    }
+    return hidden;
+  }
+
+  // Mirrors a real browser: `display: none` on any ancestor makes the box 0x0.
+  getBoundingClientRect() {
+    const width = this.hiddenAncestors().length ? 0 : this.offsetWidth;
+    const height = this.hiddenAncestors().length ? 0 : this.offsetHeight;
+    return { width, height, left: 0, top: 0, right: width, bottom: height };
+  }
+
+  append(...children) {
+    for (const child of children) child.parentElement = this;
+    this.children.push(...children);
+  }
+
+  replaceChildren(...children) {
+    for (const oldChild of this.children) oldChild.parentElement = null;
+    for (const child of children) child.parentElement = this;
+    this.children = [...children];
+  }
 }
 
 class FakeBounds {
@@ -65,7 +92,63 @@ class FakeBounds {
   isValid() { return this.points.length > 0; }
 }
 
-function createHarness(gpx, { moduleFactory = async () => wasm, promptImpl = null } = {}) {
+/* Map instrumentation: records the visibility/layout Leaflet actually sees,
+ * the bounds it was asked to fit, its derived viewport, and tile requests. */
+function elementBox(element) {
+  const rect = element.getBoundingClientRect?.();
+  return {
+    hiddenAncestors: element.hiddenAncestors?.() || [],
+    offsetWidth: element.offsetWidth ?? 0,
+    offsetHeight: element.offsetHeight ?? 0,
+    rectWidth: rect?.width ?? 0,
+    rectHeight: rect?.height ?? 0,
+  };
+}
+
+function ancestorBoxes(element) {
+  const boxes = [];
+  for (let node = element.parentElement; node; node = node.parentElement) {
+    if (node.id) {
+      const box = elementBox(node);
+      boxes.push({ id: node.id, hidden: Boolean(node.hidden), width: box.rectWidth, height: box.rectHeight });
+    }
+  }
+  return boxes;
+}
+
+function boundsOf(points) {
+  if (!points.length) return null;
+  const lats = points.map(([lat]) => lat);
+  const lons = points.map(([, lon]) => lon);
+  const min = [Math.min(...lats), Math.min(...lons)];
+  const max = [Math.max(...lats), Math.max(...lons)];
+  return { min, max, spanLat: max[0] - min[0], spanLon: max[1] - min[1],
+    center: [(min[0] + max[0]) / 2, (min[1] + max[1]) / 2] };
+}
+
+function estimateZoom(bounds, width, height) {
+  if (!bounds || width <= 0 || height <= 0) return null;
+  const scale = Math.min(
+    width / Math.max(bounds.spanLon, 1e-9),
+    height / Math.max(bounds.spanLat, 1e-9),
+  );
+  return Math.max(0, Math.min(16, Math.floor(Math.log2(Math.max(1, scale)))));
+}
+
+function tileUrlFor(template, zoom, center) {
+  const count = 2 ** zoom;
+  const x = Math.floor(((center[1] + 180) / 360) * count);
+  const latRad = (center[0] * Math.PI) / 180;
+  const y = Math.floor(((1 - Math.asinh(Math.tan(latRad)) / Math.PI) / 2) * count);
+  return template.replace('{z}', String(zoom)).replace('{x}', String(x)).replace('{y}', String(y));
+}
+
+function createHarness(gpx, {
+  moduleFactory = async () => wasm,
+  promptImpl = null,
+  elementSize = { width: 800, height: 400 },
+  tileStatus = () => 200,
+} = {}) {
   const ids = [
     'app', 'conversion-controls', 'dropzone', 'gpx-file', 'load-sample',
     'source-name', 'course-name', 'activity-type', 'pace', 'pace-unit',
@@ -75,7 +158,9 @@ function createHarness(gpx, { moduleFactory = async () => wasm, promptImpl = nul
     'stat-track-points', 'stat-course-points', 'stat-waypoints', 'route-map',
     'map-fallback', 'waypoint-table-body', 'waypoint-table-wrap', 'track-list',
   ];
-  const elements = Object.fromEntries(ids.map((id) => [id, new FakeElement('div', id)]));
+  const elements = Object.fromEntries(
+    ids.map((id) => [id, new FakeElement('div', id, elementSize)]),
+  );
   elements['activity-type'].value = 'trail-running';
   elements.pace.value = '12:00';
   elements['pace-unit'].value = 'min/km';
@@ -83,16 +168,21 @@ function createHarness(gpx, { moduleFactory = async () => wasm, promptImpl = nul
   elements['snap-distance'].value = '250';
   elements['snap-slider'].value = '250';
   elements['stitch-tracks'].checked = true;
+  elements['track-list'].hidden = true; // matches the initial markup in index.html
+  for (const id of ['route-map', 'map-fallback', 'waypoint-table-wrap', 'track-list', 'warnings'])
+    elements.results.append(elements[id]);
 
   const doc = {
     getElementById(id) { return elements[id] || null; },
-    createElement(tagName) { return new FakeElement(tagName); },
+    createElement(tagName) { return new FakeElement(tagName, '', elementSize); },
     createTextNode(text) { return { textContent: text }; },
   };
   const blobs = [];
+  const frameQueue = [];
   const win = {
     setTimeout,
     clearTimeout,
+    requestAnimationFrame(callback) { frameQueue.push(callback); return frameQueue.length; },
     URL: {
       createObjectURL(blob) {
         blobs.push(blob);
@@ -102,21 +192,92 @@ function createHarness(gpx, { moduleFactory = async () => wasm, promptImpl = nul
     },
     addEventListener() {},
   };
-  const mapState = { groups: [], fittedBounds: [] };
+  const mapState = { groups: [], fittedBounds: [], maps: [] };
+  const recordFor = (api) => mapState.maps.find((record) => record.api === api);
+  const requestTiles = (record, url, zoom, center, phase) => {
+    const tileUrl = tileUrlFor(url, zoom, center);
+    record.tileRequests.push({
+      phase,
+      zoom: zoom ?? null,
+      center,
+      url: tileUrl,
+      status: tileStatus({ url: tileUrl, zoom, phase, map: record }),
+    });
+  };
   const leaflet = {
-    map() {
-      return {
-        invalidateSize() {},
-        fitBounds(bounds) {
-          mapState.fittedBounds.push(bounds.points.map((point) => [...point]));
+    map(container, options) {
+      const record = {
+        container,
+        options,
+        created: elementBox(container),
+        ancestors: ancestorBoxes(container),
+        invalidations: [],
+        fits: [],
+        tileRequests: [],
+        tiles: [],
+        trackCoordinates: [],
+        markerCoordinates: [],
+        removed: false,
+        api: null,
+      };
+      const api = {
+        invalidateSize(invalidateOptions = {}) {
+          const box = elementBox(container);
+          record.invalidations.push({ ...invalidateOptions, ...box });
+        },
+        fitBounds(bounds, fitOptions = {}) {
+          const box = record.invalidations.at(-1) || elementBox(container);
+          const points = bounds.points.map((point) => [...point]);
+          const computed = boundsOf(points);
+          const zoom = estimateZoom(computed, box.rectWidth, box.rectHeight);
+          const center = zoom === null ? null : computed.center;
+          record.fits.push({
+            points,
+            bounds: computed,
+            options: fitOptions,
+            container: elementBox(container),
+            ancestors: ancestorBoxes(container),
+            width: box.rectWidth,
+            height: box.rectHeight,
+            zoom,
+            center,
+            trackPointCount: record.trackCoordinates.length,
+            markerCoordinates: record.markerCoordinates.map(({ coordinates, skipped }) => ({
+              coordinates: [...coordinates],
+              skipped,
+            })),
+          });
+          mapState.fittedBounds.push(points);
+          if (zoom !== null && record.tiles.length) {
+            for (let i = 0; i < 4; i++)
+              requestTiles(record, record.tiles[0].url, zoom, center, 'fit');
+          }
+        },
+        remove() { record.removed = true; },
+      };
+      record.api = api;
+      mapState.maps.push(record);
+      return api;
+    },
+    tileLayer(url, options) {
+      const layer = {
+        url,
+        options,
+        addTo(mapApi) {
+          const record = recordFor(mapApi);
+          record.tiles.push(layer);
+          // Leaflet requests an initial tile set before the first fitBounds.
+          requestTiles(record, url, 0, [0, 0], 'create');
+          return this;
         },
       };
+      return layer;
     },
-    tileLayer() { return { addTo() { return this; } }; },
     layerGroup() {
       const group = {
         layers: [],
-        addTo() { return this; },
+        record: null,
+        addTo(mapApi) { group.record = recordFor(mapApi); return this; },
         clearLayers() { this.layers = []; },
       };
       mapState.groups.push(group);
@@ -127,7 +288,11 @@ function createHarness(gpx, { moduleFactory = async () => wasm, promptImpl = nul
       const bounds = new FakeBounds();
       coordinates.forEach((point) => bounds.extend(point));
       return {
-        addTo(group) { group.layers.push({ kind: 'line', coordinates }); return this; },
+        addTo(group) {
+          if (group.record) group.record.trackCoordinates = coordinates.map((point) => [...point]);
+          group.layers.push({ kind: 'line', coordinates });
+          return this;
+        },
         getBounds() { return bounds; },
       };
     },
@@ -137,7 +302,16 @@ function createHarness(gpx, { moduleFactory = async () => wasm, promptImpl = nul
         kind: 'marker',
         coordinates,
         options,
-        addTo(group) { group.layers.push(record); return record; },
+        addTo(group) {
+          if (group.record) {
+            group.record.markerCoordinates.push({
+              coordinates: [...coordinates],
+              skipped: String(options.title || '').includes('(skipped)'),
+            });
+          }
+          group.layers.push(record);
+          return record;
+        },
         bindPopup(popup) { record.popup = popup; return record; },
       };
       return record;
@@ -180,6 +354,28 @@ function createHarness(gpx, { moduleFactory = async () => wasm, promptImpl = nul
     mapState,
     sampleRequests,
     blobs,
+    setGpx(xml) { currentGpx = xml; },
+    resizeTrackMaps(width, height) {
+      const resized = [];
+      const walk = (node) => {
+        if (String(node.className).includes('track-map')) {
+          node.offsetWidth = width;
+          node.offsetHeight = height;
+          resized.push(node);
+        }
+        for (const child of node.children || []) walk(child);
+      };
+      walk(elements['track-list']);
+      return resized;
+    },
+    flushFrames() {
+      let frames = 0;
+      while (frameQueue.length && frames < 10) {
+        frameQueue.shift()();
+        frames += 1;
+      }
+      return frames;
+    },
     async loadSample() {
       elements['load-sample'].dispatch('click');
       await converted();
@@ -758,4 +954,191 @@ assert.notEqual(day1HrefAfter, day1HrefBefore, 'Track 1 download refreshed after
 assert.equal(day2HrefAfter, day2HrefBefore, 'Track 2 download unchanged after Track 1 update');
 assert.equal(t3UI.elements['download-list'].hidden, true, 'no stale global download-list in unstitched mode');
 
-console.log('test_web.mjs: live map/table/warnings, status toggles, custom maps, multi-track stitch/split, Tahoe 14-track reference, antimeridian, stale conversion, and T3 per-track checks passed');
+/* T2 follow-up: each unstitched segment map must be measured and fitted while
+ * visible, with bounds centered on that segment rather than a hidden 0x0 box. */
+const TILE_URL = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
+const t2TileStatuses = [];
+function t2TileStatus() {
+  const status = 200; // harness tile server: no throttling/403 on the unchanged URL
+  t2TileStatuses.push(status);
+  return status;
+}
+
+function t2MapSummary(ui) {
+  return ui.mapState.maps.map((record, index) => ({
+    index,
+    removed: record.removed,
+    label: record.container.dataset.trackIndex || 'stitched',
+    created: record.created,
+    ancestors: record.ancestors,
+    trackPoints: record.trackCoordinates.length,
+    trackLons: record.trackCoordinates.map(([, lon]) => lon),
+    markers: record.markerCoordinates,
+    invalidations: record.invalidations,
+    fits: record.fits.map((fit) => ({
+      width: fit.width,
+      height: fit.height,
+      hiddenAncestors: fit.container.hiddenAncestors,
+      bounds: fit.bounds,
+      zoom: fit.zoom,
+      center: fit.center,
+      trackPointCount: fit.trackPointCount,
+    })),
+    tileRequests: record.tileRequests.map(({ phase, zoom, status, url }) => ({ phase, zoom, status, url })),
+  }));
+}
+
+function t2ActiveMaps(ui) {
+  return ui.mapState.maps.filter((record) => !record.removed);
+}
+
+function t2AssertMapSet(ui, expectedCount) {
+  const active = t2ActiveMaps(ui);
+  assert.equal(active.length, expectedCount, `${expectedCount} live map instance(s)`);
+  assert.equal(
+    ui.mapState.maps.filter((record) => record.removed).length,
+    ui.mapState.maps.length - expectedCount,
+    'no stale/blank map instances remain',
+  );
+  const centers = [];
+  for (const record of active) {
+    assert.equal(record.fits.length, 1, 'each map is fitted exactly once');
+    const fit = record.fits[0];
+    assert.deepEqual(fit.container.hiddenAncestors, [], 'fit has no hidden ancestor');
+    assert.ok(fit.width > 0 && fit.height > 0, 'fit uses a non-zero container size');
+    assert.ok(record.invalidations.some((box) => box.rectWidth > 0 && box.rectHeight > 0),
+      'invalidateSize ran with non-zero dimensions');
+    assert.ok(Number.isFinite(fit.zoom), 'fit produced a finite zoom');
+    assert.ok(fit.bounds && (fit.bounds.spanLat > 0 || fit.bounds.spanLon > 0),
+      'fit bounds are non-degenerate');
+    assert.equal(fit.trackPointCount, record.trackCoordinates.length,
+      'fit uses this map own track_points_list');
+    assert.ok(record.trackCoordinates.length >= 2, 'per-track lat/lon array is non-degenerate');
+    // The unwrapped track must sit inside the fitted bounds for each segment.
+    for (const [lat, lon] of record.trackCoordinates) {
+      assert.ok(lat >= fit.bounds.min[0] - 1e-9 && lat <= fit.bounds.max[0] + 1e-9
+        && lon >= fit.bounds.min[1] - 1e-9 && lon <= fit.bounds.max[1] + 1e-9,
+      'track point lies inside its fitted bounds');
+    }
+    assert.ok(record.markerCoordinates.length > 0, 'waypoint markers are drawn');
+    for (const { coordinates: [lat, lon], skipped } of record.markerCoordinates) {
+      if (skipped) continue; // far-away skips are drawn but must not drive the fit
+      assert.ok(lat >= fit.bounds.min[0] - 1e-9 && lat <= fit.bounds.max[0] + 1e-9
+        && lon >= fit.bounds.min[1] - 1e-9 && lon <= fit.bounds.max[1] + 1e-9,
+      'snapped marker lies inside its fitted bounds');
+    }
+    assert.equal(record.tiles.length, 1, 'one tile layer per map');
+    assert.equal(record.tiles[0].url, TILE_URL, 'OSM tile URL is unchanged');
+    assert.equal(record.tiles[0].options.maxZoom, 19, 'tile layer keeps its max zoom');
+    const fitTiles = record.tileRequests.filter((tile) => tile.phase === 'fit');
+    assert.equal(fitTiles.length, 4, 'post-fit tiles are requested');
+    assert.ok(fitTiles.every((tile) => tile.status === 200 && tile.zoom === fit.zoom),
+      `all post-fit tiles return 200 at zoom ${fit.zoom}: ${JSON.stringify(fitTiles)}`);
+    centers.push(fit.center[1]);
+  }
+  return { active, centers };
+}
+
+const t2StitchedUI = createHarness(dayGpx, { tileStatus: t2TileStatus });
+await t2StitchedUI.loadSample();
+const t2UI = createHarness(dayGpx, { tileStatus: t2TileStatus });
+t2UI.elements['stitch-tracks'].checked = false;
+await t2UI.loadSample();
+
+if (process.env.T2_MAP_DEBUG) {
+  console.log('T2 stitched metrics', JSON.stringify(t2MapSummary(t2StitchedUI), null, 2));
+  console.log('T2 unstitched metrics', JSON.stringify(t2MapSummary(t2UI), null, 2));
+}
+
+const stitched = t2AssertMapSet(t2StitchedUI, 1);
+const stitchedFit = t2StitchedUI.mapState.maps[0].fits[0];
+assert.ok(Math.abs(stitched.centers[0] - 0.0105) < 1e-6);
+
+const split = t2AssertMapSet(t2UI, 3);
+assert.deepEqual(
+  split.active.map((record) => record.trackCoordinates[0][1]).map((lon) => Math.round(lon * 1000)),
+  [0, 10, 20],
+  'Day 1 / Day 2 / Day 10 render their own track points',
+);
+assert.deepEqual(
+  split.centers.map((lon) => Math.round(lon * 10000)),
+  [5, 105, 205],
+  'each map is centered on its own segment, not on a skipped waypoint',
+);
+assert.equal(new Set(split.centers).size, 3, 'per-track fitted bounds are distinct');
+for (const record of split.active) {
+  assert.ok(Math.abs(record.fits[0].zoom - stitchedFit.zoom) <= 1,
+    'per-track zoom is comparable to the stitched map');
+}
+
+// Switch back to one stitched map, then out again: old maps must be released.
+t2UI.elements['stitch-tracks'].checked = true;
+t2UI.elements['stitch-tracks'].dispatch('change');
+await t2UI.converted();
+t2AssertMapSet(t2UI, 1);
+assert.equal(t2UI.elements['track-list'].hidden, true);
+assert.equal(t2UI.elements['route-map'].hidden, false);
+t2UI.elements['stitch-tracks'].checked = false;
+t2UI.elements['stitch-tracks'].dispatch('change');
+await t2UI.converted();
+t2AssertMapSet(t2UI, 3);
+
+// A fresh GPX load releases the previous cards/maps and fits the new segments.
+t2UI.setGpx(multiGpx);
+t2UI.elements['load-sample'].dispatch('click');
+await t2UI.converted();
+const reloaded = t2AssertMapSet(t2UI, 3);
+assert.deepEqual(
+  reloaded.centers.map((lon) => Math.round(lon * 1000)),
+  [10, 40, 70],
+  'new GPX fits Head / Middle / Tail independently',
+);
+
+// Per-track snap and waypoint overrides refresh the same visible maps.
+cardSnap(t2UI.trackCard(3)).number.value = '0';
+cardSnap(t2UI.trackCard(3)).number.dispatch('change');
+await t2UI.converted();
+t2AssertMapSet(t2UI, 3);
+cardStatusButton(t2UI.trackCard(3), 'Water').dispatch('click');
+await t2UI.converted();
+t2AssertMapSet(t2UI, 3);
+assert.ok(t2TileStatuses.length > 0 && t2TileStatuses.every((status) => status === 200),
+  'no HTTP 403/429 tile responses in the harness');
+
+// Simulated 0x0 cards: no map is created/fitted until the layout is measured.
+const zeroUI = createHarness(dayGpx, {
+  elementSize: { width: 0, height: 0 },
+  tileStatus: t2TileStatus,
+});
+zeroUI.elements['stitch-tracks'].checked = false;
+await zeroUI.loadSample();
+assert.equal(zeroUI.mapState.maps.length, 0, 'no Leaflet map against a 0x0 container');
+assert.equal(zeroUI.mapState.fittedBounds.length, 0, 'no fit against a 0x0 container');
+zeroUI.flushFrames();
+assert.equal(zeroUI.mapState.fittedBounds.length, 0, 'still no fit while unmeasurable');
+assert.equal(zeroUI.resizeTrackMaps(800, 400).length, 3);
+zeroUI.flushFrames();
+t2AssertMapSet(zeroUI, 3);
+
+// A hidden ancestor is the other half of the same layout problem.
+const hiddenUI = createHarness(dayGpx, { tileStatus: t2TileStatus });
+const hiddenResults = hiddenUI.elements.results;
+let forceResultsHidden = true;
+let resultsHidden = hiddenResults.hidden;
+Object.defineProperty(hiddenResults, 'hidden', {
+  configurable: true,
+  get() { return forceResultsHidden || resultsHidden; },
+  set(value) { resultsHidden = Boolean(value); },
+});
+hiddenUI.elements['stitch-tracks'].checked = false;
+await hiddenUI.loadSample();
+assert.equal(hiddenUI.mapState.maps.length, 0, 'no map created under a hidden #results');
+assert.equal(hiddenUI.mapState.fittedBounds.length, 0, 'no fitBounds under a hidden #results');
+hiddenUI.flushFrames();
+assert.equal(hiddenUI.mapState.fittedBounds.length, 0, 'no fit after a frame while still hidden');
+forceResultsHidden = false;
+hiddenUI.flushFrames();
+t2AssertMapSet(hiddenUI, 3);
+assert.ok(t2TileStatuses.every((status) => status === 200), 'tile statuses remain healthy');
+
+console.log('test_web.mjs: live map/table/warnings, status toggles, custom maps, multi-track stitch/split, Tahoe 14-track reference, antimeridian, stale conversion, T3 per-track, and T2 map visibility/fit checks passed');
