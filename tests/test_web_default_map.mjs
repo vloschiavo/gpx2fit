@@ -161,7 +161,7 @@ assert.ok(expectedRules.includes('water   = water'));
 assert.ok(expectedRules.includes('first aid = first_aid'));
 assert.doesNotMatch(expectedRules, /^#/m);
 const ruleLines = expectedRules.split('\n');
-assert.equal(ruleLines.length, 57, 'every built-in rule is included');
+assert.equal(ruleLines.length, 62, 'every built-in rule is included');
 assert.deepEqual(ruleLines.map((line) => {
   const match = /^([^=]+?)\s*=\s*(\S+)\s*$/.exec(line);
   assert.ok(match, `expected rule line is malformed: ${line}`);
@@ -222,8 +222,13 @@ assert.deepEqual(ruleLines.map((line) => {
   ['attraction', 'generic'],
   ['lodging', 'generic'],
   ['lodgement', 'generic'],
-  ['shopping', 'generic'],
+  ['shopping', 'store'],
   ['community', 'generic'],
+  ['creek', 'water'],
+  ['lake', 'water'],
+  ['river', 'water'],
+  ['spring', 'water'],
+  ['market', 'shopping'],
 ]);
 
 const harness = createHarness();

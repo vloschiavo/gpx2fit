@@ -18,7 +18,7 @@
 ## Tasks
 
 ### T1: Add Default Map Rules (`creek`, `lake`, `river`, `spring`, `market`)
-- [ ] **Add new default keyword mappings to `data/default.map` and verify `shopping` FIT type support**
+- [x] **Add new default keyword mappings to `data/default.map` and verify `shopping` FIT type support**
   * **Scope:**
     * Read: `data/default.map`, `symmap.c` (or course-point type lookup table), `README.md`, `tests/`.
     * Modify: `data/default.map`, `symmap.c` (only if `shopping` is not yet mapped to its Garmin FIT `course_point` enum), `README.md`, `tests/`.

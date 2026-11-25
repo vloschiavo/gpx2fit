@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # test_fit_course_points.sh: end-to-end check of the expanded default map
-# (T0). A GPX with waypoints named after new default-map entries is
+# (T0, T1). A GPX with waypoints named after new default-map entries is
 # converted, and the resulting FIT is decoded with the Garmin SDK tool
 # FitCSVTool.jar (tools/FitCSVTool.jar, or set FITCSVTOOL=path). Decoded
 # course_point (name=type) pairs are compared with the FIT SDK enum values.
@@ -65,7 +65,26 @@ make_gpx "$GPX" \
     "Checkpoint:38.030" \
     "Meeting Spot:38.050" \
     "Coffee Shops:38.070" \
-    "Community:38.090"
+    "Community:38.090" \
+    "Bear Creek:38.005" \
+    "Mirror Lake:38.015" \
+    "American River:38.025" \
+    "Hot Spring:38.035" \
+    "Trailhead Market:38.046" \
+    "Market Stop:38.045"
+
+# Without --quiet, every one of these names must resolve through the defaults:
+# no "no type for ..." warnings. ("Trailhead Market" is 16 bytes, so the usual
+# 15-byte truncation warning is expected; type resolution is what matters.)
+if ! "$BIN" "$GPX" "$TMP/nonquiet.fit" >"$TMP/out.nq" 2>"$TMP/err.nq"; then
+    echo "FAIL: gpx2fit did not convert $GPX (non-quiet)" >&2
+    exit 1
+fi
+if grep -q "no type for" "$TMP/err.nq"; then
+    bad "unresolved type warnings: $(cat "$TMP/err.nq")"
+else
+    ok
+fi
 
 FIT="$TMP/cps.fit"
 if ! "$BIN" --quiet "$GPX" "$FIT" 2>"$TMP/err"; then
@@ -106,7 +125,10 @@ if [ "$have_java" -eq 1 ]; then
     for expect in "Aid Station=28" "Energy Gel=32" "Sports Drink=33" \
                   "First Aid=9" "HC Climb=14" "Shower=40" "Gear=41" \
                   "Navaid=50" "Transport=51" "Transition=49" "Checkpoint=35" \
-                  "Meeting Spot=37" "Coffee Shops=0" "Community=0"; do
+                  "Meeting Spot=37" "Coffee Shops=0" "Community=0" \
+                  "Bear Creek=3" "Mirror Lake=3" "American River=3" \
+                  "Hot Spring=3" "Market Stop=48" \
+                  "Trailhead Marke=48"; do   # 15-byte truncation of Trailhead Market
         if grep -qxF "$expect" "$TMP/pairs"; then ok
         else bad "decoded course points lack $expect"; fi
     done

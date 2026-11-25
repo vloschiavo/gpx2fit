@@ -38,7 +38,9 @@ food      = food
 # tests/tools/FitCSVTool.jar, "Protocol 2.0 Profile 21.222"), so they map to
 # the existing "obstacle" type. The POI-style names (convenience, coffee
 # shops, winery or brewery, ...) have no FIT Profile course_point values
-# either; they map to generic.
+# either; they map to generic. The exception is "shopping": the FIT Profile
+# has no distinct course_point value for it, so it is accepted as an alias of
+# "store" (48) and written with the store icon.
 
 info                 = info
 service              = service
@@ -83,5 +85,15 @@ recreation           = generic
 attraction           = generic
 lodging              = generic
 lodgement            = generic
-shopping             = generic
+shopping             = store
 community            = generic
+
+# ---- Additional water/shopping name rules (T1) -----------------------------
+# Specific names that should get a course point icon. "shopping" above is an
+# alias for the FIT "store" type (48), so "market = shopping" encodes cleanly.
+
+creek = water
+lake = water
+river = water
+spring = water
+market = shopping

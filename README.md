@@ -187,8 +187,9 @@ keyword = type
   `service`, `energy_gel`, `sports_drink`, `mile_marker`, `checkpoint`,
   `shelter`, `meeting_spot`, `overlook`, `toilet`, `shower`, `gear`,
   `sharp_curve`, `steep_incline`, `tunnel`, `bridge`, `obstacle`, `crossing`,
-  `store`, `transition`, `navaid`, `transport`, `alert`, `info`. Which of
-  these get a distinct icon depends on the device.
+  `store`, `shopping` (an alias of `store`; FIT Profile 21.222 has no distinct
+  `shopping` value), `transition`, `navaid`, `transport`, `alert`, `info`.
+  Which of these get a distinct icon depends on the device.
 - Matching uses the full waypoint name, before any truncation.
 - A name that matches nothing becomes `generic`, and a warning is printed
   (unless `--quiet`):
@@ -215,7 +216,17 @@ overlook  = overlook
 shelter   = shelter
 toilet    = toilet
 food      = food
+creek = water
+lake = water
+river = water
+spring = water
+market = shopping
 ```
+
+The full set is in [`data/default.map`](data/default.map). `shopping` is
+accepted as an alias of the `store` FIT type (value 48); because the FIT
+Profile has no distinct `shopping` value, a `Trailhead Market` waypoint gets
+the `store` icon.
 
 "Start" and "Ranger Station" deliberately have no rule, so they become
 `generic` with a warning. Because matching is by substring, "camp" also

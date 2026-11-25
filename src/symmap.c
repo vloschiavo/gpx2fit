@@ -33,6 +33,9 @@ static const struct { const char *name; uint8_t value; } type_table[] = {
     { "shower", 40 },        { "gear", 41 },         { "sharp_curve", 42 },
     { "steep_incline", 43 }, { "tunnel", 44 },       { "bridge", 45 },
     { "obstacle", 46 },      { "crossing", 47 },     { "store", 48 },
+    /* The FIT Profile has no distinct "shopping" course_point value; use the
+     * store icon (48) so "market = shopping" rules encode cleanly. */
+    { "shopping", 48 },
     { "transition", 49 },    { "navaid", 50 },       { "transport", 51 },
     { "alert", 52 },         { "info", 53 }
 };

@@ -252,6 +252,10 @@ static void test_type_names(void)
     CHECK(symmap_type_from_name("first_aid", &t) == 0 && t == 9);
     CHECK(symmap_type_from_name("checkpoint", &t) == 0 && t == 35);
     CHECK(symmap_type_from_name("info", &t) == 0 && t == 53);   /* last in enum */
+    /* "shopping" is not a distinct FIT Profile value: it is an alias of the
+     * "store" icon (48) so market rules write a valid course_point type. */
+    CHECK(symmap_type_from_name("store", &t) == 0 && t == 48);
+    CHECK(symmap_type_from_name("SHOPPING", &t) == 0 && t == 48);
     CHECK(symmap_type_from_name("bogus", &t) == -1);
     CHECK(symmap_type_from_name("", &t) == -1);
     CHECK(symmap_type_from_name("wat", &t) == -1);              /* not a prefix match */
@@ -285,6 +289,23 @@ static void test_defaults(void)
     /* "H2O" waypoint names (Sonora Pass export, phase 9) are water too. */
     CHECK(symmap_lookup(&m, "H2O Sardine Cr") == FIT_CP_WATER);
     CHECK(symmap_lookup(&m, "h2o") == FIT_CP_WATER);
+
+    /* T1: new default names resolve to water / store, with no warnings. */
+    {
+        static const struct { const char *name; uint8_t type; } t1[] = {
+            { "Bear Creek",       FIT_CP_WATER },
+            { "Mirror Lake",      FIT_CP_WATER },
+            { "American River",   FIT_CP_WATER },
+            { "Hot Spring",       FIT_CP_WATER },
+            { "Trailhead Market", 48 /* store, via "shopping" alias */ }
+        };
+        for (size_t i = 0; i < sizeof t1 / sizeof *t1; i++) {
+            CHECK(symmap_find(&m, t1[i].name, &t) && t == t1[i].type);
+            CHECK(symmap_lookup(&m, t1[i].name) == t1[i].type);
+        }
+        CHECK(w.n == 0);
+    }
+
     CHECK(!symmap_find(&m, "Totally Unknown Name", &t) && t == FIT_CP_GENERIC);
 
     /* The other names in the CalTopo sample have no rule on purpose. */
@@ -567,7 +588,7 @@ static const struct { const char *name; uint8_t value; } t0_expected[] = {
     { "Attraction",           0 },
     { "Lodging",              0 },
     { "Lodgement",            0 },
-    { "Shopping",             0 },
+    { "Shopping",            48 },   /* alias of store, not a new FIT value */
     { "Community",            0 },
 };
 
