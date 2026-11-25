@@ -18,7 +18,7 @@
 ---
 
 ### T0: Expand Default Waypoint Map (`data/default.map`) with Additional Garmin Course Points
-- [ ] **Add additional Garmin Course Point types and default keyword mappings to `data/default.map` without duplicates**
+- [x] **Add additional Garmin Course Point types and default keyword mappings to `data/default.map` without duplicates**
   - **Scope:**
     - Read: `data/default.map`, `course.h`, `symmap.c` (and any course-point enum/lookup table), `Makefile`, `tests/`.
     - Modify: `data/default.map`, course-point enum/lookup table (if any requested FIT `course_point` enum values are not yet registered), `tests/`.

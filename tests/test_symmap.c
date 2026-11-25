@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <strings.h>
 #include <unistd.h>
 
 #include "../src/names.h"
@@ -477,6 +478,138 @@ static void test_apply_types(void)
     symmap_free(&m);
 }
 
+/* ---- T0: expanded default map ---------------------------------------------- */
+
+/* The FIT SDK course_point enum (Profile 21.222), taken from
+ * tests/tools/FitCSVTool.jar via its CoursePoint enum ("Protocol 2.0 Profile
+ * 21.222"). Used by test_default_map_t0_expansion to check that the C type
+ * table supports every registered value. */
+static const struct { const char *name; uint8_t value; } sdk_enum[] = {
+    { "generic",         0 }, { "summit",         1 },
+    { "valley",          2 }, { "water",          3 },
+    { "food",            4 }, { "danger",         5 },
+    { "left",            6 }, { "right",          7 },
+    { "straight",        8 }, { "first_aid",      9 },
+    { "fourth_category", 10 }, { "third_category", 11 },
+    { "second_category", 12 }, { "first_category", 13 },
+    { "hors_category",   14 }, { "sprint",        15 },
+    { "left_fork",       16 }, { "right_fork",    17 },
+    { "middle_fork",     18 }, { "slight_left",   19 },
+    { "sharp_left",      20 }, { "slight_right",  21 },
+    { "sharp_right",     22 }, { "u_turn",        23 },
+    { "segment_start",   24 }, { "segment_end",   25 },
+    { "campsite",        27 }, { "aid_station",   28 },
+    { "rest_area",       29 }, { "general_distance", 30 },
+    { "service",         31 }, { "energy_gel",    32 },
+    { "sports_drink",    33 }, { "mile_marker",   34 },
+    { "checkpoint",      35 }, { "shelter",       36 },
+    { "meeting_spot",    37 }, { "overlook",      38 },
+    { "toilet",          39 }, { "shower",        40 },
+    { "gear",            41 }, { "sharp_curve",   42 },
+    { "steep_incline",   43 }, { "tunnel",        44 },
+    { "bridge",          45 }, { "obstacle",      46 },
+    { "crossing",        47 }, { "store",         48 },
+    { "transition",      49 }, { "navaid",        50 },
+    { "transport",       51 }, { "alert",         52 },
+    { "info",            53 },
+};
+
+/* Every unique name requested for T0 (data/default.map) and the FIT SDK value
+ * it must resolve to through the embedded defaults. */
+static const struct { const char *name; uint8_t value; } t0_expected[] = {
+    { "Info",                53 },
+    { "Service",             31 },
+    { "Aid Station",         28 },
+    { "First Aid",            9 },
+    { "Food",                 4 },
+    { "Energy Gel",          32 },
+    { "Sports Drink",        33 },
+    { "Sprint",              15 },
+    { "HC Climb",            14 },
+    { "Category 1 Climb",    13 },
+    { "Category 2 Climb",    12 },
+    { "Category 3 Climb",    11 },
+    { "Category 4 Climb",    10 },
+    { "Toilet",              39 },
+    { "Shower",              40 },
+    { "Gear",                41 },
+    { "Navaid",              50 },
+    { "Transport",           51 },
+    { "Transition",          49 },
+    { "Checkpoint",          35 },
+    { "Meeting Spot",        37 },
+    { "Campsite",            27 },
+    { "Shelter",             36 },
+    { "Rest Area",           29 },
+    { "Obstacle Start",      46 },
+    { "Obstacle End",        46 },
+    { "Summit",               1 },
+    { "Tunnel",              44 },
+    { "Bridge",              45 },
+    { "Valley",               2 },
+    { "Overlook",            38 },
+    { "Store",               48 },
+    { "Alert",               52 },
+    { "Danger",               5 },
+    { "Obstacle",            46 },
+    { "Crossing",            47 },
+    { "Steep Incline",       43 },
+    { "Sharp Curve",         42 },
+    { "Convenience",          0 },   /* no FIT Profile value: generic */
+    { "Coffee Shops",         0 },
+    { "Bike Shop and Repair", 0 },
+    { "Park",                 0 },
+    { "Winery or Brewery",    0 },
+    { "Bank or ATM",          0 },
+    { "Restaurant",           0 },
+    { "Emergency",            0 },
+    { "Recreation",           0 },
+    { "Attraction",           0 },
+    { "Lodging",              0 },
+    { "Lodgement",            0 },
+    { "Shopping",             0 },
+    { "Community",            0 },
+};
+
+static void test_default_map_t0_expansion(void)
+{
+    struct symmap m;
+    struct warn_log w;
+    uint8_t t;
+    size_t i, j;
+
+    symmap_init(&m);
+    memset(&w, 0, sizeof w);
+    CHECK(symmap_load_defaults(&m, log_warn, &w) == SYMMAP_OK);
+    CHECK(w.n == 0);              /* data/default.map parses cleanly */
+
+    /* Every unique name requested for T0 resolves through the defaults, and
+     * a rule actually matches: symmap_lookup alone cannot tell a match that
+     * maps to generic from no match. */
+    for (i = 0; i < sizeof t0_expected / sizeof *t0_expected; i++) {
+        const char *name = t0_expected[i].name;
+        CHECK(symmap_lookup(&m, name) == t0_expected[i].value);
+        CHECK(symmap_find(&m, name, &t) && t == t0_expected[i].value);
+    }
+
+    /* No duplicate keywords: every rule has a distinct keyword
+     * (case-insensitive), so the twice-requested "Transport" is there once. */
+    for (i = 0; i < m.n; i++)
+        for (j = i + 1; j < m.n; j++)
+            CHECK(strcasecmp(m.rules[i].keyword, m.rules[j].keyword) != 0);
+
+    /* The C type table supports every FIT SDK course_point value, and the
+     * values are unique. */
+    for (i = 0; i < sizeof sdk_enum / sizeof *sdk_enum; i++) {
+        CHECK(symmap_type_from_name(sdk_enum[i].name, &t) == 0 &&
+              t == sdk_enum[i].value);
+        for (j = i + 1; j < sizeof sdk_enum / sizeof *sdk_enum; j++)
+            CHECK(sdk_enum[i].value != sdk_enum[j].value);
+    }
+
+    symmap_free(&m);
+}
+
 int main(void)
 {
     test_case_insensitive();
@@ -491,6 +624,7 @@ int main(void)
     test_layering();
     test_load_errors();
     test_apply_types();
+    test_default_map_t0_expansion();
 
     if (failures) {
         fprintf(stderr, "test_symmap: %d of %d checks FAILED\n", failures, checks);

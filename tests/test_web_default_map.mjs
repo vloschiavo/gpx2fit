@@ -161,7 +161,7 @@ assert.ok(expectedRules.includes('water   = water'));
 assert.ok(expectedRules.includes('first aid = first_aid'));
 assert.doesNotMatch(expectedRules, /^#/m);
 const ruleLines = expectedRules.split('\n');
-assert.equal(ruleLines.length, 12, 'every built-in rule is included');
+assert.equal(ruleLines.length, 57, 'every built-in rule is included');
 assert.deepEqual(ruleLines.map((line) => {
   const match = /^([^=]+?)\s*=\s*(\S+)\s*$/.exec(line);
   assert.ok(match, `expected rule line is malformed: ${line}`);
@@ -179,6 +179,51 @@ assert.deepEqual(ruleLines.map((line) => {
   ['shelter', 'shelter'],
   ['toilet', 'toilet'],
   ['food', 'food'],
+  ['info', 'info'],
+  ['service', 'service'],
+  ['aid station', 'aid_station'],
+  ['energy gel', 'energy_gel'],
+  ['sports drink', 'sports_drink'],
+  ['sprint', 'sprint'],
+  ['hc climb', 'hors_category'],
+  ['category 1 climb', 'first_category'],
+  ['category 2 climb', 'second_category'],
+  ['category 3 climb', 'third_category'],
+  ['category 4 climb', 'fourth_category'],
+  ['shower', 'shower'],
+  ['gear', 'gear'],
+  ['navaid', 'navaid'],
+  ['transport', 'transport'],
+  ['transition', 'transition'],
+  ['checkpoint', 'checkpoint'],
+  ['meeting spot', 'meeting_spot'],
+  ['campsite', 'campsite'],
+  ['rest area', 'rest_area'],
+  ['obstacle start', 'obstacle'],
+  ['obstacle end', 'obstacle'],
+  ['tunnel', 'tunnel'],
+  ['bridge', 'bridge'],
+  ['valley', 'valley'],
+  ['store', 'store'],
+  ['alert', 'alert'],
+  ['obstacle', 'obstacle'],
+  ['crossing', 'crossing'],
+  ['steep incline', 'steep_incline'],
+  ['sharp curve', 'sharp_curve'],
+  ['convenience', 'generic'],
+  ['coffee shops', 'generic'],
+  ['bike shop and repair', 'generic'],
+  ['park', 'generic'],
+  ['winery or brewery', 'generic'],
+  ['bank or atm', 'generic'],
+  ['restaurant', 'generic'],
+  ['emergency', 'generic'],
+  ['recreation', 'generic'],
+  ['attraction', 'generic'],
+  ['lodging', 'generic'],
+  ['lodgement', 'generic'],
+  ['shopping', 'generic'],
+  ['community', 'generic'],
 ]);
 
 const harness = createHarness();

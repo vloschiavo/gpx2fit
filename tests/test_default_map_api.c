@@ -24,6 +24,13 @@ int main(void)
     assert(gpx2fit_get_default_map() == text);
     assert(strstr(text, "water   = water") != NULL);
     assert(strstr(text, "first aid = first_aid") != NULL);
+    /* Some of the T0 additions (data/default.map, exact padded lines). */
+    assert(strstr(text, "aid station          = aid_station") != NULL);
+    assert(strstr(text, "energy gel           = energy_gel") != NULL);
+    assert(strstr(text, "hc climb             = hors_category") != NULL);
+    assert(strstr(text, "transport            = transport") != NULL);
+    assert(strstr(text, "obstacle start       = obstacle") != NULL);
+    assert(strstr(text, "community            = generic") != NULL);
 
     printf("test_default_map_api: getter matches data/default.map (%zu bytes)\n", n);
     return 0;

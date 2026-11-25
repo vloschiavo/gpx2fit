@@ -28,3 +28,60 @@ food      = food
 
 # "Start" and "Ranger Station" (from the sample) deliberately have no rule:
 # they get type generic plus a warning (decision pending, see NOTES.md 5.1).
+
+# ---- Additional Garmin course points (T0) ----------------------------------
+# New keyword = type rules. Matching is case-insensitive and first rule wins,
+# so these come after the rules above and none repeats an existing keyword
+# ("first aid", "summit", "overlook", "shelter", "toilet", "food", "danger"
+# are already mapped; "Transport" appears once here only). "obstacle start"
+# and "obstacle end" have no distinct values in the FIT Profile (checked with
+# tests/tools/FitCSVTool.jar, "Protocol 2.0 Profile 21.222"), so they map to
+# the existing "obstacle" type. The POI-style names (convenience, coffee
+# shops, winery or brewery, ...) have no FIT Profile course_point values
+# either; they map to generic.
+
+info                 = info
+service              = service
+aid station          = aid_station
+energy gel           = energy_gel
+sports drink         = sports_drink
+sprint               = sprint
+hc climb             = hors_category
+category 1 climb     = first_category
+category 2 climb     = second_category
+category 3 climb     = third_category
+category 4 climb     = fourth_category
+shower               = shower
+gear                 = gear
+navaid               = navaid
+transport            = transport
+transition           = transition
+checkpoint           = checkpoint
+meeting spot         = meeting_spot
+campsite             = campsite
+rest area            = rest_area
+obstacle start       = obstacle
+obstacle end         = obstacle
+tunnel               = tunnel
+bridge               = bridge
+valley               = valley
+store                = store
+alert                = alert
+obstacle             = obstacle
+crossing             = crossing
+steep incline        = steep_incline
+sharp curve          = sharp_curve
+convenience          = generic
+coffee shops         = generic
+bike shop and repair = generic
+park                 = generic
+winery or brewery    = generic
+bank or atm          = generic
+restaurant           = generic
+emergency            = generic
+recreation           = generic
+attraction           = generic
+lodging              = generic
+lodgement            = generic
+shopping             = generic
+community            = generic
