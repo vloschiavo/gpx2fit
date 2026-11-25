@@ -1,0 +1,40 @@
+# Version control & editor metadata
+.git
+.gitignore
+.github
+.vscode
+.idea
+*.swp
+*.swo
+*~
+
+# Local native & ASan build artifacts (rebuilt or unused in container)
+build/
+build-asan/
+build-test/
+gpx2fit
+gpx2fit-asan
+*.o
+*.d
+
+# Local test outputs & tree snapshot
+out.csv
+out.fit
+tree.txt
+
+# Reference GPX/FIT datasets & test suites
+reference/
+tests/
+test_conv.mjs
+test_load.mjs
+
+# Documentation & project notes
+*.md
+LICENSE
+
+# Python cache
+__pycache__/
+*.py[cod]
+
+# Keep docker/httpd-gpx2fit.conf and docker/Dockerfile, exclude local helper script
+docker/container-test-build.sh
