@@ -206,6 +206,14 @@ export function validateMapRules(value) {
   return text;
 }
 
+/** Keep only the `keyword = type` lines of the embedded default.map text. */
+export function defaultMapRuleLines(text) {
+  return String(text ?? '')
+    .split(/\r?\n/)
+    .filter((line) => line.trim() && !line.trimStart().startsWith('#'))
+    .join('\n');
+}
+
 /** Make a safe, readable download name without inserting text into the DOM. */
 export function fitFileName(courseName, sourceName) {
   const sourceBase = String(sourceName || 'course').replace(/\.gpx$/i, '');
@@ -500,6 +508,11 @@ export function initApp({
   const startTimeInput = optionalElement(doc, 'start-time');
   const strictModeCheckbox = optionalElement(doc, 'strict-mode');
   const mapRulesInput = optionalElement(doc, 'map-rules');
+  const defaultMapInfo = optionalElement(doc, 'default-map-info');
+  const defaultMapButton = optionalElement(doc, 'default-map-info-button');
+  const defaultMapPopover = optionalElement(doc, 'default-map-popover');
+  const defaultMapContent = optionalElement(doc, 'default-map-content');
+  const defaultMapClose = optionalElement(doc, 'default-map-close');
   const status = requiredElement(doc, 'status');
   const errorMessage = requiredElement(doc, 'error-message');
   const results = requiredElement(doc, 'results');
@@ -524,6 +537,10 @@ export function initApp({
   let routeMap = null;
   let routeLayers = null;
   let mappedSource = null;
+  let defaultMapRules = null;
+  let defaultMapPromise = null;
+  let defaultMapPinned = false;
+  let suppressDefaultMapFocusOpen = false;
 
   function clearConvertTimer() {
     if (convertTimer !== null) {
@@ -579,6 +596,63 @@ export function initApp({
         });
     }
     return modulePromise;
+  }
+
+  /** Read the embedded rules from WASM; data/default.map is the sole source. */
+  function loadDefaultMapRules() {
+    if (!defaultMapPromise) {
+      defaultMapPromise = getModule()
+        .then((module) => {
+          if (typeof module._gpx2fit_get_default_map !== 'function')
+            throw new Error('This build does not expose the built-in waypoint rules.');
+          const pointer = module._gpx2fit_get_default_map();
+          if (!pointer) throw new Error('The built-in waypoint rules could not be read.');
+          const text = module.UTF8ToString(pointer);
+          if (!text) throw new Error('The built-in waypoint rules are empty.');
+          defaultMapRules = defaultMapRuleLines(text);
+          return defaultMapRules;
+        })
+        .catch((error) => {
+          defaultMapPromise = null;
+          throw error;
+        });
+    }
+    return defaultMapPromise;
+  }
+
+  function showDefaultMap(pin = false) {
+    if (!defaultMapPopover || !defaultMapContent || !defaultMapButton) return;
+    if (pin) defaultMapPinned = true;
+    defaultMapPopover.hidden = false;
+    defaultMapButton.setAttribute('aria-expanded', 'true');
+
+    if (defaultMapRules !== null) {
+      defaultMapContent.textContent = defaultMapRules;
+      return;
+    }
+    defaultMapContent.textContent = 'Loading built-in rules…';
+    loadDefaultMapRules()
+      .then((text) => {
+        if (!defaultMapPopover.hidden) defaultMapContent.textContent = text;
+      })
+      .catch((error) => {
+        if (!defaultMapPopover.hidden)
+          defaultMapContent.textContent = `Built-in rules unavailable: ${errorText(error)}`;
+      });
+  }
+
+  function hideDefaultMap({ restoreFocus = false } = {}) {
+    if (!defaultMapPopover || !defaultMapButton) return;
+    defaultMapPinned = false;
+    defaultMapPopover.hidden = true;
+    defaultMapButton.setAttribute('aria-expanded', 'false');
+    if (restoreFocus && doc.activeElement !== defaultMapButton
+        && typeof defaultMapButton.focus === 'function') {
+      suppressDefaultMapFocusOpen = true;
+      defaultMapButton.focus();
+      // A programmatic focus must not immediately reopen the popover.
+      win.setTimeout(() => { suppressDefaultMapFocusOpen = false; }, 0);
+    }
   }
 
   function readOptions() {
@@ -1019,6 +1093,40 @@ export function initApp({
   if (mapRulesInput) {
     mapRulesInput.addEventListener('input', () => requestConversion());
     mapRulesInput.addEventListener('change', () => requestConversion({ immediate: true }));
+  }
+
+  if (defaultMapInfo && defaultMapButton && defaultMapPopover && defaultMapContent) {
+    defaultMapButton.addEventListener('mouseenter', () => showDefaultMap());
+    defaultMapInfo.addEventListener('mouseleave', () => {
+      if (!defaultMapPinned && !defaultMapInfo.contains?.(doc.activeElement))
+        hideDefaultMap();
+    });
+    defaultMapButton.addEventListener('focus', () => {
+      if (suppressDefaultMapFocusOpen) {
+        suppressDefaultMapFocusOpen = false;
+        return;
+      }
+      showDefaultMap();
+    });
+    defaultMapButton.addEventListener('blur', (event) => {
+      if (!defaultMapPinned && !defaultMapInfo.contains?.(event.relatedTarget))
+        hideDefaultMap();
+    });
+    defaultMapButton.addEventListener('click', () => {
+      if (defaultMapPinned) hideDefaultMap();
+      else showDefaultMap(true);
+    });
+    if (defaultMapClose) {
+      defaultMapClose.addEventListener('click', () => hideDefaultMap({ restoreFocus: true }));
+    }
+    win.addEventListener('pointerdown', (event) => {
+      if (!defaultMapPopover.hidden && !defaultMapInfo.contains?.(event.target))
+        hideDefaultMap();
+    });
+    win.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape' && !defaultMapPopover.hidden)
+        hideDefaultMap({ restoreFocus: true });
+    });
   }
 
   snapSlider.addEventListener('input', () => {

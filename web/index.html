@@ -127,7 +127,26 @@
           </div>
 
           <div class="field full-width">
-            <label for="map-rules">Custom waypoint type rules</label>
+            <div class="field-heading">
+              <label for="map-rules">Custom waypoint type rules</label>
+              <div class="default-map-info" id="default-map-info">
+                <button class="info-button" id="default-map-info-button" type="button"
+                        aria-label="View built-in waypoint mapping rules"
+                        aria-haspopup="dialog" aria-expanded="false"
+                        aria-controls="default-map-popover"
+                        title="View built-in waypoint mapping rules">?</button>
+                <div class="default-map-popover" id="default-map-popover" role="dialog"
+                     aria-labelledby="default-map-title" hidden>
+                  <div class="default-map-popover-header">
+                    <strong id="default-map-title">Built-in waypoint mapping rules</strong>
+                    <button class="default-map-close" id="default-map-close" type="button"
+                            aria-label="Close built-in waypoint mapping rules">&times;</button>
+                  </div>
+                  <p class="field-help" id="default-map-note">Custom rules take precedence over these defaults.</p>
+                  <pre class="default-map-content" id="default-map-content" tabindex="0" aria-live="polite">Loading built-in rules…</pre>
+                </div>
+              </div>
+            </div>
             <textarea id="map-rules" name="map-rules" rows="6" spellcheck="false"
                       placeholder="# One rule per line&#10;waterfall = generic&#10;checkpoint = checkpoint"
                       aria-describedby="map-rules-help"

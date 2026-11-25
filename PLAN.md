@@ -67,7 +67,7 @@
 ---
 
 ### T4: Expose Built-in `default.map` Rules in Web/WASM Advanced Options
-- [ ] **Embed `data/default.map` into the WASM/Web UI and display it via an info popover/modal in Advanced Options**
+- [x] **Embed `data/default.map` into the WASM/Web UI and display it via an info popover/modal in Advanced Options**
   - **Scope:**
     - Read: `data/default.map`, `Makefile` (how `default.map` is embedded via `xxd`), WASM C bridge (`web/*.c` or `wasm.c`), `web/index.html`, `web/app.js`, `web/style.css`.
     - Modify: WASM export (or build step), `web/index.html`, `web/app.js`, `web/style.css`.

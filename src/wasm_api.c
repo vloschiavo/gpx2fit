@@ -1,6 +1,7 @@
 #define _POSIX_C_SOURCE 200809L
 #include "course.h"
 #include "decimate.h"
+#include "default_map.h"
 #include "diag.h"
 #include "fit_write.h"
 #include "geo.h"
@@ -289,6 +290,10 @@ EMSCRIPTEN_KEEPALIVE struct gpx2fit_result *gpx2fit_convert(
     (void)trc; (void)err;
     return res;
 }
+
+/* The embedded copy of data/default.map, exposed so the web UI can show the
+ * exact built-in rules without keeping a second, drifting copy in JS. */
+EMSCRIPTEN_KEEPALIVE const char *gpx2fit_get_default_map(void){ return default_map_text; }
 
 EMSCRIPTEN_KEEPALIVE uint8_t *gpx2fit_result_data(void*ptr){ struct gpx2fit_result*r=ptr; return r?r->fit_data:NULL; }
 EMSCRIPTEN_KEEPALIVE size_t gpx2fit_result_len(void*ptr){ struct gpx2fit_result*r=ptr; return r?r->fit_len:0; }

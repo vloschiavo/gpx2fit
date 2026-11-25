@@ -26,9 +26,11 @@ $(TARGET): $(OBJ)
 $(BUILD)/%.o: src/%.c | $(BUILD)
 	$(CC) $(CFLAGS) -MMD -MP -c -o $@ $<
 
-# Only symmap.c includes the generated header. (After the first build the
-# -MMD dependency files cover this too; this line covers the very first one.)
+# symmap.c and the WASM bridge include the generated header. (After the first
+# build the -MMD dependency files cover this too; these lines cover the very
+# first one.)
 $(BUILD)/symmap.o: $(GEN_HDR)
+$(BUILD)/wasm_api.o: $(GEN_HDR)
 
 $(GEN_HDR): data/default.map
 	{ printf '/* generated from %s by make; do not edit */\n' '$<' && \
@@ -76,9 +78,10 @@ WASM_SRC   = $(filter-out src/main.c,$(SRC))
 WASM_EXPAT = $(if $(shell $(EMCC) --show-ports 2>/dev/null | grep -i expat),-sUSE_EXPAT=1,--use-port=tools/expat_port.py)
 # ccall copies 'string' arguments to the wasm stack, which overflows on large
 # GPX files. malloc/free are exported so the app can pass heap-allocated pointers.
+# gpx2fit_get_default_map exposes the embedded default.map to the web UI.
 WASM_FLAGS = -O2 -sWASM=1 $(WASM_EXPAT) -sALLOW_MEMORY_GROWTH=1 \
              -sMODULARIZE=1 -sEXPORT_ES6=1 \
-             -sEXPORTED_FUNCTIONS='["_malloc","_free","_gpx2fit_convert","_gpx2fit_result_data","_gpx2fit_result_len","_gpx2fit_result_json","_gpx2fit_result_rc","_gpx2fit_free"]' \
+             -sEXPORTED_FUNCTIONS='["_malloc","_free","_gpx2fit_convert","_gpx2fit_result_data","_gpx2fit_result_len","_gpx2fit_result_json","_gpx2fit_result_rc","_gpx2fit_get_default_map","_gpx2fit_free"]' \
              -sEXPORTED_RUNTIME_METHODS='["ccall","UTF8ToString","HEAPU8"]'
 
 wasm: $(WASM_SRC) $(wildcard src/*.h) $(GEN_HDR) tools/expat_port.py | $(WASM_DIR)
