@@ -18,7 +18,7 @@
 ## Tasks
 
 ### T3: Multi-Track Natural Numerical Sorting & Independent Per-Track Maps, Snap Controls & Waypoint Toggles
-* \[ \] **Sort tracks naturally (`"Day 1"` before `"Day 2"`) and render a separate map, snap distance control, and clickable waypoint list per track when not stitching**
+* \[x\] **Sort tracks naturally (`"Day 1"` before `"Day 2"`) and render a separate map, snap distance control, and clickable waypoint list per track when not stitching**
   * **Scope:**
     * Read: WASM C bridge (`wasm.c` / `web/*.c`), `web/index.html`, `web/app.js`, `web/style.css`.
     * Modify: WASM C bridge (if track-level metadata/conversion is needed), `web/index.html`, `web/app.js`, `web/style.css`.

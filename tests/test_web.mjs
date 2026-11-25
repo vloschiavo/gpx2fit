@@ -69,11 +69,11 @@ function createHarness(gpx, { moduleFactory = async () => wasm, promptImpl = nul
   const ids = [
     'app', 'conversion-controls', 'dropzone', 'gpx-file', 'load-sample',
     'source-name', 'course-name', 'activity-type', 'pace', 'pace-unit',
-    'pass-mode', 'snap-distance', 'snap-slider', 'map-rules', 'stitch-tracks',
+    'pass-mode', 'snap-distance', 'snap-slider', 'snap-field', 'map-rules', 'stitch-tracks',
     'status', 'error-message', 'download-list',
     'results', 'warnings', 'warning-status', 'download-fit', 'stat-distance',
     'stat-track-points', 'stat-course-points', 'stat-waypoints', 'route-map',
-    'map-fallback', 'waypoint-table-body',
+    'map-fallback', 'waypoint-table-body', 'waypoint-table-wrap', 'track-list',
   ];
   const elements = Object.fromEntries(ids.map((id) => [id, new FakeElement('div', id)]));
   elements['activity-type'].value = 'trail-running';
@@ -163,7 +163,7 @@ function createHarness(gpx, { moduleFactory = async () => wasm, promptImpl = nul
       if (predicate()) return;
       await new Promise((resolve) => setTimeout(resolve, 5));
     }
-    throw new Error(`Timed out waiting for ${description}`);
+    throw new Error(`Timed out waiting for ${description}: state=${elements.status.dataset.state} err=${elements['error-message'].textContent} status=${elements.status.textContent}`);
   }
 
   async function converted() {
@@ -190,13 +190,24 @@ function createHarness(gpx, { moduleFactory = async () => wasm, promptImpl = nul
       elements['snap-distance'].dispatch(event);
       if (event === 'change') await converted();
     },
-    markers() {
-      return mapState.groups[0].layers.filter((layer) => layer.kind === 'marker');
+    markers(groupIndex = 0) {
+      const group = mapState.groups[groupIndex];
+      return group ? group.layers.filter((layer) => layer.kind === 'marker') : [];
     },
-    markerNamed(name) {
-      return this.markers().find((marker) => marker.options.title.startsWith(`${name} —`));
+    markerNamed(name, groupIndex = 0) {
+      return this.markers(groupIndex).find((marker) => marker.options.title.startsWith(`${name} —`));
+    },
+    trackCards() {
+      return elements['track-list'].children.filter((child) => child.className === 'track-card');
+    },
+    trackCard(trackIndex) {
+      return this.trackCards().find((card) => card.dataset.trackIndex === String(trackIndex)) || null;
     },
     downloads() {
+      const cardDownloads = this.trackCards()
+        .map((card) => card.children.find((child) => child.tagName === 'a' && child.className.includes('download-button')))
+        .filter(Boolean);
+      if (cardDownloads.length) return cardDownloads;
       const list = elements['download-list'].children;
       return list.length ? list : (elements['download-fit'].hidden ? [] : [elements['download-fit']]);
     },
@@ -400,7 +411,8 @@ assert.match(
 assert.match(indexHtml, /id="download-list"/, 'split downloads have a container');
 assert.deepEqual(
   gpxTrackBlocks(multiGpx).map((track) => track.name),
-  ['Tail', 'Middle', 'Head'],
+  ['Head', 'Middle', 'Tail'],
+  'tracks are sorted by natural numerical/name order',
 );
 assert.equal(gpxHasStartWaypoint(multiGpx), true);
 assert.equal(gpxHasStartWaypoint(noStartGpx), false);
@@ -503,17 +515,19 @@ splitUI.elements['stitch-tracks'].checked = false;
 await splitUI.loadSample();
 assert.deepEqual(
   splitCalls,
-  [{ track: 1, stitch: 0 }, { track: 2, stitch: 0 }, { track: 3, stitch: 0 }],
+  [{ track: 3, stitch: 0 }, { track: 2, stitch: 0 }, { track: 1, stitch: 0 }],
+  'unstitched tracks converted in natural name order, preserving original indices',
 );
-assert.equal(splitUI.elements['stat-track-points'].textContent, '3');
+// In unstitched multi-track mode, global stats are not the primary view; check cards.
+assert.equal(splitUI.trackCards().length, 3);
 assert.match(splitUI.elements.status.textContent, /3 FIT courses are ready/);
 assert.deepEqual(
   splitUI.downloads().map((link) => link.download),
-  ['Tail.fit', 'Middle.fit', 'Head.fit'],
+  ['Head.fit', 'Middle.fit', 'Tail.fit'],
 );
 assert.deepEqual(
   splitUI.downloads().map((link) => link.textContent),
-  ['Download Tail.fit', 'Download Middle.fit', 'Download Head.fit'],
+  ['Download Head.fit', 'Download Middle.fit', 'Download Tail.fit'],
 );
 
 /* Toggling back clears the per-track links and restores the single download. */
@@ -536,7 +550,7 @@ const loopUI = createHarness(noStartGpx, {
   moduleFactory: async () => loopRecorder,
   promptImpl: (message, defaultValue) => {
     promptCalls.push({ message, defaultValue });
-    return '3';
+    return '1'; // first in natural order: Head
   },
 });
 await loopUI.loadSample();
@@ -566,7 +580,7 @@ tahoeUI.elements['stitch-tracks'].dispatch('change');
 await tahoeUI.converted();
 assert.equal(tahoeUI.elements.status.dataset.state, 'success');
 assert.equal(tahoeUI.downloads().length, 14);
-assert.equal(tahoeUI.downloads()[0].download, 'House Wife Hill Aid to Armstrong Pass.fit');
+assert.equal(tahoeUI.downloads()[0].download, 'Armstrong Pass Aid to Heavenly Aid.fit');
 
 /* T2: the Status pill is an accessible toggle that forces snapping/skipping
  * in the map, the stats, the downloaded FIT, and later --snap changes. */
@@ -627,4 +641,121 @@ assert.doesNotMatch(statusButton(toggleUI.rowNamed('Caution')).getAttribute('ari
   /manual override/);
 assert.deepEqual(overrideCalls.at(-1), []);
 
-console.log('test_web.mjs: live map/table/warnings, status toggles, custom maps, multi-track stitch/split, Tahoe 14-track reference, antimeridian, and stale conversion checks passed');
+/* T3: natural numerical track ordering and independent per-track controls. */
+const dayGpx = `<?xml version="1.0"?><gpx xmlns="http://www.topografix.com/GPX/1/1" version="1.1">
+  <wpt lat="0.0002" lon="0.0005"><name>Camp</name></wpt>
+  <wpt lat="0.0002" lon="0.0105"><name>Water</name></wpt>
+  <trk><name>Day 10</name><trkseg>
+    <trkpt lat="0" lon="0.02"><ele>10</ele></trkpt>
+    <trkpt lat="0" lon="0.021"><ele>10</ele></trkpt>
+  </trkseg></trk>
+  <trk><name>Day 2</name><trkseg>
+    <trkpt lat="0" lon="0.01"><ele>2</ele></trkpt>
+    <trkpt lat="0" lon="0.011"><ele>2</ele></trkpt>
+  </trkseg></trk>
+  <trk><name>Day 1</name><trkseg>
+    <trkpt lat="0" lon="0"><ele>1</ele></trkpt>
+    <trkpt lat="0" lon="0.001"><ele>1</ele></trkpt>
+  </trkseg></trk>
+</gpx>`;
+assert.deepEqual(gpxTrackBlocks(dayGpx).map((t) => t.name), ['Day 1', 'Day 2', 'Day 10']);
+
+const t3Calls = [];
+const t3Recorder = Object.create(wasm);
+t3Recorder.ccall = (...args) => {
+  if (args[0] === 'gpx2fit_convert') {
+    t3Calls.push({
+      track: args[3][11],
+      stitch: args[3][12],
+      snap: args[3][5],
+      overrides: JSON.parse(wasm.UTF8ToString(args[3][13])),
+    });
+  }
+  return wasm.ccall(...args);
+};
+const t3UI = createHarness(dayGpx, { moduleFactory: async () => t3Recorder });
+t3UI.elements['stitch-tracks'].checked = false;
+await t3UI.loadSample();
+assert.equal(t3UI.elements.status.dataset.state, 'success');
+assert.deepEqual(t3Calls.map((c) => ({ track: c.track, stitch: c.stitch })), [
+  { track: 3, stitch: 0 }, // Day 1 original index
+  { track: 2, stitch: 0 }, // Day 2
+  { track: 1, stitch: 0 }, // Day 10
+]);
+const cards = t3UI.trackCards();
+assert.equal(cards.length, 3);
+assert.deepEqual(cards.map((c) => c.children[0].children[0].textContent), ['Day 1', 'Day 2', 'Day 10']);
+assert.equal(t3UI.elements['snap-field'].hidden, true, 'global snap hidden in unstitched multi-track');
+assert.equal(t3UI.elements['waypoint-table-wrap'].hidden, true, 'single table hidden in unstitched multi-track');
+assert.equal(t3UI.elements['route-map'].hidden, true, 'single map hidden in unstitched multi-track');
+
+function cardRows(card) {
+  const tbody = card.children.find((c) => c.className === 'waypoint-table-wrap')
+    ?.children[0]?.children?.find((n) => n.tagName === 'tbody');
+  return (tbody?.children || []).filter((r) => r.dataset.status);
+}
+function cardRowNamed(card, name) {
+  return cardRows(card).find((r) => r.children[0].textContent === name);
+}
+function cardStatusButton(card, name) {
+  return cardRowNamed(card, name).children[1].children[0];
+}
+function cardSnap(card) {
+  return {
+    slider: card.children.find((c) => c.className.includes('track-snap-field')).children[1].children[0],
+    number: card.children.find((c) => c.className.includes('track-snap-field')).children[1].children[1].children[0],
+  };
+}
+
+const day1Card = t3UI.trackCard(3);
+const day2Card = t3UI.trackCard(2);
+const day10Card = t3UI.trackCard(1);
+assert.ok(day1Card && day2Card && day10Card);
+assert.equal(cardRowNamed(day1Card, 'Camp').dataset.status, 'snapped');
+assert.equal(cardRowNamed(day1Card, 'Water').dataset.status, 'skipped');
+assert.equal(cardRowNamed(day2Card, 'Camp').dataset.status, 'skipped');
+assert.equal(cardRowNamed(day2Card, 'Water').dataset.status, 'snapped');
+// Day 10 is far from both waypoints; they appear as skipped in its own table.
+assert.equal(cardRowNamed(day10Card, 'Camp').dataset.status, 'skipped');
+assert.equal(cardRowNamed(day10Card, 'Water').dataset.status, 'skipped');
+
+// Toggle waypoint on Day 1 only.
+t3Calls.length = 0;
+cardStatusButton(day1Card, 'Water').dispatch('click');
+await t3UI.converted();
+assert.equal(cardRowNamed(t3UI.trackCard(3), 'Water').dataset.status, 'snapped');
+assert.equal(cardRowNamed(t3UI.trackCard(2), 'Water').dataset.status, 'snapped'); // Day 2 unchanged
+assert.equal(cardRowNamed(t3UI.trackCard(2), 'Camp').dataset.status, 'skipped');
+assert.equal(cardRowNamed(t3UI.trackCard(1), 'Water').dataset.status, 'skipped', 'Day 10 unaffected');
+assert.ok(t3Calls.every((c) => c.track === 3), 'only Track 1 (original index 3) reconverted on toggle');
+assert.deepEqual(t3Calls.at(-1).overrides[1], 1, 'Water override forced snap on Day 1');
+
+// Adjust snap on Day 1 only.
+t3Calls.length = 0;
+const day1Snap = cardSnap(t3UI.trackCard(3));
+day1Snap.number.value = '0';
+day1Snap.number.dispatch('change');
+await t3UI.converted();
+assert.ok(t3Calls.every((c) => c.track === 3), 'only Day 1 reconverted on snap change');
+assert.equal(t3Calls.at(-1).snap, 0);
+assert.equal(cardRowNamed(t3UI.trackCard(3), 'Camp').dataset.status, 'skipped', 'Day 1 Camp now too far with snap 0');
+assert.equal(cardRowNamed(t3UI.trackCard(2), 'Camp').dataset.status, 'skipped', 'Day 2 unaffected by Day 1 snap');
+assert.equal(cardSnap(t3UI.trackCard(2)).number.value, '250', 'Day 2 snap unchanged');
+assert.equal(cardRowNamed(t3UI.trackCard(1), 'Camp').dataset.status, 'skipped', 'Day 10 unaffected by Day 1 snap');
+
+// AC3 regression: per-track update must refresh that track's downloadable FIT
+// (card download) and must not leave stale global download-list entries.
+const day1Dl = t3UI.trackCard(3).children.find((c) => c.tagName === 'a' && c.className.includes('download-button'));
+const day2DlBefore = (await t3UI.blobs.at(t3UI.blobs.findIndex((b) => b) /* noop */), null); // placeholder, compare by URL below
+const day1HrefBefore = day1Dl.href;
+const day2HrefBefore = t3UI.trackCard(2).children.find((c) => c.tagName === 'a' && c.className.includes('download-button')).href;
+t3Calls.length = 0;
+cardStatusButton(t3UI.trackCard(3), 'Camp').dispatch('click');
+await t3UI.converted();
+const day1HrefAfter = t3UI.trackCard(3).children.find((c) => c.tagName === 'a' && c.className.includes('download-button')).href;
+const day2HrefAfter = t3UI.trackCard(2).children.find((c) => c.tagName === 'a' && c.className.includes('download-button')).href;
+assert.notEqual(day1HrefAfter, day1HrefBefore, 'Track 1 download refreshed after per-track update');
+assert.equal(day2HrefAfter, day2HrefBefore, 'Track 2 download unchanged after Track 1 update');
+assert.equal(t3UI.elements['download-list'].hidden, true, 'no stale global download-list in unstitched mode');
+
+console.log('test_web.mjs: live map/table/warnings, status toggles, custom maps, multi-track stitch/split, Tahoe 14-track reference, antimeridian, stale conversion, and T3 per-track checks passed');

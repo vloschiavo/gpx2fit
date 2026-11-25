@@ -86,7 +86,7 @@
         <p class="field-help" id="pace-help">Use 12:00 or 12 for min/km, or 5 for km/h.</p>
       </div>
 
-      <div class="field full-width">
+      <div class="field full-width" id="snap-field">
         <label for="snap-distance">Snap distance</label>
         <div class="snap-control">
           <input id="snap-slider" type="range" min="0" max="1000" step="1" value="250" aria-label="Snap distance slider">
@@ -202,7 +202,7 @@
           <div class="route-map" id="route-map" role="region" aria-label="Route map" aria-describedby="map-help"></div>
           <p class="map-fallback" id="map-fallback" hidden>The map could not be loaded. The waypoint table and FIT download are still available.</p>
 
-          <div class="waypoint-table-wrap" role="region" aria-label="Waypoint details" tabindex="0">
+          <div class="waypoint-table-wrap" id="waypoint-table-wrap" role="region" aria-label="Waypoint details" tabindex="0">
             <table class="waypoint-table">
               <caption>Waypoints in route order, with their nearest position along the track.</caption>
               <thead>
@@ -218,6 +218,8 @@
             </table>
           </div>
         </section>
+
+        <div class="track-list" id="track-list" hidden></div>
       </div>
 
       <a class="button primary download-button" id="download-fit" hidden>Download .fit course</a>

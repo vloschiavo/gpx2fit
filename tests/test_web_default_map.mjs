@@ -94,10 +94,11 @@ function createHarness({ moduleFactory = async () => fakeWasm() } = {}) {
   const ids = [
     'app', 'conversion-controls', 'dropzone', 'gpx-file', 'load-sample',
     'source-name', 'course-name', 'activity-type', 'pace', 'pace-unit',
-    'pass-mode', 'snap-distance', 'snap-slider', 'map-rules', 'status', 'error-message',
+    'pass-mode', 'snap-distance', 'snap-slider', 'snap-field', 'map-rules', 'stitch-tracks',
+    'status', 'error-message', 'download-list',
     'results', 'warnings', 'warning-status', 'download-fit', 'stat-distance',
     'stat-track-points', 'stat-course-points', 'stat-waypoints', 'route-map',
-    'map-fallback', 'waypoint-table-body', 'default-map-info',
+    'map-fallback', 'waypoint-table-body', 'waypoint-table-wrap', 'track-list', 'default-map-info',
     'default-map-info-button', 'default-map-popover', 'default-map-content',
     'default-map-close', 'default-map-note',
   ];

@@ -259,8 +259,16 @@ function elementText(block, localName) {
   return match ? decodeXmlText(match[1].replace(/<[^>]*>/g, '')).trim() : '';
 }
 
-/** All <trk> elements in file order, with their source offsets and <name>. */
-export function gpxTrackBlocks(xml) {
+/** Natural numerical ordering: "Day 2" sorts before "Day 10" (localeCompare numeric). */
+function compareTrackNames(a, b) {
+  const aName = a.name || `Track ${a.index}`;
+  const bName = b.name || `Track ${b.index}`;
+  const compared = aName.localeCompare(bName, undefined, { numeric: true, sensitivity: 'base' });
+  if (compared !== 0) return compared;
+  return a.index - b.index;
+}
+
+function gpxTrackBlocksInDocumentOrder(xml) {
   const clean = xmlWithoutMarkupNoise(xml);
   const blocks = [];
   let depth = 0;
@@ -289,6 +297,13 @@ export function gpxTrackBlocks(xml) {
   return blocks;
 }
 
+/** All <trk> elements sorted naturally by name, keeping each track's original 1-based index. */
+export function gpxTrackBlocks(xml) {
+  const blocks = gpxTrackBlocksInDocumentOrder(xml);
+  blocks.sort((a, b) => compareTrackNames(a, b));
+  return blocks;
+}
+
 /** True when a <wpt> name is exactly "Start" (the core's anchor convention). */
 export function gpxHasStartWaypoint(xml) {
   const clean = xmlWithoutMarkupNoise(xml);
@@ -302,31 +317,34 @@ export function gpxHasStartWaypoint(xml) {
   return false;
 }
 
-/** Move the chosen track to the front; the core fallback then starts there. */
+/** Move the chosen original track to the front; the core fallback then starts there. */
 export function reorderGpxTracks(xml, firstTrack) {
   const source = String(xml ?? '');
-  const tracks = gpxTrackBlocks(source);
+  const docTracks = gpxTrackBlocksInDocumentOrder(source);
   const index = Number(firstTrack);
-  if (tracks.length < 2 || !Number.isInteger(index) || index < 1 || index > tracks.length)
-    return source;
-  const ordered = [tracks[index - 1], ...tracks.filter((_, i) => i !== index - 1)];
-  return source.slice(0, tracks[0].start)
+  if (docTracks.length < 2 || !Number.isInteger(index)) return source;
+  const selected = docTracks.find((track) => track.index === index);
+  if (!selected) return source;
+  const ordered = [selected, ...docTracks.filter((track) => track.index !== index)];
+  return source.slice(0, docTracks[0].start)
     + ordered.map((track) => source.slice(track.start, track.end)).join('')
-    + source.slice(tracks[tracks.length - 1].end);
+    + source.slice(docTracks[docTracks.length - 1].end);
 }
 
 function chooseFirstTrack(tracks, promptImpl, sourceName) {
-  if (typeof promptImpl !== 'function') return 1;
+  if (typeof promptImpl !== 'function') return tracks[0]?.index || 1;
   const options = tracks
-    .map((track) => `${track.index}. ${track.name || `Track ${track.index}`}`)
+    .map((track, i) => `${i + 1}. ${track.name || `Track ${track.index}`}`)
     .join('\n');
   const answer = promptImpl(
     `${sourceName} has several tracks and no "Start" waypoint.\n`
       + `${options}\n\nWhich track should the stitched course start with? (1-${tracks.length})`,
-    String(tracks[0].index),
+    '1',
   );
   const chosen = Number(String(answer).trim());
-  return Number.isInteger(chosen) && chosen >= 1 && chosen <= tracks.length ? chosen : 1;
+  if (Number.isInteger(chosen) && chosen >= 1 && chosen <= tracks.length)
+    return tracks[chosen - 1].index;
+  return tracks[0]?.index || 1;
 }
 
 function errorText(error) {
@@ -609,6 +627,7 @@ export function initApp({
   const passModeSelect = requiredElement(doc, 'pass-mode');
   const snapInput = requiredElement(doc, 'snap-distance');
   const snapSlider = requiredElement(doc, 'snap-slider');
+  const snapField = requiredElement(doc, 'snap-field');
   const maxPointsInput = optionalElement(doc, 'max-points');
   const startTimeInput = optionalElement(doc, 'start-time');
   const strictModeCheckbox = optionalElement(doc, 'strict-mode');
@@ -634,6 +653,8 @@ export function initApp({
   const mapElement = requiredElement(doc, 'route-map');
   const mapFallback = requiredElement(doc, 'map-fallback');
   const waypointTableBody = requiredElement(doc, 'waypoint-table-body');
+  const waypointTableWrap = optionalElement(doc, 'waypoint-table-wrap');
+  const trackList = requiredElement(doc, 'track-list');
 
   let source = null;
   let requestVersion = 0;
@@ -641,17 +662,40 @@ export function initApp({
   let modulePromise = null;
   let downloadUrls = [];
   let dragDepth = 0;
-  let routeMap = null;
-  let routeLayers = null;
-  let mappedSource = null;
+  const mapInstances = new Map(); // Leaflet map container element -> { map, layers }
+  const mappedSourceByElement = new Map(); // container element -> loadedSource it was fitted
+  const trackStates = new Map(); // GPX track index -> per-track card state
+  let waypointFocusTrack = null; // track index whose card owns the focused waypoint toggle
   let defaultMapRules = null;
   let defaultMapPromise = null;
   let defaultMapPinned = false;
   let suppressDefaultMapFocusOpen = false;
   // Per-waypoint decisions keyed by the waypoint index reported by WASM:
-  // 0 = follow --snap, 1 = force snap, 2 = force skip. Reset per GPX file.
-  let waypointOverrides = [];
+  // 0 = follow --snap, 1 = force snap, 2 = force skip. Scoped per track in
+  // unstitched multi-track mode (key = original GPX track index) and key 0 for
+  // stitched/single-track mode. Reset per GPX file.
+  const waypointOverridesByTrack = new Map();
   let focusWaypointIndex = null;
+
+  function trackOverrideKey(trackIndex, stitched) {
+    return !stitched && trackIndex > 0 ? trackIndex : 0;
+  }
+
+  function getWaypointOverrides(trackIndex, stitched = true) {
+    const key = trackOverrideKey(trackIndex, stitched);
+    let overrides = waypointOverridesByTrack.get(key);
+    if (!overrides) {
+      overrides = [];
+      waypointOverridesByTrack.set(key, overrides);
+    }
+    return overrides;
+  }
+
+  function resetWaypointOverrides() {
+    waypointOverridesByTrack.clear();
+    focusWaypointIndex = null;
+    waypointFocusTrack = null;
+  }
 
   function clearConvertTimer() {
     if (convertTimer !== null) {
@@ -672,18 +716,23 @@ export function initApp({
     downloadUrls = [];
   }
 
-  /** Offer one blob URL per FIT course; older markup falls back to one link. */
-  function addDownload(fit, fileName, label, primary = false) {
+  function createDownload(fit, fileName, label) {
     const blob = new Blob([fit], { type: 'application/octet-stream' });
     const url = win.URL.createObjectURL(blob);
     downloadUrls.push(url);
+    const link = doc.createElement('a');
+    link.className = 'button primary download-button';
+    link.href = url;
+    link.download = fileName;
+    link.textContent = label;
+    return { url, link };
+  }
+
+  /** Offer one blob URL per FIT course; older markup falls back to one link. */
+  function addDownload(fit, fileName, label, primary = false) {
+    const { url, link } = createDownload(fit, fileName, label);
 
     if (!primary && downloadList) {
-      const link = doc.createElement('a');
-      link.className = 'button secondary download-button';
-      link.href = url;
-      link.download = fileName;
-      link.textContent = label;
       downloadList.append(link);
       downloadList.hidden = false;
       return;
@@ -693,6 +742,13 @@ export function initApp({
     downloadLink.download = fileName;
     downloadLink.textContent = label;
     downloadLink.hidden = false;
+  }
+
+  /** Attach a per-track download button to a track card. */
+  function appendCardDownload(card, fit, fileName, label) {
+    const { url, link } = createDownload(fit, fileName, label);
+    card.append(link);
+    return { url, link };
   }
 
   function invalidateOutput() {
@@ -791,7 +847,7 @@ export function initApp({
     }
   }
 
-  function readOptions() {
+  function readOptions(trackIndex = 0, stitched = stitchCheckbox ? Boolean(stitchCheckbox.checked) : true) {
     const activity = ACTIVITIES[activitySelect.value];
     if (!activity) throw new Error('Choose a valid activity type.');
 
@@ -826,6 +882,7 @@ export function initApp({
     const strict = strictModeCheckbox?.checked ? 1 : 0;
     const stitch = stitchCheckbox ? Boolean(stitchCheckbox.checked) : true;
     const mapText = mapRulesInput ? validateMapRules(mapRulesInput.value) : '';
+    const overrideSource = getWaypointOverrides(trackIndex, stitched);
 
     return {
       courseName: courseNameInput.value.trim(),
@@ -839,7 +896,7 @@ export function initApp({
       maxPoints,
       strict,
       stitch,
-      overrides: Array.from(waypointOverrides, (code) =>
+      overrides: Array.from(overrideSource, (code) =>
         code === WAYPOINT_OVERRIDE_FORCE_SNAP || code === WAYPOINT_OVERRIDE_FORCE_SKIP
           ? code : 0),
     };
@@ -899,7 +956,11 @@ export function initApp({
     }
   }
 
-  function renderWaypointTable(metadata) {
+  function renderWaypointTable(metadata, context = {}) {
+    const body = context.body || waypointTableBody;
+    const stitched = context.stitched !== undefined ? Boolean(context.stitched) : true;
+    const trackIndex = Number.isInteger(context.trackIndex) ? context.trackIndex : 0;
+    const overrides = context.overrides || getWaypointOverrides(trackIndex, stitched);
     const snapped = Array.isArray(metadata.course_points_list) ? metadata.course_points_list : [];
     const skipped = Array.isArray(metadata.skipped_waypoints_list) ? metadata.skipped_waypoints_list : [];
     const points = [
@@ -911,9 +972,9 @@ export function initApp({
         .map((status) => [Number(status.index), status]),
     );
 
-    waypointTableBody.replaceChildren();
-    const focusAfterRender = focusWaypointIndex;
-    focusWaypointIndex = null;
+    body.replaceChildren();
+    const focusAfterRender = context.focusIndex !== undefined ? context.focusIndex : focusWaypointIndex;
+    if (context.focusIndex === undefined) focusWaypointIndex = null;
     let focusTarget = null;
     if (!points.length) {
       const row = doc.createElement('tr');
@@ -922,7 +983,7 @@ export function initApp({
       cell.className = 'empty-waypoints';
       cell.textContent = 'No waypoints in this GPX route.';
       row.append(cell);
-      waypointTableBody.append(row);
+      body.append(row);
       return;
     }
 
@@ -958,11 +1019,17 @@ export function initApp({
       badge.title = status === 'snapped' ? 'Click to force Skip' : 'Click to force Snap';
       badge.addEventListener('click', () => {
         if (!Number.isInteger(index) || index < 0) return;
-        waypointOverrides[index] = status === 'snapped'
+        overrides[index] = status === 'snapped'
           ? WAYPOINT_OVERRIDE_FORCE_SKIP
           : WAYPOINT_OVERRIDE_FORCE_SNAP;
         focusWaypointIndex = index;
-        requestConversion({ immediate: true });
+        waypointFocusTrack = !stitched && trackIndex > 0 ? trackIndex : null;
+        const focusedCard = waypointFocusTrack !== null ? trackStates.get(waypointFocusTrack) : null;
+        requestConversion({
+          immediate: true,
+          track: waypointFocusTrack || undefined,
+          snap: focusedCard ? Number(focusedCard.snapSlider.value) : undefined,
+        });
       });
       state.append(badge);
       row.append(state);
@@ -986,7 +1053,7 @@ export function initApp({
       typeIcon.textContent = type.icon;
       iconType.append(typeIcon, doc.createTextNode(type.label));
       row.append(iconType);
-      waypointTableBody.append(row);
+      body.append(row);
     }
 
     if (focusTarget && typeof focusTarget.focus === 'function') focusTarget.focus();
@@ -1010,26 +1077,47 @@ export function initApp({
     return popup;
   }
 
-  function renderRouteMap(metadata, loadedSource) {
+  function getMapInstance(element) {
+    let instance = mapInstances.get(element);
+    if (!instance) {
+      const map = leaflet.map(element, { scrollWheelZoom: false });
+      leaflet.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19,
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+      }).addTo(map);
+      const layers = leaflet.layerGroup().addTo(map);
+      instance = { map, layers };
+      mapInstances.set(element, instance);
+    }
+    return instance;
+  }
+
+  function releaseMapInstance(element) {
+    const instance = mapInstances.get(element);
+    if (!instance) return;
+    try {
+      if (typeof instance.map.remove === 'function') instance.map.remove();
+    } catch {
+      // Destroying a stale map instance must not fail the render.
+    }
+    mapInstances.delete(element);
+  }
+
+  function renderRouteMap(metadata, loadedSource, element) {
+    const container = element || mapElement;
     if (!leaflet) {
-      mapElement.hidden = true;
+      container.hidden = true;
       mapFallback.hidden = false;
       return;
     }
 
     try {
-      mapElement.hidden = false;
+      container.hidden = false;
       mapFallback.hidden = true;
-      if (!routeMap) {
-        routeMap = leaflet.map(mapElement, { scrollWheelZoom: false });
-        leaflet.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-          maxZoom: 19,
-          attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-        }).addTo(routeMap);
-        routeLayers = leaflet.layerGroup().addTo(routeMap);
-      }
-      routeLayers.clearLayers();
-      routeMap.invalidateSize({ pan: false });
+      const instance = getMapInstance(container);
+      const layers = instance.layers;
+      layers.clearLayers();
+      instance.map.invalidateSize({ pan: false });
 
       const rawTrack = (Array.isArray(metadata.track_points_list) ? metadata.track_points_list : [])
         .map(pointCoordinates)
@@ -1044,7 +1132,7 @@ export function initApp({
           color: '#205c43',
           weight: 4,
           opacity: 0.85,
-        }).addTo(routeLayers);
+        }).addTo(layers);
         bounds.extend(line.getBounds());
       }
 
@@ -1066,19 +1154,19 @@ export function initApp({
           riseOnHover: true,
           title: `${name} — ${type.label}${isSkipped ? ' (skipped)' : ''}`,
           alt: `${name}, ${type.label}${isSkipped ? ', skipped' : ''}`,
-        }).addTo(routeLayers);
+        }).addTo(layers);
         marker.bindPopup(waypointPopup(point, isSkipped));
         bounds.extend(coordinates);
       };
       snapped.forEach((point) => addMarker(point, false));
       skipped.forEach((point) => addMarker(point, true));
 
-      if (mappedSource !== loadedSource && bounds.isValid()) {
-        routeMap.fitBounds(bounds, { padding: [20, 20], maxZoom: 16, animate: false });
+      if ((mappedSourceByElement.get(container) || null) !== loadedSource && bounds.isValid()) {
+        instance.map.fitBounds(bounds, { padding: [20, 20], maxZoom: 16, animate: false });
       }
-      mappedSource = loadedSource;
+      mappedSourceByElement.set(container, loadedSource);
     } catch {
-      mapElement.hidden = true;
+      container.hidden = true;
       mapFallback.hidden = false;
     }
   }
@@ -1099,8 +1187,16 @@ export function initApp({
     warnings.hidden = !warningText;
     warningStatus.textContent = warningText;
     results.hidden = false;
-    renderWaypointTable(metadata);
-    renderRouteMap(metadata, loadedSource);
+    waypointFocusTrack = null;
+    if (waypointTableWrap) waypointTableWrap.hidden = false;
+    renderWaypointTable(metadata, {
+      body: waypointTableBody,
+      stitched: true,
+      trackIndex: 0,
+      overrides: getWaypointOverrides(0, true),
+      focusIndex: focusWaypointIndex,
+    });
+    renderRouteMap(metadata, loadedSource, mapElement);
 
     const fileName = display.fileName
       || fitFileName(options.courseName || metadata.course_name, loadedSource.name);
@@ -1111,14 +1207,206 @@ export function initApp({
       || `${loadedSource.name} converted successfully. Your FIT course is ready.`, 'success');
   }
 
-  async function runConversion(version, loadedSource) {
-    clearConvertTimer();
-    invalidateOutput();
-    clearError();
+  function buildTrackCard(track, output, fileName) {
+    const card = doc.createElement('div');
+    card.className = 'track-card';
+    card.dataset.trackIndex = String(track.index);
 
-    let options;
+    const header = doc.createElement('div');
+    header.className = 'track-card-header';
+    const title = doc.createElement('h3');
+    title.className = 'track-card-title';
+    title.textContent = track.name || `Track ${track.index}`;
+    const stats = doc.createElement('p');
+    stats.className = 'track-card-stats';
+    const meta = output.metadata;
+    stats.textContent = `${(meta.distance_m / 1000).toFixed(2)} km · ↑ ${Math.round(meta.ascent_m)} m · ↓ ${Math.round(meta.descent_m)} m`;
+    header.append(title, stats);
+
+    const snapField = doc.createElement('div');
+    snapField.className = 'field full-width track-snap-field';
+    const snapLabel = doc.createElement('label');
+    snapLabel.setAttribute('for', `track-snap-${track.index}`);
+    snapLabel.textContent = 'Snap distance (m)';
+    const snapControl = doc.createElement('div');
+    snapControl.className = 'snap-control';
+    const slider = doc.createElement('input');
+    slider.type = 'range';
+    slider.className = 'track-snap-slider';
+    slider.id = `track-snap-slider-${track.index}`;
+    slider.dataset.trackIndex = String(track.index);
+    slider.min = '0';
+    slider.max = '1000';
+    slider.step = '1';
+    slider.value = String(output.options ? output.options.snap : 0);
+    const numberWrap = doc.createElement('div');
+    numberWrap.className = 'snap-number';
+    const numberInput = doc.createElement('input');
+    numberInput.type = 'number';
+    numberInput.className = 'track-snap-number';
+    numberInput.id = `track-snap-${track.index}`;
+    numberInput.dataset.trackIndex = String(track.index);
+    numberInput.min = '0';
+    numberInput.max = '1000';
+    numberInput.step = '1';
+    numberInput.value = String(output.options ? output.options.snap : 0);
+    const unit = doc.createElement('span');
+    unit.setAttribute('aria-hidden', 'true');
+    unit.textContent = 'm';
+    numberWrap.append(numberInput, unit);
+    slider.addEventListener('input', () => {
+      numberInput.value = slider.value;
+      requestConversion({ immediate: true, track: track.index, snap: Number(slider.value) });
+    });
+    slider.addEventListener('change', () => {
+      numberInput.value = slider.value;
+      requestConversion({ immediate: true, track: track.index, snap: Number(slider.value) });
+    });
+    numberInput.addEventListener('input', () => {
+      const value = Number(numberInput.value);
+      if (Number.isInteger(value) && value >= 0 && value <= 1000) {
+        slider.value = String(value);
+        requestConversion({ immediate: false, track: track.index, snap: value });
+      }
+    });
+    numberInput.addEventListener('change', () => {
+      const value = Number(numberInput.value);
+      if (Number.isInteger(value) && value >= 0 && value <= 1000) {
+        slider.value = String(value);
+        requestConversion({ immediate: true, track: track.index, snap: value });
+      }
+    });
+    snapControl.append(slider, numberWrap);
+    snapField.append(snapLabel, snapControl);
+
+    const mapForCard = doc.createElement('div');
+    mapForCard.className = 'route-map track-map';
+    mapForCard.dataset.trackIndex = String(track.index);
+
+    const tableWrap = doc.createElement('div');
+    tableWrap.className = 'waypoint-table-wrap';
+    const table = doc.createElement('table');
+    table.className = 'waypoint-table';
+    const caption = doc.createElement('caption');
+    caption.textContent = 'Waypoints snapped to this track, with their offset.';
+    const thead = doc.createElement('thead');
+    const headRow = doc.createElement('tr');
+    for (const heading of ['Waypoint', 'Status', 'Distance (km)', 'Offset (m)', 'Icon type']) {
+      const th = doc.createElement('th');
+      th.scope = 'col';
+      th.textContent = heading;
+      headRow.append(th);
+    }
+    thead.append(headRow);
+    const tbody = doc.createElement('tbody');
+    table.append(caption, thead, tbody);
+    tableWrap.append(table);
+
+    const download = doc.createElement('a');
+    download.className = 'button primary download-button';
+    download.textContent = `Download ${fileName}`;
+
+    card.append(header, snapField, mapForCard, tableWrap, download);
+
+    return {
+      element: card,
+      track,
+      output,
+      fileName,
+      snap: output.options ? output.options.snap : 0,
+      snapSlider: slider,
+      snapNumber: numberInput,
+      mapElement: mapForCard,
+      tbody,
+      download,
+      label: track.name || `Track ${track.index}`,
+    };
+  }
+
+  function renderTrackCards(outputs, loadedSource) {
+    for (const state of [...trackStates.values()]) releaseMapInstance(state.mapElement);
+    trackStates.clear();
+    if (waypointTableWrap) waypointTableWrap.hidden = true;
+    mapElement.hidden = true;
+    mapFallback.hidden = true;
+    trackList.replaceChildren();
+    for (const item of outputs) {
+      const state = buildTrackCard(item.track, item.output, item.fileName);
+      trackStates.set(item.track.index, state);
+      trackList.append(state.element);
+      renderTrackCardResult(item.track.index, item.output, item.options, loadedSource, state);
+    }
+    trackList.hidden = false;
+    results.hidden = false;
+    const allWarnings = outputs.flatMap(({ output, label }) =>
+      (Array.isArray(output.metadata.warnings) ? output.metadata.warnings : [])
+        .map((warning) => `${label}: ${String(warning).trim()}`));
+    const warningText = allWarnings.filter(Boolean).join('\n');
+    warnings.textContent = warningText;
+    warnings.hidden = !warningText;
+    warningStatus.textContent = warningText;
+    setStatus(`${loadedSource.name}: ${outputs.length} FIT courses are ready.`, 'success');
+  }
+
+  function renderTrackCardResult(trackIndex, output, options, loadedSource, state) {
+    const cardState = state || trackStates.get(trackIndex);
+    if (!cardState) {
+      showResults(output, options, loadedSource);
+      return;
+    }
+    cardState.output = output;
+    if (cardState.snapSlider) cardState.snapSlider.value = String(options.snap);
+    if (cardState.snapNumber) cardState.snapNumber.value = String(options.snap);
+    const metadata = output.metadata || output;
+    renderRouteMap(metadata, loadedSource, cardState.mapElement);
+    renderWaypointTable(metadata, {
+      body: cardState.tbody,
+      stitched: false,
+      overrides: getWaypointOverrides(trackIndex, false),
+      focusIndex: waypointFocusTrack === trackIndex ? focusWaypointIndex : undefined,
+      trackIndex,
+    });
+    // Canonical per-track download is the card button. Update it in place and
+    // revoke the previous blob URL so per-track reconversion never leaves stale FITs.
+    if (cardState.downloadUrl) {
+      try { win.URL.revokeObjectURL(cardState.downloadUrl); } catch {}
+      downloadUrls = downloadUrls.filter((u) => u !== cardState.downloadUrl);
+    }
+    const blob = new Blob([output.fit], { type: 'application/octet-stream' });
+    const url = win.URL.createObjectURL(blob);
+    downloadUrls.push(url);
+    cardState.downloadUrl = url;
+    if (cardState.download) {
+      cardState.download.href = url;
+      cardState.download.download = cardState.fileName;
+      cardState.download.textContent = `Download ${cardState.fileName}`;
+    } else {
+      const link = doc.createElement('a');
+      link.className = 'button primary download-button';
+      link.href = url;
+      link.download = cardState.fileName;
+      link.textContent = `Download ${cardState.fileName}`;
+      cardState.download = link;
+      cardState.element.append(link);
+    }
+  }
+
+  async function runConversion(version, loadedSource, trackOverride, snapOverride) {
+    clearConvertTimer();
+    const perTrackUpdate = trackOverride !== undefined && trackOverride !== null && trackStates.has(trackOverride);
+    if (!perTrackUpdate) {
+      invalidateOutput();
+    } else {
+      clearError();
+    }
+
+    let baseOptions;
     try {
-      options = readOptions();
+      const stitched = stitchCheckbox ? Boolean(stitchCheckbox.checked) : true;
+      baseOptions = readOptions(
+        trackOverride !== undefined && trackOverride !== null ? trackOverride : 0,
+        trackOverride !== undefined && trackOverride !== null ? false : stitched,
+      );
     } catch (error) {
       showError(errorText(error));
       return;
@@ -1132,7 +1420,7 @@ export function initApp({
     }
 
     let gpxXml = loadedSource.xml;
-    if (options.stitch && tracks.length > 1 && !gpxHasStartWaypoint(gpxXml)) {
+    if (baseOptions.stitch && tracks.length > 1 && !gpxHasStartWaypoint(gpxXml)) {
       if (!loadedSource.startTrack) {
         loadedSource.startTrack = chooseFirstTrack(tracks, promptImpl, loadedSource.name);
       }
@@ -1141,50 +1429,81 @@ export function initApp({
       gpxXml = reorderGpxTracks(gpxXml, loadedSource.startTrack);
     }
 
-    setStatus(`Converting ${loadedSource.name} locally…`, 'busy');
+    // Unstitched multi-track runs own snap controls per track card instead of
+    // the single course-level control.
+    if (snapField) snapField.hidden = Boolean(!baseOptions.stitch && tracks.length > 1);
+
+    const effective = (trackOverride === undefined || trackOverride === null)
+      ? { ...baseOptions, track: 0 }
+      : {
+        ...baseOptions,
+        stitch: false,
+        track: trackOverride,
+        snap: snapOverride ?? (trackStates.get(trackOverride)?.snap ?? baseOptions.snap),
+        overrides: Array.from(getWaypointOverrides(trackOverride, false), (code) =>
+          code === WAYPOINT_OVERRIDE_FORCE_SNAP || code === WAYPOINT_OVERRIDE_FORCE_SKIP ? code : 0),
+      };
+
+    setStatus(
+      perTrackUpdate ? `Updating ${loadedSource.name} track…` : `Converting ${loadedSource.name} locally…`,
+      'busy',
+    );
     try {
       const wasm = await getModule();
       if (version !== requestVersion || loadedSource !== source) return;
 
-      if (!options.stitch && tracks.length > 1) {
+      if (trackOverride !== undefined && trackOverride !== null) {
+        const output = convert(wasm, gpxXml, effective);
+        if (version !== requestVersion || loadedSource !== source) return;
+        renderTrackCardResult(trackOverride, output, effective, loadedSource);
+        setStatus(`${loadedSource.name}: track updated.`, 'success');
+        return;
+      }
+
+      if (!baseOptions.stitch && tracks.length > 1) {
         const outputs = [];
         for (const track of tracks) {
           const label = track.name || `Track ${track.index}`;
+          const trackState = trackStates.get(track.index);
           const splitOptions = {
-            ...options,
+            ...readOptions(track.index, false),
             stitch: false,
             track: track.index,
-            // This table shows only the first track's waypoints; its overrides
-            // must not silently affect the other FIT downloads.
-            overrides: track.index === tracks[0].index ? options.overrides : [],
-            courseName: options.courseName ? `${options.courseName} ${label}`.trim() : '',
+            snap: trackState ? Number(trackState.snapSlider.value) : baseOptions.snap,
+            overrides: Array.from(getWaypointOverrides(track.index, false), (code) =>
+              code === WAYPOINT_OVERRIDE_FORCE_SNAP || code === WAYPOINT_OVERRIDE_FORCE_SKIP ? code : 0),
+            courseName: baseOptions.courseName ? `${baseOptions.courseName} ${label}`.trim() : '',
           };
-          const output = convert(wasm, loadedSource.xml, splitOptions);
+          const trackOutput = convert(wasm, gpxXml, splitOptions);
           if (version !== requestVersion || loadedSource !== source) return;
           outputs.push({
-            output,
+            output: trackOutput,
             options: splitOptions,
             fileName: fitFileName(splitOptions.courseName, `${label}.gpx`),
             label,
+            track,
           });
         }
-        const allWarnings = outputs.flatMap(({ output, label }) =>
-          (Array.isArray(output.metadata.warnings) ? output.metadata.warnings : [])
-            .map((warning) => `${label}: ${String(warning).trim()}`));
-        showResults(outputs[0].output, outputs[0].options, loadedSource, {
-          primary: false,
-          fileName: outputs[0].fileName,
-          label: `Download ${outputs[0].fileName}`,
-          warnings: allWarnings.join('\n'),
-          status: `${loadedSource.name}: ${outputs.length} FIT courses are ready.`,
-        });
-        for (const item of outputs.slice(1))
-          addDownload(item.output.fit, item.fileName, `Download ${item.fileName}`);
+        if (downloadList) {
+          downloadList.hidden = true;
+          downloadList.replaceChildren();
+        }
+        downloadLink.hidden = true;
+        downloadLink.removeAttribute('href');
+        downloadLink.removeAttribute('download');
+        renderTrackCards(outputs, loadedSource);
       } else {
-        const singleOptions = { ...options, track: 0 };
-        const output = convert(wasm, gpxXml, singleOptions);
+        // Stitched/single-track: clean up per-track maps.
+        for (const state of [...trackStates.values()]) releaseMapInstance(state.mapElement);
+        trackStates.clear();
+        trackList.hidden = true;
+        trackList.replaceChildren();
+        if (waypointTableWrap) waypointTableWrap.hidden = false;
+        mapElement.hidden = false;
+
+        const output = convert(wasm, gpxXml, effective);
         if (version !== requestVersion || loadedSource !== source) return;
-        showResults(output, singleOptions, loadedSource);
+        showResults(output, effective, loadedSource);
       }
     } catch (error) {
       if (version !== requestVersion || loadedSource !== source) return;
@@ -1193,27 +1512,41 @@ export function initApp({
     }
   }
 
-  function requestConversion({ immediate = false } = {}) {
+  function requestConversion({ immediate = false, track = undefined, snap = undefined } = {}) {
     if (!source) return;
     const version = ++requestVersion;
     const loadedSource = source;
-    invalidateOutput();
-    clearError();
-    setStatus('Applying course settings…', 'busy');
-    if (immediate) {
-      void runConversion(version, loadedSource);
+    const perTrackUpdate = track !== undefined && track !== null && trackStates.has(track);
+    if (!perTrackUpdate) {
+      invalidateOutput();
+      clearError();
     } else {
-      convertTimer = win.setTimeout(() => {
-        void runConversion(version, loadedSource);
-      }, CONVERT_DELAY_MS);
+      clearConvertTimer();
+      clearError();
+      // Keep existing cards/maps visible while one track recomputes.
+      results.hidden = false;
+      trackList.hidden = false;
+    }
+    setStatus(perTrackUpdate ? 'Updating track…' : 'Applying course settings…', 'busy');
+    const run = () => runConversion(version, loadedSource, track, snap);
+    if (immediate) {
+      void run();
+    } else {
+      convertTimer = win.setTimeout(run, CONVERT_DELAY_MS);
     }
   }
 
   async function loadSource(loader, name) {
     const version = ++requestVersion;
     source = null;
-    waypointOverrides = [];
-    focusWaypointIndex = null;
+    resetWaypointOverrides();
+    for (const state of [...trackStates.values()]) releaseMapInstance(state.mapElement);
+    trackStates.clear();
+    trackList.hidden = true;
+    trackList.replaceChildren();
+    if (waypointTableWrap) waypointTableWrap.hidden = false;
+    mapElement.hidden = false;
+    mapFallback.hidden = true;
     invalidateOutput();
     clearError();
     sourceNameElement.textContent = name;
@@ -1244,7 +1577,7 @@ export function initApp({
     if (!validGpxFile(file)) {
       ++requestVersion;
       source = null;
-      waypointOverrides = [];
+      resetWaypointOverrides();
       invalidateOutput();
       sourceNameElement.textContent = 'No route loaded';
       showError('Choose a file with a .gpx extension.');
@@ -1253,7 +1586,7 @@ export function initApp({
     if (typeof file.text !== 'function') {
       ++requestVersion;
       source = null;
-      waypointOverrides = [];
+      resetWaypointOverrides();
       invalidateOutput();
       sourceNameElement.textContent = 'No route loaded';
       showError('This browser cannot read the selected file. Try a current browser.');
@@ -1302,7 +1635,7 @@ export function initApp({
     if (!files || files.length !== 1) {
       ++requestVersion;
       source = null;
-      waypointOverrides = [];
+      resetWaypointOverrides();
       invalidateOutput();
       sourceNameElement.textContent = 'No route loaded';
       showError('Drop exactly one GPX file.');
