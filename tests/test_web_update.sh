@@ -29,6 +29,9 @@ INDEX="$ROOT/web/index.html"
 SW="$ROOT/web/sw.js"
 VERSION="$ROOT/web/version.json"
 APP="$ROOT/web/app.js"
+CSS="$ROOT/web/style.css"
+# The canonical version comes from the same source as `gpx2fit --version`.
+PROJECT_VERSION=$(make -s -C "$ROOT" version)
 
 expect "version.json is valid JSON with a build id" \
     test -n "$(json_field "$VERSION" build_id)"
@@ -69,10 +72,18 @@ expect "pass mode selector exposes --pass both" \
 expect "web app accepts the both pass mode" \
     grep -Fq "new Set(['nearest', 'ordered', 'first', 'last', 'both'])" "$APP"
 
+expect "footer renders the canonical version label" \
+    grep -Fq "<span id=\"gpx2fit-version\" class=\"version-label\">$PROJECT_VERSION</span>" "$INDEX"
+expect "version label sits at the bottom of the page" \
+    bash -c "awk '/<footer>/,/<\/footer>/' '$INDEX' | grep -Fq 'id=\"gpx2fit-version\"'"
+expect "version label is styled small and muted for desktop and mobile" \
+    bash -c "grep -Fq '.version-label {' '$CSS' && awk '/@media \(max-width: 36rem\)/,0' '$CSS' | grep -Fq '.version-label {'"
+
 # Stamping must work from a copy, without dirtying the checked-in web files.
 before=$(cksum "$VERSION" "$SW" "$INDEX")
-mkdir -p "$TMP/web"
+mkdir -p "$TMP/web" "$TMP/src"
 cp "$ROOT/Makefile" "$TMP/"
+cp "$ROOT/src/version.h" "$TMP/src/"
 cp "$VERSION" "$SW" "$INDEX" "$TMP/web/"
 
 stamp() {
@@ -91,6 +102,8 @@ expect "stamp updates worker build id and cache name" \
     bash -c "grep -Fq \"const BUILD_ID = 'stamp-one';\" '$TMP/web/sw.js' && grep -Fq \"const CACHE_NAME = 'gpx2fit-stamp-one';\" '$TMP/web/sw.js'"
 expect "stamp updates the page build id" \
     grep -Fq 'content="stamp-one"' "$TMP/web/index.html"
+expect "stamp keeps the footer version from src/version.h" \
+    grep -Fq "<span id=\"gpx2fit-version\" class=\"version-label\">$PROJECT_VERSION</span>" "$TMP/web/index.html"
 
 if stamp stamp-two abc124 20260101T000001Z; then
     echo "ok   - a second stamp with new sha/timestamp produces a new id"
@@ -111,8 +124,9 @@ expect "rejected stamp leaves files untouched" \
 # Regression: $(shell date ...) must be evaluated once per make invocation.
 # A clock that changes on every lookup would otherwise stamp three different
 # ids into the three artifacts (recursive ?= expansion).
-mkdir -p "$TMP/vary/bin" "$TMP/vary/web"
+mkdir -p "$TMP/vary/bin" "$TMP/vary/web" "$TMP/vary/src"
 cp "$ROOT/Makefile" "$TMP/vary/"
+cp "$ROOT/src/version.h" "$TMP/vary/src/"
 cp "$VERSION" "$SW" "$INDEX" "$TMP/vary/web/"
 cat >"$TMP/vary/bin/date" <<'EOF'
 #!/bin/sh
@@ -136,6 +150,19 @@ expect "varying clock keeps worker cache name in sync" \
     grep -Fq "const CACHE_NAME = 'gpx2fit-$vary_id';" "$TMP/vary/web/sw.js"
 expect "varying clock keeps page meta in sync" \
     grep -Fq "content=\"$vary_id\"" "$TMP/vary/web/index.html"
+
+# The footer version must follow the canonical header, not a hardcoded copy.
+mkdir -p "$TMP/ver/web" "$TMP/ver/src"
+cp "$ROOT/Makefile" "$TMP/ver/"
+printf '#define GPX2FIT_VERSION "v9.8.7"\n' > "$TMP/ver/src/version.h"
+cp "$VERSION" "$SW" "$INDEX" "$TMP/ver/web/"
+if make -C "$TMP/ver" -f Makefile web-version WEB_BUILD_ID=ver-test >"$TMP/ver.log" 2>&1; then
+    echo "ok   - stamping reads the version from src/version.h"
+else
+    echo "FAIL - stamping reads the version from src/version.h"; cat "$TMP/ver.log"; fail=1
+fi
+expect "footer version follows src/version.h" \
+    grep -Fq '<span id="gpx2fit-version" class="version-label">v9.8.7</span>' "$TMP/ver/web/index.html"
 
 after=$(cksum "$VERSION" "$SW" "$INDEX")
 expect "test did not modify the checked-in web files" test "$before" = "$after"

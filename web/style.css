@@ -816,6 +816,20 @@ footer {
   background: #59916e;
 }
 
+/* Stamped by `make web-version` from src/version.h. Keep it inline and tiny so
+ * the footer grows by a single short line at most and no controls move. */
+.version-label {
+  flex: none;
+  margin-left: 0.2rem;
+  padding-left: 0.6rem;
+  border-left: 1px solid var(--border);
+  color: #89948b;
+  font-size: 0.68rem;
+  line-height: 1.2;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
 .notice {
   padding: 1rem;
   border-radius: 0.5rem;
@@ -954,6 +968,18 @@ footer {
 
   .route-map {
     height: 18rem;
+  }
+
+  footer {
+    flex-wrap: wrap;
+    row-gap: 0.15rem;
+  }
+
+  .version-label {
+    margin-left: 0;
+    padding-left: 0;
+    border-left: 0;
+    font-size: 0.65rem;
   }
 }
 

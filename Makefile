@@ -121,7 +121,9 @@ $(WEB_SAMPLE): $(REFERENCE_GPX)
 # `make wasm` and `make clean` never rewrite the tracked web files. Run
 # `make web-version` before deploying the bundle (e.g. in the Pages workflow),
 # after `make wasm`. The same build id goes into web/version.json, web/sw.js
-# (both BUILD_ID and CACHE_NAME) and the meta tag in web/index.html.
+# (both BUILD_ID and CACHE_NAME) and the meta tag in web/index.html. That step
+# also stamps the footer version label from VERSION (src/version.h), so the web
+# UI always shows the same release as `gpx2fit --version`.
 # Override WEB_BUILD_ID / WEB_SHA / WEB_BUILD_TIME for reproducible builds.
 # Use simple (immediately expanded) variables: $(shell ...) must run exactly
 # once, otherwise a build that crosses a second boundary can stamp three
@@ -140,6 +142,7 @@ web-version:
 	@case '$(WEB_BUILD_ID)' in \
 	  ''|*[!A-Za-z0-9._-]*) echo "web-version: invalid WEB_BUILD_ID '$(WEB_BUILD_ID)'" >&2; exit 1;; \
 	esac
+	@test -n '$(VERSION)' || { echo "web-version: cannot read GPX2FIT_VERSION from src/version.h" >&2; exit 1; }
 	@printf '{\n  "build_id": "%s",\n  "sha": "%s",\n  "built_at": "%s"\n}\n' \
 	    '$(WEB_BUILD_ID)' '$(WEB_SHA)' '$(WEB_BUILD_TIME)' > web/version.json.tmp
 	@mv web/version.json.tmp web/version.json
@@ -148,6 +151,7 @@ web-version:
 	     web/sw.js > web/sw.js.tmp
 	@mv web/sw.js.tmp web/sw.js
 	@sed -e 's|\(<meta id="gpx2fit-build" name="gpx2fit-build" content="\)[^"]*\("\)|\1$(WEB_BUILD_ID)\2|' \
+	     -e 's|\(<span id="gpx2fit-version" class="version-label">\)[^<]*\(</span>\)|\1$(VERSION)\2|' \
 	     web/index.html > web/index.html.tmp
 	@mv web/index.html.tmp web/index.html
 	@echo "Stamped web build $(WEB_BUILD_ID) (sha $(WEB_SHA), built_at $(WEB_BUILD_TIME))"

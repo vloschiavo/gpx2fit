@@ -36,6 +36,21 @@ assert.match(
 assert.ok(html.includes(`id="update-message">${UPDATE_MESSAGE}</p>`));
 assert.match(html, /<button[^>]*id="update-reload"[^>]*>Reload<\/button>/);
 
+/* The footer carries a compact version label rendered from the checked-in
+ * markup (stamped by `make web-version`), so it never appears after a fetch. */
+const footerStart = html.indexOf('<footer>');
+const footerEnd = html.indexOf('</footer>', footerStart);
+const versionLabel = html.match(
+  /<span id="gpx2fit-version" class="version-label">([^<]+)<\/span>/,
+);
+assert.ok(versionLabel, 'the footer has a version label element');
+assert.ok(
+  footerStart >= 0 && footerEnd > footerStart
+    && versionLabel.index > footerStart && versionLabel.index < footerEnd,
+  'the version label is rendered inside the page footer',
+);
+assert.match(versionLabel[1], /^v\S+$/, 'the version label shows a release version');
+
 class FakeElement {
   constructor(id = '', tagName = 'div') {
     this.id = id;

@@ -36,7 +36,7 @@
 ---
 
 ### T2: Display Small Version Number at the Bottom of the WASM Page
-* [ ] **Render a subtle, non-intrusive version label in the footer of the Web/WASM UI**
+* [x] **Render a subtle, non-intrusive version label in the footer of the Web/WASM UI**
   * **Scope:**
     * Read: `Makefile`, `web/index.html`, `web/app.js`, `web/style.css`, and existing web UI test scripts (`tests/test_web*.mjs`, `tests/test_web*.sh`).
     * Modify: `Makefile` (if build-time version injection/generation is used), `web/index.html`, `web/app.js`, `web/style.css`, and web UI tests.
