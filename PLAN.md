@@ -17,47 +17,6 @@
 
 ## Tasks
 
-### T1: Add Default Map Rules (`creek`, `lake`, `river`, `spring`, `market`)
-- [x] **Add new default keyword mappings to `data/default.map` and verify `shopping` FIT type support**
-  * **Scope:**
-    * Read: `data/default.map`, `symmap.c` (or course-point type lookup table), `README.md`, `tests/`.
-    * Modify: `data/default.map`, `symmap.c` (only if `shopping` is not yet mapped to its Garmin FIT `course_point` enum), `README.md`, `tests/`.
-  * **Implementation Details:**
-    * Append/insert the following rules in `data/default.map` (ensuring no duplicate keywords exist):
-      * `creek = water`
-      * `lake = water`
-      * `river = water`
-      * `spring = water`
-      * `market = shopping`
-    * Confirm `shopping` is recognized as a valid FIT `course_point` type in the C type parser (verify exact FIT SDK enum value if not already present; check `README.md` rule format list as well).
-    * Update `README.md` (`Built-in defaults` and accepted `course_point` type list) to reflect the new rules.
-  * **Verification:** Run `make test` and add unit tests verifying `"Bear Creek"`, `"Mirror Lake"`, `"American River"`, `"Hot Spring"`, and `"Trailhead Market"` resolve to `water` and `shopping` without warnings.
-  * **Acceptance Criteria:**
-    * `creek`, `lake`, `river`, and `spring` map to `water`, and `market` maps to `shopping` in `data/default.map`.
-    * `shopping` encodes cleanly into the `.fit` file (verified with `FitCSVTool.jar` if newly added to the C enum table).
-    * `make test` passes under ASan/UBSan.
-
----
-
-### T2: Clickable Waypoint Status Toggle (Force Snapped vs. Force Skipped)
-- [x] **Allow clicking each waypoint's Status field in the Web UI to toggle `Snapped` vs. `Skipped`, overriding `--snap` distance**
-  * **Scope:**
-    * Read: `course.h`, `snap.c` / `course.c`, WASM C bridge (`wasm.c` / `web/*.c`), `web/index.html`, `web/app.js`, `web/style.css`.
-    * Modify: `course.h` / `snap.c` (if per-waypoint override is passed to C/WASM), WASM C bridge, `web/app.js`, `web/style.css`.
-  * **Implementation Details:**
-    * Track per-waypoint manual overrides in Web UI state (e.g., `auto` | `force_snap` | `force_skip`, keyed by waypoint index/ID, reset when a new GPX file is loaded).
-    * Render the **Status** cell/badge (`Snapped` / `Skipped`) in the waypoint table as an interactive button/clickable pill with clear visual affordance (hover state, cursor pointer, `aria-pressed` or accessible label, and a subtle indicator if manually overridden).
-    * Clicking a `Skipped` waypoint forces it to **Snapped** (projecting it onto the nearest track point regardless of how far beyond `--snap` it lies).
-    * Clicking a `Snapped` waypoint forces it to **Skipped** (excluding it from the preview map course points and the generated `.fit` file).
-    * Pass waypoint override decisions into the WASM conversion call (or filter/force-snap in the C snapping layer via an optional per-waypoint override array/JSON field) so both the live preview map/stats and the downloaded `.fit` file reflect the manual overrides immediately.
-  * **Verification:** Build WASM (`make wasm` if available) and run `make test`; add a unit/WASM test verifying a waypoint > `--snap` meters is included when force-snapped and a waypoint < `--snap` meters is excluded when force-skipped.
-  * **Acceptance Criteria:**
-    * Clicking any waypoint's Status badge toggles it between `Snapped` and `Skipped`, overriding the global/track `--snap` threshold.
-    * Toggling immediately updates the map markers, course point count, and exported `.fit` binary.
-    * Changing `--snap` respects manually overridden waypoints while still updating non-overridden waypoints.
-
----
-
 ### T3: Multi-Track Natural Numerical Sorting & Independent Per-Track Maps, Snap Controls & Waypoint Toggles
 * \[ \] **Sort tracks naturally (`"Day 1"` before `"Day 2"`) and render a separate map, snap distance control, and clickable waypoint list per track when not stitching**
   * **Scope:**
