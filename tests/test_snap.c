@@ -6,6 +6,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "../src/decimate.h"
 #include "../src/snap.h"
 
 static int failures;
@@ -83,7 +84,7 @@ static void make_track(struct course *c, const double (*pts)[2], size_t n)
 static int run(struct course *c, enum snap_mode m, double thr, bool strict,
                struct snap_report *rep)
 {
-    struct snap_options o = { m, thr, true, strict };
+    struct snap_options o = { m, thr, true, strict, NULL };
     return snap_waypoints(c, &o, rep);
 }
 
@@ -93,6 +94,14 @@ static const struct course_pt *find_cp(const struct course *c, const char *name)
         if (strcmp(c->cp[i].name, name) == 0)
             return &c->cp[i];
     return NULL;
+}
+
+static size_t count_cp(const struct course *c, const char *name)
+{
+    size_t n = 0;
+    for (size_t i = 0; i < c->n_cp; i++)
+        n += strcmp(c->cp[i].name, name) == 0;
+    return n;
 }
 
 /* Fixtures (x, y in meters). */
@@ -448,6 +457,106 @@ static void test_modes(void)
     course_free(&c);
 }
 
+/* ---- 4.3b --pass both -------------------------------------------------- */
+
+static void test_both(void)
+{
+    struct course c;
+    struct snap_report rep;
+    enum snap_mode m;
+
+    CHECK(snap_mode_parse("both", &m) == 0 && m == SNAP_BOTH);
+    CHECK(snap_mode_parse("all", &m) == 0 && m == SNAP_BOTH);
+    CHECK(snap_mode_parse("Both", &m) != 0);
+    CHECK(strcmp(snap_mode_name(SNAP_BOTH), "both") == 0);
+
+    /* A waypoint on an out-and-back gets one point per pass, in track order. */
+    make_track(&c, OUTBACK, 5);
+    add_wp(&c, "Aid", 500, 0);
+    CHECK(run(&c, SNAP_BOTH, 250, false, &rep) == SNAP_OK);
+    CHECK(rep.n_snapped == 1 && rep.n_course_points == 2 && rep.n_skipped == 0);
+    CHECK(c.n_cp == 2 && count_cp(&c, "Aid") == 2);
+    if (c.n_cp == 2) {
+        CHECK_NEAR(c.cp[0].dist, 500.0, 0.5);
+        CHECK_NEAR(c.cp[1].dist, 3500.0, 0.5);
+        CHECK(c.cp[1].dist > c.cp[0].dist);
+        CHECK_NEAR(c.cp[0].offset, 0.0, 1e-3);
+        CHECK_NEAR(c.cp[1].offset, 0.0, 1e-3);
+    }
+    {
+        char *buf = NULL;
+        size_t len = 0;
+        FILE *f = open_memstream(&buf, &len);
+
+        CHECK(f != NULL);
+        if (f) {
+            snap_print_summary(f, &c, &rep);
+            fclose(f);
+            CHECK(strstr(buf, "Snapped 1 of 1 waypoints (0 skipped)") != NULL);
+            CHECK(strstr(buf, "Emitted 2 course points") != NULL);
+            free(buf);
+        }
+    }
+
+    /* A waypoint just past the turnaround is within snap of the turn only:
+     * the outbound and inbound projections are one shared vertex, so it is a
+     * single pass even though both legs of the track pass nearby. */
+    add_wp(&c, "Turn Flag", 2000, 160);
+    CHECK(run(&c, SNAP_BOTH, 250, false, &rep) == SNAP_OK);
+    CHECK(rep.n_snapped == 2 && rep.n_course_points == 3 && rep.n_skipped == 0);
+    CHECK(c.n_cp == 3);
+    CHECK(count_cp(&c, "Aid") == 2 && count_cp(&c, "Turn Flag") == 1);
+    if (c.n_cp == 3) {
+        CHECK(strcmp(c.cp[0].name, "Aid") == 0);
+        CHECK(strcmp(c.cp[1].name, "Turn Flag") == 0);
+        CHECK(strcmp(c.cp[2].name, "Aid") == 0);
+        CHECK_NEAR(c.cp[0].dist, 500.0, 0.5);
+        CHECK_NEAR(c.cp[1].dist, 2000.0, 0.5);
+        CHECK_NEAR(c.cp[2].dist, 3500.0, 0.5);
+    }
+    course_free(&c);
+
+    /* A waypoint visited once emits a single course point in both mode. */
+    make_track(&c, STRAIGHT, 4);
+    add_wp(&c, "Solo", 1000, 20);
+    CHECK(run(&c, SNAP_BOTH, 250, false, &rep) == SNAP_OK);
+    CHECK(rep.n_snapped == 1 && rep.n_course_points == 1 && c.n_cp == 1);
+    CHECK_NEAR(find_cp(&c, "Solo")->dist, 1000.0, 0.5);
+    course_free(&c);
+
+    /* Dense out-and-back: adjacent trackpoints in one pass must not create
+     * extra course points; --max-points must keep both passes. */
+    {
+        struct course d;
+        struct decimate_report dr;
+
+        course_init(&d);
+        for (int i = 0; i < 60; i++)
+            add_tp(&d, i * 10.0, 0.0);
+        for (int i = 58; i >= 0; i--)
+            add_tp(&d, i * 10.0, 0.0);
+        course_compute_distances(&d);
+        add_wp(&d, "Dense", 300, 5);
+
+        CHECK(run(&d, SNAP_BOTH, 50, false, &rep) == SNAP_OK);
+        CHECK(rep.n_snapped == 1 && rep.n_course_points == 2 &&
+              rep.n_skipped == 0 && d.n_cp == 2);
+        if (d.n_cp == 2) {
+            CHECK_NEAR(d.cp[0].dist, 300.0, 1.0);
+            CHECK_NEAR(d.cp[1].dist, 880.0, 1.0); /* 590 out, 290 back */
+        }
+        CHECK(course_decimate(&d, 4, &dr) == 0);
+        CHECK(dr.n_required == 4 && !dr.exceeded && d.n_tp == 4);
+        for (size_t k = 0; k < d.n_cp; k++) {
+            bool kept = false;
+            for (size_t i = 0; i < d.n_tp; i++)
+                kept |= fabs(d.tp[i].dist - d.cp[k].dist) < 1.0;
+            CHECK(kept);
+        }
+        course_free(&d);
+    }
+}
+
 /* ---- 4.6 sorting, strict, summary -------------------------------------- */
 
 static void test_sort_strict_summary(void)
@@ -534,6 +643,7 @@ int main(void)
     test_prefilter();
     test_candidates();
     test_modes();
+    test_both();
     test_sort_strict_summary();
     test_duplicates();
 

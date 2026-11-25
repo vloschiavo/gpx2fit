@@ -31,7 +31,9 @@ struct waypoint {
     double lon;  /* longitude, degrees */
 };
 
-/* A waypoint after snapping to the track; becomes a FIT course_point. */
+/* A waypoint after snapping to the track; becomes a FIT course_point. With
+ * --pass both a waypoint visited several times yields one of these per pass,
+ * each with the same name but its own distance along the course. */
 struct course_pt {
     char    *name;   /* heap-allocated UTF-8, NUL-terminated, already truncated */
     double   lat;    /* snapped (projected) latitude, degrees */

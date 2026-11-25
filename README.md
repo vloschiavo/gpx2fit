@@ -94,7 +94,7 @@ gpx2fit [options] input.gpx output.fit
 | Option | Meaning |
 | --- | --- |
 | `--snap METERS` | Maximum distance from a waypoint to the track. Farther waypoints are skipped with a warning. Default `250`. |
-| `--pass MODE` | Which pass of the track a waypoint snaps to when the track visits it more than once: `nearest` (default), `ordered`, `first`, `last`. See [Out-and-back routes](#out-and-back-and-loop-routes). |
+| `--pass MODE` | Which pass of the track a waypoint snaps to when the track visits it more than once: `nearest` (default), `ordered`, `first`, `last`, `both` (alias `all`, one course point per distinct pass). See [Out-and-back routes](#out-and-back-and-loop-routes). |
 | `--name TEXT` | Course name. Default: the GPX track name, or the file name if the track has none. |
 | `--sport TYPE` | Activity type written to the FIT course (`sport` and `sub_sport`). Default `trail-running`. See [Activity type](#activity-type---sport). |
 | `--pace PACE` | Synthetic pace, as m/s or min/km (for example `2.5` or `6:40`). Default 5 km/h. |
@@ -270,6 +270,10 @@ that revisits a junction), `--pass` decides which pass to use:
 | `ordered` | Choose passes so that distance along the course never decreases in GPX waypoint order. Useful when you list outbound waypoints first, then return waypoints. A waypoint that cannot keep order falls back to its nearest pass, with a warning if it had several passes. |
 | `first` | The first pass. |
 | `last` | The last pass. |
+| `both` | Every distinct pass: a waypoint visited twice produces two course points, ordered by distance along the track. `all` is an alias. A waypoint visited once still produces one point. Adjacent trackpoints within one pass never duplicate a point. |
+
+With `both`, `--max-points` keeps the trackpoint nearest each emitted course
+point, including every pass of a repeatedly visited waypoint.
 
 ### Reducing the track (`--max-points`)
 

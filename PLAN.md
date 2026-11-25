@@ -84,7 +84,7 @@
 ---
 
 ### T5: Support Snapping the Same Waypoint in Both Directions on Out-and-Back Courses
-- [ ] **Add `--pass both` (or multi-pass snapping mode) so a single waypoint visited multiple times generates course points on each distinct pass**
+- [x] **Add `--pass both` (or multi-pass snapping mode) so a single waypoint visited multiple times generates course points on each distinct pass**
   - **Scope:**
     - Read: `course.h`, waypoint snapping implementation (`snap.c` / `course.c`), `main.c`, `web/index.html`, `web/app.js`, `README.md`, and existing `--pass` tests in `tests/`.
     - Modify: `course.h`, snapping module, `main.c`, Web `--pass` dropdown (`web/index.html`), `README.md`, and `tests/`.

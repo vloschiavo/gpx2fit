@@ -158,6 +158,30 @@ CABIN="Old Cabin:38.050000:-121.495000"
 STD="$TMP/std.gpx"
 make_gpx "$STD" 1 "$WATER" "$CAMP" "$CAUTION" "$CABIN"
 
+# make_outback_gpx FILE: 21 trackpoints north from 38.000 to 38.020, then back.
+# Aid is on the shared path (two passes); Flag is just beyond the turnaround
+# (one pass at the turn vertex).
+make_outback_gpx() {
+    local f=$1
+    {
+        printf '<?xml version="1.0" encoding="UTF-8"?>\n'
+        printf '<gpx version="1.1" creator="run.sh" '
+        printf 'xmlns="http://www.topografix.com/GPX/1/1">\n'
+        printf '<wpt lat="38.010000" lon="-121.500000"><name>Aid</name></wpt>\n'
+        printf '<wpt lat="38.021000" lon="-121.500000"><name>Flag</name></wpt>\n'
+        printf '<trk><name>Out and Back</name><trkseg>\n'
+        awk 'BEGIN {
+            for (i = 0; i <= 20; i++)
+                printf "<trkpt lat=\"%.6f\" lon=\"-121.500000\"></trkpt>\n", 38 + i * 0.001
+            for (i = 19; i >= 0; i--)
+                printf "<trkpt lat=\"%.6f\" lon=\"-121.500000\"></trkpt>\n", 38 + i * 0.001
+        }'
+        printf '</trkseg></trk>\n</gpx>\n'
+    } >"$f"
+}
+OUTBACK="$TMP/outback.gpx"
+make_outback_gpx "$OUTBACK"
+
 # ---- basic run ----------------------------------------------------------
 
 begin "basic conversion"
@@ -408,6 +432,7 @@ begin "--help"
 run --help
 expect_rc 0
 expect_out '^Usage: '
+expect_out 'both \(alias: all'
 
 begin "no arguments"
 run
@@ -450,6 +475,42 @@ check_fit "$TMP/ok1.fit"
 run --pace 2.5 --start 2025-06-01T08:30:00Z --pass last "$STD" "$TMP/ok2.fit"
 expect_rc 0
 check_fit "$TMP/ok2.fit"
+
+# ---- --pass both --------------------------------------------------------
+
+begin "--pass both emits one course point per pass"
+run --pass both "$OUTBACK" "$TMP/both.fit"
+expect_rc 0
+expect_out "^Read 'Out and Back': 41 trackpoints, 2 waypoints$"
+expect_out '^  Aid +1\.11 km  offset +0\.0 m$'
+expect_out '^  Flag +2\.22 km  offset +11[01]\.[0-9] m$'
+expect_out '^  Aid +3\.34 km  offset +0\.0 m$'
+expect_out '^Snapped 2 of 2 waypoints \(0 skipped\)$'
+expect_out '^Emitted 3 course points for 2 waypoints$'
+expect_out "^Wrote '.*both\\.fit' \\(3 course points\\)$"
+if [ "$(cp_names)" = "Aid,Flag,Aid" ]; then pass
+else fail "course points not in track order: $(cp_names)"; fi
+check_fit "$TMP/both.fit"
+
+begin "--pass all is an alias for both"
+run --pass all "$OUTBACK" "$TMP/all.fit"
+expect_rc 0
+if [ "$(cp_names)" = "Aid,Flag,Aid" ]; then pass
+else fail "--pass all gave: $(cp_names)"; fi
+check_fit "$TMP/all.fit"
+
+begin "--max-points keeps a trackpoint for every pass"
+run --pass both "$OUTBACK" "$TMP/both_full.fit"
+grep -E '^  [^ ]|^Snapped|^Emitted' "$OUT" >"$TMP/both_full.txt"
+run --pass both --max-points 5 "$OUTBACK" "$TMP/both_mp.fit"
+expect_rc 0
+expect_out '^Track: [0-9.]+ km, no elevation data, 5 points \(reduced from 41\)$'
+grep -E '^  [^ ]|^Snapped|^Emitted' "$OUT" >"$TMP/both_mp.txt"
+if cmp -s "$TMP/both_full.txt" "$TMP/both_mp.txt"; then pass
+else fail "course points changed with --max-points"; fi
+if [ "$(cp_names)" = "Aid,Flag,Aid" ]; then pass
+else fail "--max-points lost a pass: $(cp_names)"; fi
+check_fit "$TMP/both_mp.fit"
 
 # ---- the CalTopo sample (if present) ------------------------------------
 

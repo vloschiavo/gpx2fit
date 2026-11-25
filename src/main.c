@@ -72,7 +72,8 @@ static void usage(FILE *out, const char *prog)
         "                     (default %.0f)\n"
         "  --pass MODE        which pass of the track a waypoint snaps to when the\n"
         "                     track visits it more than once: nearest (default),\n"
-        "                     ordered, first, last\n"
+        "                     ordered, first, last, both (alias: all; one course\n"
+        "                     point per distinct pass)\n"
         "  --name TEXT        course name (default: GPX track name)\n"
         "  --sport TYPE       activity type: trail-running (default), hiking,\n"
         "                     running, cycling, road-cycling, gravel, mtb,\n"
@@ -195,7 +196,7 @@ static int parse_options(int argc, char **argv, struct options *o)
         case OPT_PASS:
             if (snap_mode_parse(optarg, &o->pass) != 0) {
                 fprintf(stderr, "%s: invalid --pass value '%s' (need one of "
-                        "nearest, ordered, first, last)\n", prog, optarg);
+                        "nearest, ordered, first, last, both)\n", prog, optarg);
                 return EXIT_USAGE;
             }
             break;

@@ -30,10 +30,12 @@ enum snap_mode {
     SNAP_NEAREST = 0, /* candidate with the smallest offset (default) */
     SNAP_ORDERED,     /* distance along course never decreases in GPX order */
     SNAP_FIRST,       /* first pass of the track */
-    SNAP_LAST         /* last pass of the track */
+    SNAP_LAST,        /* last pass of the track */
+    SNAP_BOTH         /* every distinct pass ("all" is an alias) */
 };
 
-/* "nearest", "ordered", "first", "last" -> *out. Returns 0, or -1 if unknown. */
+/* "nearest", "ordered", "first", "last", "both" (alias "all") -> *out.
+ * Returns 0, or -1 if unknown. */
 int snap_mode_parse(const char *s, enum snap_mode *out);
 const char *snap_mode_name(enum snap_mode m);
 
@@ -115,10 +117,12 @@ struct snap_options {
 };
 
 struct snap_report {
-    size_t n_snapped;   /* course points created */
-    size_t n_skipped;   /* waypoints with no candidate within the threshold */
-    size_t n_unordered; /* ordered mode: waypoints that could not keep GPX order
-                         * (warned about only if they had several passes) */
+    size_t n_snapped;      /* waypoints with at least one candidate */
+    size_t n_skipped;      /* waypoints with no candidate within the threshold */
+    size_t n_unordered;    /* ordered mode: waypoints that could not keep GPX order
+                            * (warned about only if they had several passes) */
+    size_t n_course_points; /* course points created; exceeds n_snapped only in
+                             * --pass both mode */
 };
 
 #define SNAP_OK      0
@@ -127,7 +131,8 @@ struct snap_report {
 
 /*
  * Snap every waypoint of c and replace c->cp with the result, sorted by
- * distance along the course (stable: equal distances keep GPX order).
+ * distance along the course (stable: equal distances keep GPX order). In
+ * SNAP_BOTH mode every candidate pass of every waypoint is emitted.
  * Skipped waypoints warn on stderr unless quiet. Course points get type 0
  * (generic) and t = 0; both are filled in by later phases. The name is copied
  * untruncated (truncation is task 5.5). Returns SNAP_OK, SNAP_STRICT (course

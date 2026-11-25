@@ -64,6 +64,10 @@ expect "detector requests worker activation" \
     grep -Fq "type: 'SKIP_WAITING'" "$APP"
 expect "page exposes the update banner and Reload button" \
     bash -c "grep -Fq 'id=\"update-banner\"' '$INDEX' && grep -Fq 'id=\"update-reload\"' '$INDEX'"
+expect "pass mode selector exposes --pass both" \
+    grep -Fq '<option value="both">Both passes' "$INDEX"
+expect "web app accepts the both pass mode" \
+    grep -Fq "new Set(['nearest', 'ordered', 'first', 'last', 'both'])" "$APP"
 
 # Stamping must work from a copy, without dirtying the checked-in web files.
 before=$(cksum "$VERSION" "$SW" "$INDEX")

@@ -11,6 +11,8 @@
  *            goes to the EARLIER candidate (smaller distance along course).
  *   first    The earliest candidate.
  *   last     The latest candidate.
+ *   both     Every candidate (one course point per distinct pass); "all" is
+ *            accepted as an alias.
  *   ordered  Waypoints are taken in GPX order. We pick one candidate per
  *            waypoint so that the distance along the course never decreases
  *            (equal is allowed: duplicate waypoints). Among all such chains:
@@ -84,6 +86,7 @@ int snap_mode_parse(const char *s, enum snap_mode *out)
     static const struct { const char *name; enum snap_mode m; } tab[] = {
         { "nearest", SNAP_NEAREST }, { "ordered", SNAP_ORDERED },
         { "first",   SNAP_FIRST   }, { "last",    SNAP_LAST    },
+        { "both",    SNAP_BOTH    }, { "all",     SNAP_BOTH    },
     };
     for (size_t i = 0; i < sizeof tab / sizeof *tab; i++) {
         if (strcmp(s, tab[i].name) == 0) {
@@ -101,6 +104,7 @@ const char *snap_mode_name(enum snap_mode m)
     case SNAP_ORDERED: return "ordered";
     case SNAP_FIRST:   return "first";
     case SNAP_LAST:    return "last";
+    case SNAP_BOTH:    return "both";
     }
     return "nearest";
 }
@@ -497,7 +501,7 @@ void snap_sort_course_points(struct course *c)
 int snap_waypoints(struct course *c, const struct snap_options *opt,
                    struct snap_report *rep)
 {
-    struct snap_report r = { 0, 0, 0 };
+    struct snap_report r = { 0, 0, 0, 0 };
     struct snap_index ix;
     struct snap_cands *all = NULL;
     int *choice = NULL;
@@ -525,8 +529,8 @@ int snap_waypoints(struct course *c, const struct snap_options *opt,
             goto done;
         if (all[w].n == 0)
             choice[w] = -1;
-        else if (opt->mode == SNAP_FIRST)
-            choice[w] = 0;
+        else if (opt->mode == SNAP_FIRST || opt->mode == SNAP_BOTH)
+            choice[w] = 0; /* in both mode every candidate is emitted */
         else if (opt->mode == SNAP_LAST)
             choice[w] = (int)all[w].n - 1;
         else /* nearest, and the ordered-mode fallback */
@@ -584,8 +588,18 @@ int snap_waypoints(struct course *c, const struct snap_options *opt,
                             display_name(wp->name), all[w].n);
             }
         }
-        if (add_course_point(c, wp, &all[w].v[choice[w]]) != 0)
-            goto done;
+        /* Both mode emits all candidates of this waypoint; every other mode
+         * emits one. Candidates are already in track order (snap_candidates). */
+        {
+            size_t first = opt->mode == SNAP_BOTH ? 0 : (size_t)choice[w];
+            size_t n_take = opt->mode == SNAP_BOTH ? all[w].n : 1;
+
+            for (size_t k = 0; k < n_take; k++) {
+                if (add_course_point(c, wp, &all[w].v[first + k]) != 0)
+                    goto done;
+                r.n_course_points++;
+            }
+        }
         r.n_snapped++;
     }
 
@@ -612,8 +626,12 @@ void snap_print_summary(FILE *out, const struct course *c,
         fprintf(out, "  %-24s %7.2f km  offset %5.1f m\n",
                 display_name(c->cp[i].name), c->cp[i].dist / 1000.0,
                 c->cp[i].offset);
-    if (rep)
+    if (rep) {
         fprintf(out, "Snapped %zu of %zu waypoints (%zu skipped)\n",
                 rep->n_snapped, rep->n_snapped + rep->n_skipped,
                 rep->n_skipped);
+        if (rep->n_course_points != rep->n_snapped)
+            fprintf(out, "Emitted %zu course points for %zu waypoints\n",
+                    rep->n_course_points, rep->n_snapped);
+    }
 }
