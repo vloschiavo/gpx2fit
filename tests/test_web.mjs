@@ -124,12 +124,16 @@ function createHarness(gpx, { moduleFactory = async () => wasm } = {}) {
   };
 
   let currentGpx = gpx;
+  const sampleRequests = [];
   initApp({
     doc,
     win,
     leaflet,
     moduleFactory,
-    fetchImpl: async () => ({ ok: true, status: 200, text: async () => currentGpx }),
+    fetchImpl: async (url) => {
+      sampleRequests.push(url);
+      return { ok: true, status: 200, text: async () => currentGpx };
+    },
   });
 
   async function waitFor(predicate, description) {
@@ -152,6 +156,7 @@ function createHarness(gpx, { moduleFactory = async () => wasm } = {}) {
   return {
     elements,
     mapState,
+    sampleRequests,
     async loadSample() {
       elements['load-sample'].dispatch('click');
       await converted();
@@ -187,6 +192,18 @@ assert.match(
   indexHtml,
   /<p class="sr-only" id="warning-status" role="status" aria-live="polite" aria-atomic="true"><\/p>/,
   'persistent atomic warning live region',
+);
+
+/* The sample button loads the reference Rio Del Lago route from the bundle. */
+assert.match(indexHtml, /Load sample Rio Del Lago route/, 'sample button names Rio Del Lago');
+assert.doesNotMatch(indexHtml, /Load sample CalTopo route/, 'sample button no longer names CalTopo');
+const sampleLoader = createHarness(sampleGpx);
+await sampleLoader.loadSample();
+assert.deepEqual(sampleLoader.sampleRequests, ['./Rio_Del_Lago_100mi_2025.gpx']);
+assert.equal(
+  sampleLoader.elements['source-name'].textContent,
+  'Rio_Del_Lago_100mi_2025.gpx',
+  'source label matches the sample file',
 );
 
 /* Trail Running is the default activity in the web UI. */

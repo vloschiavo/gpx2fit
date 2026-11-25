@@ -16,7 +16,7 @@ DEP     = $(OBJ:.o=.d)
 
 PREFIX ?= /usr/local
 
-.PHONY: all test clean asan test-asan install wasm web-version
+.PHONY: all test clean asan test-asan install wasm web-version web-sample
 
 all: $(TARGET)
 
@@ -86,6 +86,18 @@ wasm: $(WASM_SRC) $(wildcard src/*.h) $(GEN_HDR) tools/expat_port.py | $(WASM_DI
 
 $(WASM_DIR):
 	mkdir -p $@
+
+# The browser sample route is a copy of the reference GPX used to validate the
+# CLI. It is checked in so a plain static deployment works; regenerate it after
+# editing the reference file. `make web-version` must not depend on this so it
+# keeps working on a checkout that has only the web files.
+WEB_SAMPLE    = web/Rio_Del_Lago_100mi_2025.gpx
+REFERENCE_GPX = reference/Rio_Del_Lago_100mi_2025.gpx
+
+web-sample: $(WEB_SAMPLE)
+
+$(WEB_SAMPLE): $(REFERENCE_GPX)
+	cp '$<' '$@'
 
 # Web build stamping (task 15.4). Explicit target: `make`, `make test`,
 # `make wasm` and `make clean` never rewrite the tracked web files. Run

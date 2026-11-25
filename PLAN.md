@@ -50,7 +50,7 @@
 ---
 
 ### T3: Replace Sample Route with `reference/Rio_Del_Lago_100mi_2025.gpx`
-- [ ] **Set `reference/Rio_Del_Lago_100mi_2025.gpx` as the default sample GPX in Web/WASM and CLI docs/tests**
+- [x] **Set `reference/Rio_Del_Lago_100mi_2025.gpx` as the default sample GPX in Web/WASM and CLI docs/tests**
   - **Scope:**
     - Read: `web/index.html`, `web/app.js`, `web/sw.js`, `Makefile`, `README.md`, and `tests/` referencing `caltopo_sample.gpx`.
     - Modify: Web sample loader (`web/app.js` / `web/index.html` / `Makefile`), `README.md`, and sample tests if applicable.

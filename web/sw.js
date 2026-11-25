@@ -18,7 +18,7 @@ const APP_SHELL = [
   './favicon.svg',
   './app.js',
   './style.css',
-  './caltopo_sample.gpx',
+  './Rio_Del_Lago_100mi_2025.gpx',
   './dist/gpx2fit.js',
   './dist/gpx2fit.wasm',
 ];

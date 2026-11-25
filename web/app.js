@@ -956,13 +956,13 @@ export function initApp({
 
   sampleButton.addEventListener('click', () => {
     void loadSource(async () => {
-      const response = await fetchImpl('./caltopo_sample.gpx', {
+      const response = await fetchImpl('./Rio_Del_Lago_100mi_2025.gpx', {
         credentials: 'same-origin',
         cache: 'force-cache',
       });
       if (!response.ok) throw new Error(`The sample route could not be loaded (HTTP ${response.status}).`);
       return response.text();
-    }, 'caltopo_sample.gpx');
+    }, 'Rio_Del_Lago_100mi_2025.gpx');
   });
 
   dropzone.addEventListener('dragenter', (event) => {

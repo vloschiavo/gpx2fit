@@ -57,29 +57,29 @@ gpx2fit --help
 ./gpx2fit route.gpx route.fit
 ```
 
-For example, with the CalTopo export that ships in the test data (one of its
-five waypoints is deliberately far from the track):
+For example, with the reference route that is also the web app's sample (a
+161.67 km course with 11 waypoints):
 
 ```sh
-./gpx2fit tests/data/caltopo_sample.gpx route.fit
+./gpx2fit reference/Rio_Del_Lago_100mi_2025.gpx route.fit
 ```
 
 ```
-Read 'caltopo_sample': 114 trackpoints, 5 waypoints
+Read 'RDL 100 2025': 8409 trackpoints, 11 waypoints
 Activity: trail-running
-warning: waypoint 'Caution' is 477 m from the track (limit 250 m); skipped
-warning: no type for 'Start', using generic; add a line to --map
-warning: no type for 'Ranger Station', using generic; add a line to --map
-Track: 3.39 km, ascent 44 m, descent 49 m, 114 points
-  Start                       0.00 km  offset   0.2 m
-  Camp                        0.99 km  offset  14.0 m
-  Water                       1.56 km  offset   5.4 m
-  Ranger Station              3.39 km  offset   3.1 m
-Snapped 4 of 5 waypoints (1 skipped)
-Wrote 'route.fit' (4 course points)
+Track: 161.67 km, ascent 2523 m, descent 2521 m, 8409 points
+  Willow Creek AS            17.33 km  offset   0.0 m
+  Black Miners AS            27.61 km  offset   0.0 m
+  Beals AS                   34.90 km  offset   0.0 m
+  ...
+  Granite Beach             153.86 km  offset   0.0 m
+Snapped 11 of 11 waypoints (0 skipped)
+Wrote 'route.fit' (11 course points)
 ```
 
-Warnings go to stderr; everything else goes to stdout. The `Read` line is
+The course-point list above is abbreviated; ten names have no built-in type
+rule, so a warning for each goes to stderr. Warnings go to stderr; everything
+else goes to stdout. The `Read` line is
 printed as soon as the GPX file has been read. The rest of the summary is
 printed only after the file has been written, so a run that fails at a later
 stage shows the `Read` line and its error (plus, for a `--strict` waypoint
@@ -338,14 +338,19 @@ Wrote '<output.fit>' (<C> course points)
 | --- | --- | --- |
 | Garmin Fenix 7X | 27.18 | Works |
 
-Tested with a 115.72 km course (5159 points, 30 course points) and the 3.39 km
-`tests/data/caltopo_sample.gpx`, converted with default options:
+Tested with a 115.72 km course (5159 points, 30 course points) and a 3.39 km
+CalTopo export (114 points, 4 course points), converted with default options:
 
 - Garmin Connect import: both courses imported with no errors or warnings;
   distance, elevation profile and course point list looked right.
 - On the watch: Up Ahead showed the course points in the right order, at the
   right distances, with the expected names and types.
 - Direct USB copy of the `.fit` into the watch's courses folder also works.
+
+The sample bundled with the web app is
+`reference/Rio_Del_Lago_100mi_2025.gpx` (161.67 km, 8409 points, 11 course
+points). It converts with default options, but has not itself been checked on
+a device.
 
 Other devices have not been tested. Please report the device model and
 firmware if you try one.
@@ -356,7 +361,9 @@ A browser version is hosted at https://vloschiavo.github.io/gpx2fit/. It is the
 same C converter compiled to WebAssembly with Emscripten: you load a GPX file,
 the browser writes the FIT, and no track data is uploaded. All GPX processing
 happens client-side, so hosting the app only requires serving static files.
-The sections below cover running that same bundle yourself.
+Use **Load sample Rio Del Lago route** to try the bundled
+`reference/Rio_Del_Lago_100mi_2025.gpx` course. The sections below cover
+running that same bundle yourself.
 
 ## Self-hosting
 
