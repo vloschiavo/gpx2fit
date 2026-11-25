@@ -2,7 +2,8 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import createModule from '../web/dist/gpx2fit.js';
 import {
-  initApp, gpxTrackBlocks, gpxHasStartWaypoint, reorderGpxTracks, MAP_RULES_DEBOUNCE_MS,
+  initApp, gpxTrackBlocks, gpxHasStartWaypoint, reorderGpxTracks,
+  MAP_RULES_DEBOUNCE_MS, INPUT_DEBOUNCE_MS, paceToMetersPerSecond, startToFitTime,
 } from '../web/app.js';
 
 const wasm = await createModule();
@@ -155,8 +156,8 @@ function createHarness(gpx, {
   const ids = [
     'app', 'conversion-controls', 'dropzone', 'gpx-file', 'load-sample',
     'source-name', 'course-name', 'activity-type', 'pace', 'pace-unit',
-    'pass-mode', 'snap-distance', 'snap-slider', 'snap-field', 'map-rules', 'map-rules-field',
-    'stitch-tracks',
+    'pass-mode', 'snap-distance', 'snap-slider', 'snap-field', 'max-points', 'start-time',
+    'strict-mode', 'map-rules', 'map-rules-field', 'stitch-tracks',
     'status', 'error-message', 'download-list',
     'results', 'warnings', 'warning-status', 'download-fit', 'stat-distance',
     'stat-track-points', 'stat-course-points', 'stat-waypoints', 'route-map',
@@ -171,6 +172,9 @@ function createHarness(gpx, {
   elements['pass-mode'].value = 'nearest';
   elements['snap-distance'].value = '250';
   elements['snap-slider'].value = '250';
+  elements['max-points'].value = '';
+  elements['start-time'].value = '2025-01-01T00:00Z';
+  elements['strict-mode'].checked = false;
   elements['stitch-tracks'].checked = true;
   elements['track-list'].hidden = true; // matches the initial markup in index.html
   for (const id of ['route-map', 'map-fallback', 'waypoint-table-wrap', 'track-list', 'warnings'])
@@ -188,7 +192,10 @@ function createHarness(gpx, {
     createTextNode(text) { return { textContent: text }; },
   };
   doc.activeElement = null;
-  elements['map-rules'].focus = () => { doc.activeElement = elements['map-rules']; };
+  // Every persistent control can receive focus, so tests can verify that a
+  // background re-render leaves focus wherever the user left it.
+  for (const element of Object.values(elements))
+    element.focus = () => { doc.activeElement = element; };
   elements.results.scrollTop = 41;
   elements['waypoint-table-wrap'].scrollTop = 17;
   const blobs = [];
@@ -514,11 +521,16 @@ assert.equal(largeRoute.elements['stat-track-points'].textContent, '5159');
 assert.equal(largeRoute.elements['stat-course-points'].textContent, '30');
 assert.equal(largeRoute.rows().length, 30);
 
-/* A deferred input clears stale warnings, then announces the current result. */
+/* A deferred input keeps the current warning output mounted until the debounced
+ * conversion renders; there is no mid-typing collapse or stale announcement. */
 const snapInput = sample.elements['snap-distance'];
+const warningsBeforeInput = sample.elements['warning-status'].textContent;
+assert.doesNotMatch(warningsBeforeInput, /Caution/);
 snapInput.value = '250';
 snapInput.dispatch('input');
-assert.equal(sample.elements['warning-status'].textContent, '');
+assert.equal(sample.elements['warning-status'].textContent, warningsBeforeInput,
+  'old warning text stays mounted during the debounce');
+assert.equal(sample.elements.results.hidden, false, 'preview stays mounted while typing');
 await sample.converted();
 assert.match(sample.elements['warning-status'].textContent, /Caution.*477 m/s);
 
@@ -692,6 +704,167 @@ assert.equal(
   probeUI.doc.activeElement, rulesFieldInput,
   'change path does not restore stale waypoint-badge focus',
 );
+
+/* T2: the remaining live text/numeric controls share the T1 debounce and
+ * stable-render path. A burst of keystrokes reconverts exactly once, keeps the
+ * old preview mounted, and leaves focus and both scroll positions untouched. */
+assert.equal(INPUT_DEBOUNCE_MS, 800, 'all live inputs use an 800 ms debounce');
+assert.equal(INPUT_DEBOUNCE_MS, MAP_RULES_DEBOUNCE_MS,
+  'custom rules and other inputs share a single debounce delay');
+
+const liveCalls = [];
+const liveRecorder = Object.create(wasm);
+liveRecorder.ccall = (...args) => {
+  if (args[0] === 'gpx2fit_convert') {
+    liveCalls.push({
+      name: wasm.UTF8ToString(args[3][2]),
+      snap: args[3][5],
+      pace: args[3][7],
+      start: args[3][8],
+      maxPoints: args[3][9],
+      sport: args[3][3],
+      strict: args[3][10],
+      at: Date.now(),
+    });
+  }
+  return wasm.ccall(...args);
+};
+const liveUI = createHarness(sampleGpx, {
+  moduleFactory: async () => liveRecorder,
+  focusAllElements: true,
+});
+await liveUI.loadSample();
+liveCalls.length = 0; // ignore the initial sample conversion
+const liveRows = liveUI.rows().length;
+const liveBody = liveUI.elements['waypoint-table-body'];
+const liveScroll = {
+  y: liveUI.win.scrollY,
+  results: liveUI.elements.results.scrollTop,
+  table: liveUI.elements['waypoint-table-wrap'].scrollTop,
+};
+assert.ok(liveRows > 0, 'sample route has a preview to keep stable');
+
+async function assertStableTextField({ id, values, changeValue, check, label }) {
+  const field = liveUI.elements[id];
+  field.focus();
+  const before = liveCalls.length;
+  for (const [index, value] of values.entries()) {
+    field.value = value;
+    field.dispatch('input');
+    if (index < values.length - 1)
+      await new Promise((resolve) => setTimeout(resolve, 100));
+  }
+  assert.equal(liveCalls.length, before, `${label}: no conversion before the debounce`);
+  assert.equal(liveUI.elements.results.hidden, false, `${label}: preview stays mounted while typing`);
+  assert.equal(liveUI.rows().length, liveRows, `${label}: old rows stay mounted`);
+  assert.equal(liveUI.doc.activeElement, field, `${label}: focus stays in the edited field`);
+  assert.equal(liveUI.elements.status.dataset.state, 'busy', `${label}: busy state is immediate`);
+
+  await liveUI.waitFor(() => liveCalls.length === before + 1, `${label}: debounced conversion`);
+  await liveUI.converted();
+  assert.equal(liveCalls.length, before + 1, `${label}: one conversion for the whole burst`);
+  check(liveCalls.at(-1), values.at(-1), `${label}: final value`);
+  assert.equal(liveUI.elements.results.hidden, false, `${label}: preview visible after render`);
+  assert.equal(liveUI.elements['waypoint-table-body'], liveBody, `${label}: table updated in place`);
+  assert.equal(liveUI.doc.activeElement, field, `${label}: render does not steal focus`);
+  assert.equal(liveUI.win.scrollY, liveScroll.y, `${label}: page scroll preserved`);
+  assert.equal(liveUI.elements.results.scrollTop, liveScroll.results, `${label}: results scroll preserved`);
+  assert.equal(liveUI.elements['waypoint-table-wrap'].scrollTop, liveScroll.table,
+    `${label}: table scroll preserved`);
+
+  field.value = changeValue;
+  const changeCalls = liveCalls.length;
+  const changeAt = Date.now();
+  field.dispatch('change');
+  await liveUI.waitFor(
+    () => liveCalls.length === changeCalls + 1,
+    `${label}: immediate change conversion`,
+  );
+  assert.ok(Date.now() - changeAt < INPUT_DEBOUNCE_MS / 2,
+    `${label}: change applies without waiting for the debounce`);
+  await liveUI.converted();
+  check(liveCalls.at(-1), changeValue, `${label}: changed value`);
+  assert.equal(liveUI.doc.activeElement, field, `${label}: change render keeps focus`);
+  assert.equal(liveUI.win.scrollY, liveScroll.y, `${label}: change render preserves scroll`);
+}
+
+await assertStableTextField({
+  id: 'course-name',
+  values: ['Rio', 'Rio Del Lago', 'Rio Del Lago 100'],
+  changeValue: 'Final course name',
+  check: (call, value, label) => assert.equal(call.name, value, label),
+  label: 'course name',
+});
+await assertStableTextField({
+  id: 'pace',
+  values: ['12:00', '11:45', '11:30'],
+  changeValue: '10:30',
+  check: (call, value, label) => assert.equal(
+    call.pace, paceToMetersPerSecond(value, 'min/km'), label,
+  ),
+  label: 'pace',
+});
+await assertStableTextField({
+  id: 'snap-distance',
+  values: ['275', '300', '325'],
+  changeValue: '350',
+  check: (call, value, label) => assert.equal(call.snap, Number(value), label),
+  label: 'snap distance',
+});
+await assertStableTextField({
+  id: 'max-points',
+  values: ['100', '150', '200'],
+  changeValue: '250',
+  check: (call, value, label) => assert.equal(call.maxPoints, Number(value), label),
+  label: 'max points',
+});
+await assertStableTextField({
+  id: 'start-time',
+  values: ['2025-01-01T00:00Z', '2025-02-01T00:00Z', '2025-06-01T07:30Z'],
+  changeValue: '2025-07-01T08:00Z',
+  check: (call, value, label) => assert.equal(call.start, startToFitTime(value), label),
+  label: 'start time',
+});
+
+/* Selects and checkboxes have no `input` stream: their explicit `change` must
+ * still be immediate while keeping the same stable render path. */
+for (const [id, value, check, label] of [
+  ['activity-type', 'running', (call) => assert.equal(call.sport, 1), 'activity select'],
+  ['pace-unit', 'km/h', (call) => assert.ok(call.pace > 0), 'pace unit select'],
+  ['pass-mode', 'last', () => {}, 'pass mode select'],
+]) {
+  const field = liveUI.elements[id];
+  field.focus();
+  const before = liveCalls.length;
+  const changeAt = Date.now();
+  field.value = value;
+  // Switching to km/h interprets the current pace text as a speed, so give it
+  // a valid numeric value without scheduling a separate text conversion.
+  if (id === 'pace-unit') liveUI.elements.pace.value = '18';
+  field.dispatch('change');
+  await liveUI.waitFor(() => liveCalls.length === before + 1, `${label}: immediate conversion`);
+  assert.ok(Date.now() - changeAt < INPUT_DEBOUNCE_MS / 2, `${label}: change is immediate`);
+  await liveUI.converted();
+  check(liveCalls.at(-1));
+  assert.equal(liveUI.doc.activeElement, field, `${label}: focus preserved`);
+  assert.equal(liveUI.win.scrollY, liveScroll.y, `${label}: scroll preserved`);
+}
+// Strict mode fails when a waypoint is still out of range; widen the snap
+// first so the checkbox exercises a successful stable render.
+liveUI.elements['snap-distance'].value = '500';
+liveUI.elements['snap-slider'].value = '500';
+liveUI.elements['snap-distance'].dispatch('change');
+await liveUI.converted();
+const strictToggle = liveUI.elements['strict-mode'];
+strictToggle.focus();
+strictToggle.checked = true;
+const strictBefore = liveCalls.length;
+strictToggle.dispatch('change');
+await liveUI.waitFor(() => liveCalls.length === strictBefore + 1, 'strict checkbox conversion');
+await liveUI.converted();
+assert.equal(liveCalls.at(-1).strict, 1, 'strict checkbox reaches WASM');
+assert.equal(liveUI.doc.activeElement, strictToggle, 'checkbox focus preserved');
+assert.equal(liveUI.win.scrollY, liveScroll.y, 'checkbox render preserves scroll');
 
 /* The dateline is a short jump, and every overlay uses the same unwrapped frame. */
 const antimeridianGpx = `<?xml version="1.0"?><gpx xmlns="http://www.topografix.com/GPX/1/1" version="1.1">
@@ -1086,6 +1259,55 @@ assert.equal(cardRowNamed(t3UI.trackCard(3), 'Camp').dataset.status, 'skipped', 
 assert.equal(cardRowNamed(t3UI.trackCard(2), 'Camp').dataset.status, 'skipped', 'Day 2 unaffected by Day 1 snap');
 assert.equal(cardSnap(t3UI.trackCard(2)).number.value, '250', 'Day 2 snap unchanged');
 assert.equal(cardRowNamed(t3UI.trackCard(1), 'Camp').dataset.status, 'skipped', 'Day 10 unaffected by Day 1 snap');
+
+/* T2: per-track snap controls use the same debounce and viewport handling.
+ * Typing in one card does not reconvert on each keystroke, collapse the card
+ * list, or pull focus/scroll away from the number field being edited. */
+const perTrackCalls = [];
+const perTrackRecorder = Object.create(wasm);
+perTrackRecorder.ccall = (...args) => {
+  if (args[0] === 'gpx2fit_convert')
+    perTrackCalls.push({ track: args[3][11], snap: args[3][5] });
+  return wasm.ccall(...args);
+};
+const perTrackUI = createHarness(dayGpx, {
+  moduleFactory: async () => perTrackRecorder,
+  focusAllElements: true,
+});
+perTrackUI.elements['stitch-tracks'].checked = false;
+await perTrackUI.loadSample();
+perTrackCalls.length = 0;
+const perTrackField = cardSnap(perTrackUI.trackCard(3)).number;
+perTrackField.focus();
+const perTrackScroll = {
+  y: perTrackUI.win.scrollY,
+  results: perTrackUI.elements.results.scrollTop,
+  list: perTrackUI.elements['track-list'].scrollTop,
+};
+perTrackField.value = '10';
+perTrackField.dispatch('input');
+await new Promise((resolve) => setTimeout(resolve, 100));
+perTrackField.value = '20';
+perTrackField.dispatch('input');
+assert.equal(perTrackCalls.length, 0, 'per-track typing is debounced too');
+assert.equal(perTrackUI.elements['track-list'].hidden, false, 'track cards stay mounted');
+assert.equal(perTrackUI.doc.activeElement, perTrackField, 'per-track focus stays in the field');
+await perTrackUI.waitFor(() => perTrackCalls.length === 1, 'debounced per-track conversion');
+await perTrackUI.converted();
+assert.deepEqual(perTrackCalls.at(-1), { track: 3, snap: 20 }, 'only the final snap reaches WASM');
+assert.equal(perTrackUI.doc.activeElement, perTrackField, 'per-track render keeps focus');
+assert.equal(perTrackUI.win.scrollY, perTrackScroll.y, 'per-track render preserves page scroll');
+assert.equal(perTrackUI.elements.results.scrollTop, perTrackScroll.results);
+assert.equal(perTrackUI.elements['track-list'].scrollTop, perTrackScroll.list);
+
+perTrackField.value = '0';
+const perTrackChangeAt = Date.now();
+perTrackField.dispatch('change');
+await perTrackUI.waitFor(() => perTrackCalls.length === 2, 'immediate per-track change');
+assert.ok(Date.now() - perTrackChangeAt < INPUT_DEBOUNCE_MS / 2,
+  'per-track change is immediate');
+await perTrackUI.converted();
+assert.deepEqual(perTrackCalls.at(-1), { track: 3, snap: 0 });
 
 // AC3 regression: per-track update must refresh that track's downloadable FIT
 // (card download) and must not leave stale global download-list entries.

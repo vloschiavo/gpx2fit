@@ -33,11 +33,11 @@ const FIT_EPOCH_UNIX = 631065600; // 1989-12-31T00:00:00Z.
 const FIT_DATE_MIN = 0x10000000;
 const FIT_TIME_MAX = 0xfffffffe;
 const MAX_WASM_LONG = 0x7fffffff;
-const CONVERT_DELAY_MS = 180;
-// Manual map-rule edits are comparatively expensive to reconvert, and the
-// textarea must not jump under the pointer while someone is typing. Keep the
-// previous results on screen until the debounced conversion is ready.
+// Live form edits are comparatively expensive to reconvert, and the page must
+// not jump under the pointer while someone is typing. Keep the previous
+// results on screen until the debounced conversion is ready.
 export const MAP_RULES_DEBOUNCE_MS = 800;
+export const INPUT_DEBOUNCE_MS = MAP_RULES_DEBOUNCE_MS;
 const PASS_MODES = new Set(['nearest', 'ordered', 'first', 'last', 'both']);
 export const UPDATE_MESSAGE = 'A new version of gpx2fit is available.';
 const VERSION_CHECK_INTERVAL_MS = 15 * 1000;
@@ -663,7 +663,6 @@ export function initApp({
   let source = null;
   let requestVersion = 0;
   let convertTimer = null;
-  let mapRulesTimer = null;
   let modulePromise = null;
   let downloadUrls = [];
   let dragDepth = 0;
@@ -771,14 +770,6 @@ export function initApp({
     if (convertTimer !== null) {
       win.clearTimeout(convertTimer);
       convertTimer = null;
-    }
-    clearMapRulesTimer();
-  }
-
-  function clearMapRulesTimer() {
-    if (mapRulesTimer !== null) {
-      win.clearTimeout(mapRulesTimer);
-      mapRulesTimer = null;
     }
   }
 
@@ -1385,24 +1376,24 @@ export function initApp({
     numberWrap.append(numberInput, unit);
     slider.addEventListener('input', () => {
       numberInput.value = slider.value;
-      requestConversion({ immediate: true, track: track.index, snap: Number(slider.value) });
+      scheduleInputConversion({ track: track.index, snap: Number(slider.value) });
     });
     slider.addEventListener('change', () => {
       numberInput.value = slider.value;
-      requestConversion({ immediate: true, track: track.index, snap: Number(slider.value) });
+      applyInputConversion({ track: track.index, snap: Number(slider.value) });
     });
     numberInput.addEventListener('input', () => {
       const value = Number(numberInput.value);
       if (Number.isInteger(value) && value >= 0 && value <= 1000) {
         slider.value = String(value);
-        requestConversion({ immediate: false, track: track.index, snap: value });
+        scheduleInputConversion({ track: track.index, snap: value });
       }
     });
     numberInput.addEventListener('change', () => {
       const value = Number(numberInput.value);
       if (Number.isInteger(value) && value >= 0 && value <= 1000) {
         slider.value = String(value);
-        requestConversion({ immediate: true, track: track.index, snap: value });
+        applyInputConversion({ track: track.index, snap: value });
       }
     });
     snapControl.append(slider, numberWrap);
@@ -1664,8 +1655,8 @@ export function initApp({
       const loadedSource = source;
       const perTrackUpdate = track !== undefined && track !== null && trackStates.has(track);
       if (background) {
-        // A background rule edit must not restore focus to a waypoint badge
-        // from an earlier click; the rules textarea keeps the focus.
+        // An edit in a form control must not restore focus to a waypoint badge
+        // from an earlier click; the field being edited keeps the focus.
         focusWaypointIndex = null;
       }
       if (keepOutput) {
@@ -1688,27 +1679,34 @@ export function initApp({
       if (immediate) {
         void run();
       } else {
-        convertTimer = win.setTimeout(run, CONVERT_DELAY_MS);
+        convertTimer = win.setTimeout(run, INPUT_DEBOUNCE_MS);
       }
     });
   }
 
   /**
-   * Typing in the rules textarea is debounced for 800 ms. `change` (blur or an
-   * explicit apply) still converts immediately, but both paths keep the old
-   * output on screen and preserve viewport/focus around the update.
+   * Shared entry point for live form edits (text, numeric, and sliders). Each
+   * keystroke resets the 800 ms timer; the old output stays mounted and the
+   * viewport/focus are preserved until the new render is ready.
    */
+  function scheduleInputConversion(options = {}) {
+    return requestConversion({ keepOutput: true, background: true, ...options });
+  }
+
+  /** `change`/blur and explicit actions are immediate but equally stable. */
+  function applyInputConversion(options = {}) {
+    return requestConversion({
+      immediate: true, keepOutput: true, background: true, ...options,
+    });
+  }
+
+  /** T1 API, now backed by the same debounce/stable-render path as other inputs. */
   function applyMapRules() {
-    clearMapRulesTimer();
-    requestConversion({ immediate: true, keepOutput: true, background: true });
+    return applyInputConversion();
   }
 
   function scheduleMapRulesConversion() {
-    clearMapRulesTimer();
-    mapRulesTimer = win.setTimeout(() => {
-      mapRulesTimer = null;
-      applyMapRules();
-    }, MAP_RULES_DEBOUNCE_MS);
+    return scheduleInputConversion();
   }
 
   async function loadSource(loader, name) {
@@ -1820,27 +1818,27 @@ export function initApp({
   });
 
   form.addEventListener('submit', (event) => event.preventDefault());
-  courseNameInput.addEventListener('input', () => requestConversion());
-  courseNameInput.addEventListener('change', () => requestConversion({ immediate: true }));
-  paceInput.addEventListener('input', () => requestConversion());
-  paceInput.addEventListener('change', () => requestConversion({ immediate: true }));
-  paceUnitSelect.addEventListener('change', () => requestConversion({ immediate: true }));
-  activitySelect.addEventListener('change', () => requestConversion({ immediate: true }));
-  passModeSelect.addEventListener('change', () => requestConversion({ immediate: true }));
+  courseNameInput.addEventListener('input', () => scheduleInputConversion());
+  courseNameInput.addEventListener('change', () => applyInputConversion());
+  paceInput.addEventListener('input', () => scheduleInputConversion());
+  paceInput.addEventListener('change', () => applyInputConversion());
+  paceUnitSelect.addEventListener('change', () => applyInputConversion());
+  activitySelect.addEventListener('change', () => applyInputConversion());
+  passModeSelect.addEventListener('change', () => applyInputConversion());
 
   if (maxPointsInput) {
-    maxPointsInput.addEventListener('input', () => requestConversion());
-    maxPointsInput.addEventListener('change', () => requestConversion({ immediate: true }));
+    maxPointsInput.addEventListener('input', () => scheduleInputConversion());
+    maxPointsInput.addEventListener('change', () => applyInputConversion());
   }
   if (startTimeInput) {
-    startTimeInput.addEventListener('input', () => requestConversion());
-    startTimeInput.addEventListener('change', () => requestConversion({ immediate: true }));
+    startTimeInput.addEventListener('input', () => scheduleInputConversion());
+    startTimeInput.addEventListener('change', () => applyInputConversion());
   }
   if (strictModeCheckbox) {
-    strictModeCheckbox.addEventListener('change', () => requestConversion({ immediate: true }));
+    strictModeCheckbox.addEventListener('change', () => applyInputConversion());
   }
   if (stitchCheckbox) {
-    stitchCheckbox.addEventListener('change', () => requestConversion({ immediate: true }));
+    stitchCheckbox.addEventListener('change', () => applyInputConversion());
   }
   if (mapRulesInput) {
     mapRulesInput.addEventListener('input', scheduleMapRulesConversion);
@@ -1883,28 +1881,28 @@ export function initApp({
 
   snapSlider.addEventListener('input', () => {
     snapInput.value = snapSlider.value;
-    requestConversion();
+    scheduleInputConversion();
   });
   snapSlider.addEventListener('change', () => {
     snapInput.value = snapSlider.value;
-    requestConversion({ immediate: true });
+    applyInputConversion();
   });
   snapInput.addEventListener('input', () => {
     const value = Number(snapInput.value);
     if (snapInput.value.trim() && Number.isInteger(value) && value >= 0 && value <= 1000)
       snapSlider.value = String(value);
-    requestConversion();
+    scheduleInputConversion();
   });
   snapInput.addEventListener('change', () => {
     const value = Number(snapInput.value);
     if (snapInput.value.trim() && Number.isInteger(value) && value >= 0 && value <= 1000)
       snapSlider.value = String(value);
-    requestConversion({ immediate: true });
+    applyInputConversion();
   });
 
   win.addEventListener('pagehide', clearDownload);
   win.addEventListener('pageshow', (event) => {
-    if (event.persisted && source) requestConversion({ immediate: true });
+    if (event.persisted && source) applyInputConversion();
   });
 }
 

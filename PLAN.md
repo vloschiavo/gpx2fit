@@ -36,7 +36,7 @@
 ---
 
 ### T2: Apply Debounce, Scroll Preservation, and Layout Stabilization to Remaining Web/WASM Inputs
-* [ ] **Extend the 800 ms debounce, scroll preservation, and layout height stabilization pattern to all other text, numeric, select, and option inputs in the Web/WASM UI**
+* [x] **Extend the 800 ms debounce, scroll preservation, and layout height stabilization pattern to all other text, numeric, select, and option inputs in the Web/WASM UI**
   * **Scope:**
     * Read: `web/index.html`, `web/app.js`, `web/style.css`, and web UI test scripts (`tests/test_web*.mjs`, `tests/test_web*.sh`).
     * Modify: `web/index.html`, `web/app.js`, `web/style.css`, and web UI tests as needed.

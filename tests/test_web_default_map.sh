@@ -47,6 +47,36 @@ expect "no scrollIntoView side effects during background updates" \
 expect "preview and warning containers reserve layout height" \
     bash -c "grep -Fq '.results {' '$CSS' && grep -Fq '.warnings {' '$CSS' && grep -Fq 'min-height' '$CSS'"
 
+# T2: all remaining live controls share the same debounce/stable-render path.
+expect "live inputs share the custom-rules 800 ms debounce" \
+    grep -Fq 'export const INPUT_DEBOUNCE_MS = MAP_RULES_DEBOUNCE_MS;' "$APP"
+expect "the shared timer uses the 800 ms delay" \
+    grep -Fq 'convertTimer = win.setTimeout(run, INPUT_DEBOUNCE_MS);' "$APP"
+all_debounced=1
+for id in courseNameInput paceInput maxPointsInput startTimeInput; do
+    grep -Fq "$id.addEventListener('input', () => scheduleInputConversion())" "$APP" \
+        || all_debounced=0
+done
+expect "text/numeric inputs debounce input events" test "$all_debounced" -eq 1
+all_immediate=1
+for id in courseNameInput paceInput maxPointsInput startTimeInput; do
+    grep -Fq "$id.addEventListener('change', () => applyInputConversion())" "$APP" \
+        || all_immediate=0
+done
+expect "snap controls use the debounced/immediate helpers" \
+    bash -c "grep -A5 -F \"snapSlider.addEventListener('input'\" '$APP' | grep -Fq 'scheduleInputConversion();' && grep -A5 -F \"snapInput.addEventListener('input'\" '$APP' | grep -Fq 'scheduleInputConversion();' && grep -A5 -F \"snapSlider.addEventListener('change'\" '$APP' | grep -Fq 'applyInputConversion();' && grep -A5 -F \"snapInput.addEventListener('change'\" '$APP' | grep -Fq 'applyInputConversion();'"
+expect "text/numeric change events convert immediately" test "$all_immediate" -eq 1
+all_options=1
+for id in paceUnitSelect activitySelect passModeSelect strictModeCheckbox stitchCheckbox; do
+    grep -Fq "$id.addEventListener('change', () => applyInputConversion())" "$APP" \
+        || all_options=0
+done
+expect "selects and checkboxes use the stable immediate path" test "$all_options" -eq 1
+expect "sliders and per-track numbers use the shared helpers" \
+    bash -c "grep -Fq \"snapSlider.addEventListener('input', () => {\" '$APP' && grep -Fq 'scheduleInputConversion({ track: track.index, snap: value })' '$APP' && grep -Fq 'applyInputConversion({ track: track.index, snap: value })' '$APP'"
+expect "no live input bypasses the debounce helper" \
+    bash -c "! grep -Fq \"addEventListener('input', () => requestConversion()\" '$APP'"
+
 # The behavior test imports the generated WASM bundle via app.js. Follow the
 # existing web tests: only run it when Node and a built bundle are available.
 if ! command -v node >/dev/null 2>&1; then
