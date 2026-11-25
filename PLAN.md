@@ -53,7 +53,7 @@
 ---
 
 ### T3: Parameterize Build & Cross-Compilation Targets in `Makefile`
-* [ ] **Support configurable target OS/architecture output names, compilers, and library paths in `Makefile`**
+* [x] **Support configurable target OS/architecture output names, compilers, and library paths in `Makefile`**
   * **Scope:**
     * Read: `course.h`, `Makefile`.
     * Modify: `Makefile`.
