@@ -60,6 +60,7 @@ _deps/
 .DS_Store
 Thumbs.db
 .claude/
+.opencode/
 
 # binaries
 gpx2fit
