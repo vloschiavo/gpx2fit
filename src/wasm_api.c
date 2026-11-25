@@ -101,10 +101,16 @@ static int nearest_track_candidate(const struct course*c,const struct waypoint*w
     return out->offset<0.0?-1:0;
 }
 
+/* `track` is the 1-based <trk> index (0 = the core default), and `stitch`
+ * selects the core's all-tracks join. They are mutually exclusive, as on the
+ * CLI. Callers that want to pick the first leg of a loop reorder the tracks in
+ * `gpx_xml` and leave `track` at 0 so the stitcher's "Start"/fallback logic
+ * runs unchanged. */
 EMSCRIPTEN_KEEPALIVE struct gpx2fit_result *gpx2fit_convert(
     const char*gpx_xml,const char*map_text,const char*course_name,
     uint8_t sport,uint8_t sub_sport,double snap_m,const char*pass_mode,
-    double pace_mps,uint32_t start_fit,long max_points,int strict)
+    double pace_mps,uint32_t start_fit,long max_points,int strict,
+    long track,int stitch)
 {
     struct gpx2fit_result *res=calloc(1,sizeof*res);
     if(!res) return NULL;
@@ -123,6 +129,8 @@ EMSCRIPTEN_KEEPALIVE struct gpx2fit_result *gpx2fit_convert(
     if(ok&&(!isfinite(pace_mps)||pace_mps<=0.0)){ snprintf(errmsg,sizeof errmsg,"invalid pace"); ok=0; }
     if(ok&&(start_fit<FIT_DATE_MIN||start_fit>FIT_TIME_MAX)){ snprintf(errmsg,sizeof errmsg,"invalid start time"); ok=0; }
     if(ok&&max_points!=0&&max_points<2){ snprintf(errmsg,sizeof errmsg,"invalid max-points"); ok=0; }
+    if(ok&&track<0){ snprintf(errmsg,sizeof errmsg,"invalid track index"); ok=0; }
+    if(ok&&stitch&&track>0){ snprintf(errmsg,sizeof errmsg,"choose either one track or stitching"); ok=0; }
     enum snap_mode smode=SNAP_NEAREST;
     if(ok&&pass_mode&&pass_mode[0]){ if(snap_mode_parse(pass_mode,&smode)!=0){ snprintf(errmsg,sizeof errmsg,"invalid pass mode"); ok=0; } }
 
@@ -137,7 +145,7 @@ EMSCRIPTEN_KEEPALIVE struct gpx2fit_result *gpx2fit_convert(
         }
     }
     if(ok){
-        go.track=0; go.quiet=true; go.diag=&diag;
+        go.track=track; go.stitch=stitch?true:false; go.quiet=true; go.diag=&diag;
         size_t glen=strlen(gpx_xml);
         int rc=read_gpx_mem(gpx_xml,glen,NULL,&c,&go,err,sizeof err);
         if(rc!=0){ snprintf(errmsg,sizeof errmsg,"%s",err[0]?err:"failed to read GPX"); ok=0; }
@@ -211,6 +219,8 @@ EMSCRIPTEN_KEEPALIVE struct gpx2fit_result *gpx2fit_convert(
     jbuf_puts(&jb,",");
     jbuf_printf(&jb,"\"sport\":%u,",sport);
     jbuf_printf(&jb,"\"sub_sport\":%u,",sub_sport);
+    jbuf_printf(&jb,"\"track\":%ld,",track);
+    jbuf_printf(&jb,"\"stitch\":%s,",stitch?"true":"false");
     jbuf_puts(&jb,"\"track_points_list\":[");
     if(ok){
         for(size_t i=0;i<n_full;i++){

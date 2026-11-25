@@ -12,7 +12,9 @@ const ACTIVITIES = Object.freeze({
 
 // Strings are passed as heap pointers: ccall copies 'string' arguments onto
 // the wasm stack, which is only 64 KB by default and overflows on large GPX.
-const ARGUMENT_TYPES = Object.freeze(Array(11).fill('number'));
+// gpx2fit_convert(gpx, map, name, sport, sub_sport, snap, pass, pace, start,
+//                 max_points, strict, track, stitch): all numeric/pointer args.
+const ARGUMENT_TYPES = Object.freeze(Array(13).fill('number'));
 const utf8Encoder = new TextEncoder();
 
 function wasmString(wasm, value) {
@@ -223,6 +225,106 @@ export function fitFileName(courseName, sourceName) {
     .replace(/[. ]+$/g, '')
     .trim();
   return `${safeName || 'course'}.fit`;
+}
+
+/* --- Multi-track helpers ---------------------------------------------------
+ * The core stitcher already anchors on a "Start" waypoint and chains the rest
+ * by nearest endpoint. These helpers only discover/reorder <trk> elements so
+ * the UI can (a) pick a different first leg for loops and (b) ask WASM for one
+ * course per track. Comments/CDATA are blanked in place so offsets stay valid.
+ */
+const XML_TAG_RE = /<(\/?)(?:[A-Za-z_][\w.-]*:)?([A-Za-z_][\w.-]*)\b([^>]*?)(\/?)>/g;
+
+function xmlWithoutMarkupNoise(xml) {
+  return String(xml ?? '')
+    .replace(/<!--[\s\S]*?-->/g, (text) => ' '.repeat(text.length))
+    .replace(/<!\[CDATA\[[\s\S]*?\]\]>/g, (text) => ' '.repeat(text.length));
+}
+
+function decodeXmlText(text) {
+  return String(text)
+    .replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"')
+    .replace(/&apos;/g, "'").replace(/&#(\d+);/g, (_, code) => String.fromCodePoint(Number(code)))
+    .replace(/&amp;/g, '&');
+}
+
+function elementText(block, localName) {
+  const re = new RegExp(
+    `<(?:[A-Za-z_][\\w.-]*:)?${localName}\\b[^>]*>([\\s\\S]*?)<\\/(?:[A-Za-z_][\\w.-]*:)?${localName}\\s*>`,
+    'i',
+  );
+  const match = re.exec(block);
+  return match ? decodeXmlText(match[1].replace(/<[^>]*>/g, '')).trim() : '';
+}
+
+/** All <trk> elements in file order, with their source offsets and <name>. */
+export function gpxTrackBlocks(xml) {
+  const clean = xmlWithoutMarkupNoise(xml);
+  const blocks = [];
+  let depth = 0;
+  let start = -1;
+
+  for (const match of clean.matchAll(XML_TAG_RE)) {
+    if (match[2] !== 'trk') continue;
+    if (match[1] === '/') {
+      if (depth === 1 && start >= 0) {
+        const end = match.index + match[0].length;
+        const block = clean.slice(start, end);
+        blocks.push({
+          index: blocks.length + 1,
+          name: elementText(block, 'name'),
+          start,
+          end,
+        });
+        start = -1;
+      }
+      depth = Math.max(0, depth - 1);
+    } else if (match[4] !== '/') {
+      depth += 1;
+      if (depth === 1) start = match.index;
+    }
+  }
+  return blocks;
+}
+
+/** True when a <wpt> name is exactly "Start" (the core's anchor convention). */
+export function gpxHasStartWaypoint(xml) {
+  const clean = xmlWithoutMarkupNoise(xml);
+  const wptRe = /<(?:[A-Za-z_][\w.-]*:)?wpt\b[^>]*>([\s\S]*?)<\/(?:[A-Za-z_][\w.-]*:)?wpt\s*>/gi;
+  for (const match of clean.matchAll(wptRe)) {
+    // Only <name> is the anchor: <desc>/<sym>/<type> must not be concatenated
+    // into it. The core also ignores case and surrounding whitespace.
+    const name = elementText(match[1], 'name');
+    if (/^start$/i.test(name)) return true;
+  }
+  return false;
+}
+
+/** Move the chosen track to the front; the core fallback then starts there. */
+export function reorderGpxTracks(xml, firstTrack) {
+  const source = String(xml ?? '');
+  const tracks = gpxTrackBlocks(source);
+  const index = Number(firstTrack);
+  if (tracks.length < 2 || !Number.isInteger(index) || index < 1 || index > tracks.length)
+    return source;
+  const ordered = [tracks[index - 1], ...tracks.filter((_, i) => i !== index - 1)];
+  return source.slice(0, tracks[0].start)
+    + ordered.map((track) => source.slice(track.start, track.end)).join('')
+    + source.slice(tracks[tracks.length - 1].end);
+}
+
+function chooseFirstTrack(tracks, promptImpl, sourceName) {
+  if (typeof promptImpl !== 'function') return 1;
+  const options = tracks
+    .map((track) => `${track.index}. ${track.name || `Track ${track.index}`}`)
+    .join('\n');
+  const answer = promptImpl(
+    `${sourceName} has several tracks and no "Start" waypoint.\n`
+      + `${options}\n\nWhich track should the stitched course start with? (1-${tracks.length})`,
+    String(tracks[0].index),
+  );
+  const chosen = Number(String(answer).trim());
+  return Number.isInteger(chosen) && chosen >= 1 && chosen <= tracks.length ? chosen : 1;
 }
 
 function errorText(error) {
@@ -490,6 +592,7 @@ export function initApp({
   moduleFactory = createModule,
   fetchImpl = fetch,
   leaflet = win.L,
+  promptImpl = typeof win.prompt === 'function' ? (...args) => win.prompt(...args) : null,
 } = {}) {
   const app = requiredElement(doc, 'app');
   const form = requiredElement(doc, 'conversion-controls');
@@ -507,6 +610,7 @@ export function initApp({
   const maxPointsInput = optionalElement(doc, 'max-points');
   const startTimeInput = optionalElement(doc, 'start-time');
   const strictModeCheckbox = optionalElement(doc, 'strict-mode');
+  const stitchCheckbox = optionalElement(doc, 'stitch-tracks');
   const mapRulesInput = optionalElement(doc, 'map-rules');
   const defaultMapInfo = optionalElement(doc, 'default-map-info');
   const defaultMapButton = optionalElement(doc, 'default-map-info-button');
@@ -519,6 +623,7 @@ export function initApp({
   const warnings = requiredElement(doc, 'warnings');
   const warningStatus = requiredElement(doc, 'warning-status');
   const downloadLink = requiredElement(doc, 'download-fit');
+  const downloadList = optionalElement(doc, 'download-list');
   const transferInstructions = optionalElement(doc, 'transfer-instructions');
   const statDistance = requiredElement(doc, 'stat-distance');
   const statTrackPoints = requiredElement(doc, 'stat-track-points');
@@ -532,7 +637,7 @@ export function initApp({
   let requestVersion = 0;
   let convertTimer = null;
   let modulePromise = null;
-  let downloadUrl = null;
+  let downloadUrls = [];
   let dragDepth = 0;
   let routeMap = null;
   let routeLayers = null;
@@ -553,10 +658,35 @@ export function initApp({
     downloadLink.hidden = true;
     downloadLink.removeAttribute('href');
     downloadLink.removeAttribute('download');
-    if (downloadUrl !== null) {
-      win.URL.revokeObjectURL(downloadUrl);
-      downloadUrl = null;
+    if (downloadList) {
+      downloadList.hidden = true;
+      downloadList.replaceChildren();
     }
+    for (const url of downloadUrls) win.URL.revokeObjectURL(url);
+    downloadUrls = [];
+  }
+
+  /** Offer one blob URL per FIT course; older markup falls back to one link. */
+  function addDownload(fit, fileName, label, primary = false) {
+    const blob = new Blob([fit], { type: 'application/octet-stream' });
+    const url = win.URL.createObjectURL(blob);
+    downloadUrls.push(url);
+
+    if (!primary && downloadList) {
+      const link = doc.createElement('a');
+      link.className = 'button secondary download-button';
+      link.href = url;
+      link.download = fileName;
+      link.textContent = label;
+      downloadList.append(link);
+      downloadList.hidden = false;
+      return;
+    }
+
+    downloadLink.href = url;
+    downloadLink.download = fileName;
+    downloadLink.textContent = label;
+    downloadLink.hidden = false;
   }
 
   function invalidateOutput() {
@@ -688,6 +818,7 @@ export function initApp({
       ? startToFitTime(startTimeInput.value)
       : DEFAULT_START_FIT;
     const strict = strictModeCheckbox?.checked ? 1 : 0;
+    const stitch = stitchCheckbox ? Boolean(stitchCheckbox.checked) : true;
     const mapText = mapRulesInput ? validateMapRules(mapRulesInput.value) : '';
 
     return {
@@ -701,6 +832,7 @@ export function initApp({
       startFit,
       maxPoints,
       strict,
+      stitch,
     };
   }
 
@@ -728,6 +860,8 @@ export function initApp({
           options.startFit,
           options.maxPoints,
           options.strict,
+          options.track || 0,
+          options.stitch ? 1 : 0,
         ],
       );
       if (!result) throw new Error('The converter could not allocate a result.');
@@ -904,16 +1038,18 @@ export function initApp({
     }
   }
 
-  function showResults(output, options, loadedSource) {
+  function showResults(output, options, loadedSource, display = {}) {
     const { metadata } = output;
     statDistance.textContent = `${(metadata.distance_m / 1000).toFixed(2)} km`;
     statTrackPoints.textContent = String(metadata.track_points);
     statCoursePoints.textContent = String(metadata.course_points);
     statWaypoints.textContent = `${metadata.waypoints_snapped}/${metadata.waypoints_total} snapped`;
 
-    const warningText = Array.isArray(metadata.warnings)
-      ? metadata.warnings.map((warning) => String(warning).trim()).filter(Boolean).join('\n')
-      : '';
+    const warningText = display.warnings ?? (
+      Array.isArray(metadata.warnings)
+        ? metadata.warnings.map((warning) => String(warning).trim()).filter(Boolean).join('\n')
+        : ''
+    );
     warnings.textContent = warningText;
     warnings.hidden = !warningText;
     warningStatus.textContent = warningText;
@@ -921,13 +1057,13 @@ export function initApp({
     renderWaypointTable(metadata);
     renderRouteMap(metadata, loadedSource);
 
-    const blob = new Blob([output.fit], { type: 'application/octet-stream' });
-    downloadUrl = win.URL.createObjectURL(blob);
-    downloadLink.href = downloadUrl;
-    downloadLink.download = fitFileName(options.courseName || metadata.course_name, loadedSource.name);
-    downloadLink.hidden = false;
+    const fileName = display.fileName
+      || fitFileName(options.courseName || metadata.course_name, loadedSource.name);
+    addDownload(output.fit, fileName, display.label || 'Download .fit course',
+                display.primary !== false);
     if (transferInstructions) transferInstructions.hidden = false;
-    setStatus(`${loadedSource.name} converted successfully. Your FIT course is ready.`, 'success');
+    setStatus(display.status
+      || `${loadedSource.name} converted successfully. Your FIT course is ready.`, 'success');
   }
 
   async function runConversion(version, loadedSource) {
@@ -943,13 +1079,65 @@ export function initApp({
       return;
     }
 
+    let tracks = [];
+    try {
+      tracks = gpxTrackBlocks(loadedSource.xml);
+    } catch {
+      tracks = []; // malformed XML is reported by the C reader
+    }
+
+    let gpxXml = loadedSource.xml;
+    if (options.stitch && tracks.length > 1 && !gpxHasStartWaypoint(gpxXml)) {
+      if (!loadedSource.startTrack) {
+        loadedSource.startTrack = chooseFirstTrack(tracks, promptImpl, loadedSource.name);
+      }
+      // The core fallback starts with the first <trk>; moving the chosen leg
+      // there reuses its chaining logic without duplicating it in JS.
+      gpxXml = reorderGpxTracks(gpxXml, loadedSource.startTrack);
+    }
+
     setStatus(`Converting ${loadedSource.name} locally…`, 'busy');
     try {
       const wasm = await getModule();
       if (version !== requestVersion || loadedSource !== source) return;
-      const output = convert(wasm, loadedSource.xml, options);
-      if (version !== requestVersion || loadedSource !== source) return;
-      showResults(output, options, loadedSource);
+
+      if (!options.stitch && tracks.length > 1) {
+        const outputs = [];
+        for (const track of tracks) {
+          const label = track.name || `Track ${track.index}`;
+          const splitOptions = {
+            ...options,
+            stitch: false,
+            track: track.index,
+            courseName: options.courseName ? `${options.courseName} ${label}`.trim() : '',
+          };
+          const output = convert(wasm, loadedSource.xml, splitOptions);
+          if (version !== requestVersion || loadedSource !== source) return;
+          outputs.push({
+            output,
+            options: splitOptions,
+            fileName: fitFileName(splitOptions.courseName, `${label}.gpx`),
+            label,
+          });
+        }
+        const allWarnings = outputs.flatMap(({ output, label }) =>
+          (Array.isArray(output.metadata.warnings) ? output.metadata.warnings : [])
+            .map((warning) => `${label}: ${String(warning).trim()}`));
+        showResults(outputs[0].output, outputs[0].options, loadedSource, {
+          primary: false,
+          fileName: outputs[0].fileName,
+          label: `Download ${outputs[0].fileName}`,
+          warnings: allWarnings.join('\n'),
+          status: `${loadedSource.name}: ${outputs.length} FIT courses are ready.`,
+        });
+        for (const item of outputs.slice(1))
+          addDownload(item.output.fit, item.fileName, `Download ${item.fileName}`);
+      } else {
+        const singleOptions = { ...options, track: 0 };
+        const output = convert(wasm, gpxXml, singleOptions);
+        if (version !== requestVersion || loadedSource !== source) return;
+        showResults(output, singleOptions, loadedSource);
+      }
     } catch (error) {
       if (version !== requestVersion || loadedSource !== source) return;
       invalidateOutput();
@@ -1089,6 +1277,9 @@ export function initApp({
   }
   if (strictModeCheckbox) {
     strictModeCheckbox.addEventListener('change', () => requestConversion({ immediate: true }));
+  }
+  if (stitchCheckbox) {
+    stitchCheckbox.addEventListener('change', () => requestConversion({ immediate: true }));
   }
   if (mapRulesInput) {
     mapRulesInput.addEventListener('input', () => requestConversion());

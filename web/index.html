@@ -52,6 +52,14 @@
         <input id="course-name" name="course-name" type="text" placeholder="Use the name from the GPX" spellcheck="false">
       </div>
 
+      <div class="field full-width">
+        <label for="stitch-tracks">
+          <input id="stitch-tracks" name="stitch-tracks" type="checkbox" checked>
+          Stitch multiple tracks into a single course
+        </label>
+        <p class="field-help">On: join all GPX tracks into one FIT course (a waypoint named “Start” anchors the first leg; otherwise you choose one). Off: download one FIT course per track.</p>
+      </div>
+
       <div class="field">
         <label for="activity-type">Activity type</label>
         <select id="activity-type" name="activity-type">
@@ -213,6 +221,7 @@
       </div>
 
       <a class="button primary download-button" id="download-fit" hidden>Download .fit course</a>
+      <div class="download-list" id="download-list" hidden></div>
 
       <section class="results route-details" id="transfer-instructions" hidden aria-labelledby="transfer-heading">
         <h3 id="transfer-heading">Transfer the downloaded course</h3>

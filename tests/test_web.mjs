@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import createModule from '../web/dist/gpx2fit.js';
-import { initApp } from '../web/app.js';
+import { initApp, gpxTrackBlocks, gpxHasStartWaypoint, reorderGpxTracks } from '../web/app.js';
 
 const wasm = await createModule();
 const sampleGpx = await readFile(new URL('./data/caltopo_sample.gpx', import.meta.url), 'utf8');
@@ -53,11 +53,12 @@ class FakeBounds {
   isValid() { return this.points.length > 0; }
 }
 
-function createHarness(gpx, { moduleFactory = async () => wasm } = {}) {
+function createHarness(gpx, { moduleFactory = async () => wasm, promptImpl = null } = {}) {
   const ids = [
     'app', 'conversion-controls', 'dropzone', 'gpx-file', 'load-sample',
     'source-name', 'course-name', 'activity-type', 'pace', 'pace-unit',
-    'pass-mode', 'snap-distance', 'snap-slider', 'map-rules', 'status', 'error-message',
+    'pass-mode', 'snap-distance', 'snap-slider', 'map-rules', 'stitch-tracks',
+    'status', 'error-message', 'download-list',
     'results', 'warnings', 'warning-status', 'download-fit', 'stat-distance',
     'stat-track-points', 'stat-course-points', 'stat-waypoints', 'route-map',
     'map-fallback', 'waypoint-table-body',
@@ -69,6 +70,7 @@ function createHarness(gpx, { moduleFactory = async () => wasm } = {}) {
   elements['pass-mode'].value = 'nearest';
   elements['snap-distance'].value = '250';
   elements['snap-slider'].value = '250';
+  elements['stitch-tracks'].checked = true;
 
   const doc = {
     getElementById(id) { return elements[id] || null; },
@@ -130,6 +132,7 @@ function createHarness(gpx, { moduleFactory = async () => wasm } = {}) {
     win,
     leaflet,
     moduleFactory,
+    promptImpl,
     fetchImpl: async (url) => {
       sampleRequests.push(url);
       return { ok: true, status: 200, text: async () => currentGpx };
@@ -172,6 +175,10 @@ function createHarness(gpx, { moduleFactory = async () => wasm } = {}) {
     },
     markerNamed(name) {
       return this.markers().find((marker) => marker.options.title.startsWith(`${name} —`));
+    },
+    downloads() {
+      const list = elements['download-list'].children;
+      return list.length ? list : (elements['download-fit'].hidden ? [] : [elements['download-fit']]);
     },
     rows() {
       return elements['waypoint-table-body'].children.filter((row) => row.dataset.status);
@@ -351,4 +358,185 @@ assert.deepEqual(
 assert.equal(deferred.rowNamed('Caution').dataset.status, 'snapped');
 assert.doesNotMatch(deferred.elements['warning-status'].textContent, /Caution|skipped/);
 
-console.log('test_web.mjs: live map/table/warnings, custom maps, antimeridian, and stale conversion checks passed');
+/* T1: UI checkbox reaches WASM and multi-track output is one or many FITs. */
+const multiGpx = await readFile(new URL('./data/multi_track.gpx', import.meta.url), 'utf8');
+const noStartGpx = await readFile(
+  new URL('./data/multi_track_no_start.gpx', import.meta.url), 'utf8');
+
+assert.match(
+  indexHtml,
+  /<input id="stitch-tracks"[^>]*type="checkbox"[^>]*checked>/,
+  'stitch checkbox is present and checked by default',
+);
+assert.match(indexHtml, /id="download-list"/, 'split downloads have a container');
+assert.deepEqual(
+  gpxTrackBlocks(multiGpx).map((track) => track.name),
+  ['Tail', 'Middle', 'Head'],
+);
+assert.equal(gpxHasStartWaypoint(multiGpx), true);
+assert.equal(gpxHasStartWaypoint(noStartGpx), false);
+assert.equal(
+  gpxHasStartWaypoint('<gpx><wpt><name>Start Here</name></wpt></gpx>'),
+  false,
+  'only an exact "Start" name matches the core anchor convention',
+);
+assert.equal(
+  gpxHasStartWaypoint(
+    '<gpx><wpt><name>Start</name><desc>trailhead</desc><sym>Dot</sym></wpt></gpx>',
+  ),
+  true,
+  'other <wpt> children do not hide an exact "Start" name',
+);
+assert.equal(
+  gpxHasStartWaypoint(
+    '<gpx><wpt><desc>trailhead</desc><name>  start  </name><sym>Dot</sym></wpt></gpx>',
+  ),
+  true,
+  'case and surrounding whitespace are ignored like in the core',
+);
+assert.ok(
+  reorderGpxTracks(noStartGpx, 3).indexOf('<name>Head</name>')
+    < reorderGpxTracks(noStartGpx, 3).indexOf('<name>Tail</name>'),
+  'reordering moves the chosen first leg ahead of the others',
+);
+
+const stitchedCalls = [];
+const stitchRecorder = Object.create(wasm);
+stitchRecorder.ccall = (...args) => {
+  if (args[0] === 'gpx2fit_convert')
+    stitchedCalls.push({ track: args[3][11], stitch: args[3][12] });
+  return wasm.ccall(...args);
+};
+const stitchedUI = createHarness(multiGpx, { moduleFactory: async () => stitchRecorder });
+await stitchedUI.loadSample();
+assert.deepEqual(stitchedCalls, [{ track: 0, stitch: 1 }]);
+assert.equal(stitchedUI.elements['stat-track-points'].textContent, '9');
+assert.deepEqual(
+  stitchedUI.rows().map((row) => row.children[0].textContent),
+  ['Start', 'Water', 'Camp'],
+);
+assert.equal(stitchedUI.downloads().length, 1);
+assert.equal(stitchedUI.downloads()[0].download, 'Head.fit');
+assert.equal(stitchedUI.elements['download-list'].hidden, true);
+
+/* Regression: an obvious "Start" with extra <wpt> children must not trigger
+ * the first-track prompt or a reorder that the core would then ignore. */
+const startWithExtraChildren = multiGpx.replace(
+  '<name>Start</name>',
+  '<name>Start</name><desc>trailhead</desc><sym>Dot</sym>',
+);
+let extraChildPrompts = 0;
+const extraChildCalls = [];
+const extraChildRecorder = Object.create(wasm);
+extraChildRecorder.ccall = (...args) => {
+  if (args[0] === 'gpx2fit_convert') {
+    extraChildCalls.push({
+      track: args[3][11],
+      stitch: args[3][12],
+      gpx: wasm.UTF8ToString(args[3][0]),
+    });
+  }
+  return wasm.ccall(...args);
+};
+const extraChildUI = createHarness(startWithExtraChildren, {
+  moduleFactory: async () => extraChildRecorder,
+  promptImpl: () => {
+    extraChildPrompts += 1;
+    return '1';
+  },
+});
+await extraChildUI.loadSample();
+assert.equal(extraChildPrompts, 0, 'no prompt when the GPX has an obvious Start waypoint');
+assert.deepEqual(
+  extraChildCalls.map(({ track, stitch }) => ({ track, stitch })),
+  [{ track: 0, stitch: 1 }],
+);
+assert.ok(
+  extraChildCalls[0].gpx.includes('<name>Start</name><desc>trailhead</desc><sym>Dot</sym>'),
+  'the original GPX is stitched without reordering',
+);
+assert.equal(extraChildUI.elements['stat-track-points'].textContent, '9');
+assert.deepEqual(
+  extraChildUI.rows().map((row) => row.children[0].textContent),
+  ['Start', 'Water', 'Camp'],
+);
+assert.equal(extraChildUI.downloads().length, 1);
+
+const splitCalls = [];
+const splitRecorder = Object.create(wasm);
+splitRecorder.ccall = (...args) => {
+  if (args[0] === 'gpx2fit_convert')
+    splitCalls.push({ track: args[3][11], stitch: args[3][12] });
+  return wasm.ccall(...args);
+};
+const splitUI = createHarness(multiGpx, { moduleFactory: async () => splitRecorder });
+splitUI.elements['stitch-tracks'].checked = false;
+await splitUI.loadSample();
+assert.deepEqual(
+  splitCalls,
+  [{ track: 1, stitch: 0 }, { track: 2, stitch: 0 }, { track: 3, stitch: 0 }],
+);
+assert.equal(splitUI.elements['stat-track-points'].textContent, '3');
+assert.match(splitUI.elements.status.textContent, /3 FIT courses are ready/);
+assert.deepEqual(
+  splitUI.downloads().map((link) => link.download),
+  ['Tail.fit', 'Middle.fit', 'Head.fit'],
+);
+assert.deepEqual(
+  splitUI.downloads().map((link) => link.textContent),
+  ['Download Tail.fit', 'Download Middle.fit', 'Download Head.fit'],
+);
+
+/* Toggling back clears the per-track links and restores the single download. */
+splitUI.elements['stitch-tracks'].checked = true;
+splitUI.elements['stitch-tracks'].dispatch('change');
+await splitUI.converted();
+assert.equal(splitUI.downloads().length, 1);
+assert.equal(splitUI.elements['download-list'].hidden, true);
+assert.equal(splitCalls.at(-1).stitch, 1);
+
+/* Without a "Start" waypoint, loops ask which leg to ride first. */
+const promptCalls = [];
+const reorderedGpx = [];
+const loopRecorder = Object.create(wasm);
+loopRecorder.ccall = (...args) => {
+  if (args[0] === 'gpx2fit_convert') reorderedGpx.push(wasm.UTF8ToString(args[3][0]));
+  return wasm.ccall(...args);
+};
+const loopUI = createHarness(noStartGpx, {
+  moduleFactory: async () => loopRecorder,
+  promptImpl: (message, defaultValue) => {
+    promptCalls.push({ message, defaultValue });
+    return '3';
+  },
+});
+await loopUI.loadSample();
+assert.equal(promptCalls.length, 1);
+assert.match(promptCalls[0].message, /no "Start" waypoint/);
+assert.equal(promptCalls[0].defaultValue, '1');
+assert.ok(
+  reorderedGpx[0].indexOf('<name>Head</name>') < reorderedGpx[0].indexOf('<name>Tail</name>'),
+  'the chosen leg is sent to WASM first',
+);
+assert.equal(loopUI.elements['stat-track-points'].textContent, '9');
+assert.equal(loopUI.downloads().length, 1);
+
+/* The Tahoe reference has 14 tracks and a "Start" waypoint: the checkbox
+ * chooses one stitched course or fourteen individual downloads. */
+const tahoeGpx = await readFile(
+  new URL('../reference/Tahoe_200__Official_Race_Map_2022.gpx', import.meta.url), 'utf8');
+assert.equal(gpxTrackBlocks(tahoeGpx).length, 14);
+assert.equal(gpxHasStartWaypoint(tahoeGpx), false);
+const tahoeUI = createHarness(tahoeGpx);
+await tahoeUI.loadSample();
+assert.equal(tahoeUI.elements.status.dataset.state, 'success');
+assert.equal(tahoeUI.elements['stat-track-points'].textContent, '17602');
+assert.equal(tahoeUI.downloads().length, 1);
+tahoeUI.elements['stitch-tracks'].checked = false;
+tahoeUI.elements['stitch-tracks'].dispatch('change');
+await tahoeUI.converted();
+assert.equal(tahoeUI.elements.status.dataset.state, 'success');
+assert.equal(tahoeUI.downloads().length, 14);
+assert.equal(tahoeUI.downloads()[0].download, 'House Wife Hill Aid to Armstrong Pass.fit');
+
+console.log('test_web.mjs: live map/table/warnings, custom maps, multi-track stitch/split, Tahoe 14-track reference, antimeridian, and stale conversion checks passed');

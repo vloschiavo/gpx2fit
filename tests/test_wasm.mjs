@@ -8,7 +8,7 @@ const gpx = await readFile(
   'utf8',
 );
 
-const argumentTypes = Array(11).fill('number');
+const argumentTypes = Array(13).fill('number');
 const utf8Encoder = new TextEncoder();
 
 function heapString(value) {
@@ -20,7 +20,10 @@ function heapString(value) {
   return pointer;
 }
 
-function convert(gpxXml, { snap = 250, pass = 'nearest', maxPoints = 0, strict = 0 } = {}) {
+function convert(gpxXml, {
+  snap = 250, pass = 'nearest', maxPoints = 0, strict = 0,
+  track = 0, stitch = true,
+} = {}) {
   const pointers = [
     heapString(gpxXml),
     heapString(null),
@@ -35,6 +38,7 @@ function convert(gpxXml, { snap = 250, pass = 'nearest', maxPoints = 0, strict =
       [
         pointers[0], pointers[1], pointers[2],
         17, 0, snap, pointers[3], 5 / 3.6, 1104624000, maxPoints, strict,
+        track, stitch ? 1 : 0,
       ],
     );
     assert.notEqual(result, 0, 'gpx2fit_convert returned a null result pointer');
@@ -186,6 +190,36 @@ assert.equal(large.metadata.course_points, 30);
 assert.ok(Math.abs(large.metadata.distance_m - 115716) < 1);
 assert.ok(large.fit.length > 90_000);
 
+/* T1: the same GPX produces one stitched course or one course per track. */
+const multiGpx = await readFile(new URL('./data/multi_track.gpx', import.meta.url), 'utf8');
+const stitched = convert(multiGpx, { snap: 2000, stitch: true });
+assert.equal(stitched.rc, 0);
+assert.equal(stitched.metadata.ok, true);
+assert.equal(stitched.metadata.stitch, true);
+assert.equal(stitched.metadata.track, 0);
+assert.equal(stitched.metadata.track_points, 9);
+assert.equal(stitched.metadata.course_name, 'Head');
+assert.deepEqual(
+  stitched.metadata.course_points_list.map(({ name }) => name),
+  ['Start', 'Water', 'Camp'],
+);
+
+const splitTrack = convert(multiGpx, { snap: 2000, stitch: false, track: 2 });
+assert.equal(splitTrack.rc, 0);
+assert.equal(splitTrack.metadata.stitch, false);
+assert.equal(splitTrack.metadata.track, 2);
+assert.equal(splitTrack.metadata.track_points, 3);
+assert.equal(splitTrack.metadata.course_name, 'Middle');
+assert.deepEqual(
+  splitTrack.metadata.course_points_list.map(({ name }) => name),
+  ['Water'],
+);
+
+const badPair = convert(multiGpx, { snap: 2000, stitch: true, track: 2 });
+assert.equal(badPair.rc, 1);
+assert.equal(badPair.metadata.ok, false);
+assert.match(badPair.metadata.error, /choose either one track or stitching/);
+
 const failed = convert('');
 assert.equal(failed.rc, 1);
 assert.equal(failed.metadata.ok, false);
@@ -194,4 +228,4 @@ assert.equal(failed.fit.length, 0);
 assert.equal(failed.metadata.distance_m, 0);
 assert.equal(failed.metadata.track_points, 0);
 
-console.log('test_wasm.mjs: FIT header, CRCs, JSON metadata, large GPX, and error handling passed');
+console.log('test_wasm.mjs: FIT header, CRCs, metadata, large GPX, multi-track stitch/split, and errors passed');

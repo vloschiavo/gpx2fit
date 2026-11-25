@@ -43,7 +43,7 @@
 ---
 
 ### T1: Multi-Track Stitching & Multi-Course Download in Web/WASM UI
-- [ ] **Add "Stitch multiple tracks into one course" checkbox to Web/WASM UI and support multi-file `.fit` output**
+- [x] **Add "Stitch multiple tracks into one course" checkbox to Web/WASM UI and support multi-file `.fit` output**
   - **Scope:**
     - Read: WASM C bridge (`wasm.c` / `web/*.c`), `web/index.html`, `web/app.js`, `Makefile`.
     - Modify: WASM C bridge, `web/index.html`, `web/app.js`.
