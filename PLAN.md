@@ -8,7 +8,7 @@
   * WASM build (if Emscripten is installed): `make wasm` (or `emcc` target in `Makefile`)
 
 * **Agentic Execution Rules (`Orchestrator` -> `@worker` -> `@reviewer`):**
-  1. Execute tasks serially in order (`T1` through `T5`).
+  1. Execute tasks serially in order (`T0` through `T5`).
   2. **Token Efficiency Rule:** `@worker` must read **only** `course.h` (or core headers) and the exact files listed in the task's **Scope** block—do not scan unrelated files, grep across the whole repo unnecessarily, or re-read large fixtures.
   3. `@worker` must add unit/E2E tests for every behavioral change and run `make test` before reporting back.
   4. `@reviewer` inspects `git diff` against the task's **Acceptance Criteria** without modifying files and returns `PASS` or `FAIL`.
@@ -16,6 +16,23 @@
 ---
 
 ## Tasks
+
+### T0: Fix MSYS2 `xxd` Package Error in Windows GitHub Actions Build
+* [ ] **Fix the `error: target not found: mingw-w64-ucrt-x86_64-vim` failure in the Windows CI/release workflow so Windows binaries compile cleanly**
+  * **Scope:**
+    * Read: `.github/workflows/` (workflow files referencing `msys2/setup-msys2`), `Makefile` (lines 140–155 for `$(GEN_HDR)`).
+    * Modify: `.github/workflows/` (release/build workflow file(s)), and optionally `Makefile`.
+  * **Implementation Details:**
+    * In the `msys2/setup-msys2@v2` `install:` package list, replace the non-existent `mingw-w64-ucrt-x86_64-vim` package with MSYS `vim` (which provides `/usr/bin/xxd` in the MSYS2 environment) alongside `mingw-w64-ucrt-x86_64-gcc`, `mingw-w64-ucrt-x86_64-expat`, `mingw-w64-ucrt-x86_64-make`, and `zip`.
+    * *(Optional hardening in `Makefile`)*: Update the `$(GEN_HDR): data/default.map` rule to use `xxd -i` when available and fall back to POSIX `od -An -tx1 -v` + `sed`/`awk` (or Python) when `xxd` is absent, removing the hard `vim` dependency on Windows/minimal environments.
+    * Verify the Windows MSYS2 build step passes `CC=gcc` (from `ucrt64`), `TARGET_OS=Windows`, and produces `gpx2fit-Windows-x86_64.exe` (or `gpx2fit.exe`) cleanly.
+  * **Verification:** Validate workflow YAML syntax, verify `make` regenerates `src/default_map.h` cleanly, and run `make test`.
+  * **Acceptance Criteria:**
+    * `msys2/setup-msys2@v2` installs only valid MSYS2/UCRT64 packages with no `target not found` error.
+    * Windows binary compiles and links `expat` cleanly into a valid `.exe` artifact.
+    * `make test` passes.
+
+---
 
 ### T1: Add `-v` and `--version` CLI Flags & Single-Source Version Definition
 * [x] **Expose version information via `-v` and `--version` in the CLI binary from a single authoritative version source**
@@ -110,6 +127,4 @@
     * `--turns` generates accurate FIT turn course points from track geometry without firing on minor GPS jitter.
     * Auto-turns do not duplicate existing waypoints at the same junction.
     * `make test` passes under ASan/UBSan.
-```[cite: 1]
-
-*(Note: Previously optional WASM UI task T4 was removed as completed/superseded by T2 above; if you also want the turn-by-turn WASM toggle kept in `PLAN.md`, let me know and I can slot it in right after `T5`.)*[cite: 1]
+```

@@ -441,3 +441,4 @@ through a wrapper that retried only that startup crash. On a normal machine
   SDK's own profile data shipped in `garmin-fit-sdk` 21.222, which is the same
   source. Fetch the zip locally when you want the C headers and `FitCSVTool`.
 - The `course_point.name` maximum length is unknown (see 0.4).
+NOTES_phase7.md
