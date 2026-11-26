@@ -18,7 +18,7 @@
 ## Tasks
 
 ### T0: Fix MSYS2 `xxd` Package Error in Windows GitHub Actions Build
-* [ ] **Fix the `error: target not found: mingw-w64-ucrt-x86_64-vim` failure in the Windows CI/release workflow so Windows binaries compile cleanly**
+* [x] **Fix the `error: target not found: mingw-w64-ucrt-x86_64-vim` failure in the Windows CI/release workflow so Windows binaries compile cleanly**
   * **Scope:**
     * Read: `.github/workflows/` (workflow files referencing `msys2/setup-msys2`), `Makefile` (lines 140–155 for `$(GEN_HDR)`).
     * Modify: `.github/workflows/` (release/build workflow file(s)), and optionally `Makefile`.

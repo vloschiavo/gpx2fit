@@ -50,7 +50,7 @@ jobs:
         with:
           msystem: UCRT64
           update: true
-          install: mingw-w64-ucrt-x86_64-gcc mingw-w64-ucrt-x86_64-expat mingw-w64-ucrt-x86_64-make mingw-w64-ucrt-x86_64-vim zip
+          install: mingw-w64-ucrt-x86_64-gcc mingw-w64-ucrt-x86_64-expat mingw-w64-ucrt-x86_64-make vim zip
 
       - name: Build (Unix)
         if: runner.os != 'Windows'
@@ -64,7 +64,9 @@ jobs:
       - name: Build (Windows)
         if: runner.os == 'Windows'
         shell: msys2 {0}
-        run: mingw32-make CC=gcc
+        # Native UCRT64 build: CC=gcc comes from mingw-w64-ucrt-x86_64-gcc,
+        # TARGET_OS keeps the .exe suffix/target name explicit.
+        run: mingw32-make CC=gcc TARGET_OS=Windows TARGET_ARCH=x86_64
 
       - name: Package (Unix)
         if: runner.os != 'Windows'
